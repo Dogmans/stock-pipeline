@@ -20,10 +20,12 @@ import finnhub
 
 import config
 from utils import setup_logging
+from cache_manager import cache_api_call
 
 # Set up logger for this module
 logger = setup_logging()
 
+@cache_api_call(expiry_hours=24, cache_key_prefix="sp500_symbols")
 def get_sp500_symbols():
     """
     Get a list of S&P 500 tickers from Wikipedia.
@@ -31,6 +33,9 @@ def get_sp500_symbols():
     Scrapes the current S&P 500 component list from Wikipedia and returns
     a DataFrame with symbols, company names, and sector classifications.
     
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+        
     Returns:
         DataFrame: DataFrame with ticker symbols and company information
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
@@ -52,12 +57,16 @@ def get_sp500_symbols():
         logger.error(f"Error fetching S&P 500 symbols: {e}")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
+@cache_api_call(expiry_hours=24, cache_key_prefix="russell2000_symbols")
 def get_russell2000_symbols():
     """
     Get a list of Russell 2000 tickers.
     
     Attempts to load symbols from cache first. If not available,
     tries to fetch from Finnhub API if an API key is provided.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         DataFrame: DataFrame with ticker symbols
@@ -99,12 +108,16 @@ def get_russell2000_symbols():
     logger.warning("Could not fetch Russell 2000 symbols. Returning empty DataFrame.")
     return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
+@cache_api_call(expiry_hours=24, cache_key_prefix="nasdaq100_symbols")
 def get_nasdaq100_symbols():
     """
     Get a list of NASDAQ 100 tickers from Wikipedia.
     
     Scrapes the current NASDAQ 100 component list from Wikipedia and returns
     a DataFrame with symbols and company names.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         DataFrame: DataFrame with ticker symbols and company information
@@ -142,7 +155,8 @@ def get_nasdaq100_symbols():
         logger.error(f"Error fetching NASDAQ 100 symbols: {e}")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-def get_stock_universe(universe=None):
+@cache_api_call(expiry_hours=24, cache_key_prefix="stock_universe")
+def get_stock_universe(universe=None, force_refresh=False):
     """
     Get a list of stock symbols based on the specified universe.
     
@@ -150,6 +164,7 @@ def get_stock_universe(universe=None):
         universe (str): Which universe of stocks to use. Options:
                         'sp500', 'russell2000', 'nasdaq100', 'all'
                         If None, uses the default universe from config
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         DataFrame: DataFrame with ticker symbols and metadata
@@ -159,16 +174,16 @@ def get_stock_universe(universe=None):
         universe = config.DEFAULT_UNIVERSE
     
     if universe == config.UNIVERSES["SP500"]:
-        return get_sp500_symbols()
+        return get_sp500_symbols(force_refresh=force_refresh)
     elif universe == config.UNIVERSES["RUSSELL2000"]:
-        return get_russell2000_symbols()
+        return get_russell2000_symbols(force_refresh=force_refresh)
     elif universe == config.UNIVERSES["NASDAQ100"]:
-        return get_nasdaq100_symbols()
+        return get_nasdaq100_symbols(force_refresh=force_refresh)
     elif universe == config.UNIVERSES["ALL"]:
         # Combine all universes
-        sp500 = get_sp500_symbols()
-        russell = get_russell2000_symbols()
-        nasdaq = get_nasdaq100_symbols()
+        sp500 = get_sp500_symbols(force_refresh=force_refresh)
+        russell = get_russell2000_symbols(force_refresh=force_refresh)
+        nasdaq = get_nasdaq100_symbols(force_refresh=force_refresh)
         
         # Combine and remove duplicates
         combined = pd.concat([sp500, russell, nasdaq])
@@ -177,7 +192,7 @@ def get_stock_universe(universe=None):
         return combined
     else:
         logger.warning(f"Unknown universe: {universe}, defaulting to S&P 500")
-        return get_sp500_symbols()
+        return get_sp500_symbols(force_refresh=force_refresh)
 
 if __name__ == "__main__":
     # Test module functionality

@@ -33,6 +33,7 @@ from market_data import get_market_conditions, is_market_in_correction, get_sect
 from data_processing import process_stock_data, calculate_financial_ratios
 from screeners import run_all_screeners, get_available_screeners
 from visualization import create_dashboard, create_stock_charts, create_market_overview
+from cache_manager import clear_cache, get_cache_info
 
 def parse_arguments():
     """
@@ -59,6 +60,19 @@ def parse_arguments():
     parser.add_argument('--limit', type=int, default=None,
                         help='Limit the number of stocks processed (for testing)')
     
+    # Cache options
+    parser.add_argument('--clear-cache', action='store_true',
+                        help='Clear the entire cache before running pipeline')
+    
+    parser.add_argument('--force-refresh', action='store_true',
+                        help='Force refresh of all data, bypassing cache')
+    
+    parser.add_argument('--clear-old-cache', type=float, default=None, metavar='HOURS',
+                        help='Clear cache files older than specified hours')
+    
+    parser.add_argument('--cache-info', action='store_true',
+                        help='Display information about the current cache and exit')
+    
     return parser.parse_args()
 
 
@@ -76,13 +90,36 @@ def main():
     # Create necessary directories
     ensure_directories_exist()
     
+    # Handle cache management options
+    if args.cache_info:
+        cache_info = get_cache_info()
+        print("\nCache Information:")
+        print(f"Total files: {cache_info['count']}")
+        print(f"Total size: {cache_info['total_size_kb']:.2f} KB")
+        if cache_info['count'] > 0:
+            print(f"Oldest file: {cache_info['oldest_file']} ({cache_info['oldest_timestamp']})")
+            print(f"Newest file: {cache_info['newest_file']} ({cache_info['newest_timestamp']})")
+        print(f"Cache directory: {cache_info['cache_dir']}")
+        print(f"Status: {cache_info['status']}")
+        return  # Exit after showing cache info
+    
+    # Clear cache if requested
+    if args.clear_cache:
+        num_deleted = clear_cache()
+        logger.info(f"Cleared {num_deleted} cache files")
+    
+    # Clear old cache files if requested
+    if args.clear_old_cache is not None:
+        num_deleted = clear_cache(older_than_hours=args.clear_old_cache)
+        logger.info(f"Cleared {num_deleted} cache files older than {args.clear_old_cache} hours")
+    
     # Set the output directory
     output_dir = args.output
     os.makedirs(output_dir, exist_ok=True)
     
     # 1. Get the stock universe
     logger.info(f"Selecting stock universe: {args.universe}")
-    universe_df = get_stock_universe(args.universe)
+    universe_df = get_stock_universe(args.universe, force_refresh=args.force_refresh)
     
     # If a limit is specified, take only that many stocks
     if args.limit:
@@ -90,23 +127,20 @@ def main():
     
     symbols = universe_df['symbol'].tolist()
     logger.info(f"Selected {len(symbols)} symbols for analysis")
-    
-    # 2. Check market conditions
+      # 2. Check market conditions
     logger.info("Checking market conditions")
-    market_data = get_market_conditions()
-    in_correction, market_status = is_market_in_correction()
-    sector_performance = get_sector_performances()
+    market_data = get_market_conditions(force_refresh=args.force_refresh)
+    in_correction, market_status = is_market_in_correction(force_refresh=args.force_refresh)
+    sector_performance = get_sector_performances(force_refresh=args.force_refresh)
     
     logger.info(f"Market status: {market_status}")
-    
-    # 3. Get historical price data
+      # 3. Get historical price data
     logger.info("Fetching historical price data")
-    price_data = get_historical_prices(symbols)
+    price_data = get_historical_prices(symbols, force_refresh=args.force_refresh)
     logger.info(f"Retrieved price data for {len(price_data)} symbols")
-    
-    # 4. Get fundamental data
+      # 4. Get fundamental data
     logger.info("Fetching fundamental data")
-    fundamental_data = get_fundamental_data(symbols)
+    fundamental_data = get_fundamental_data(symbols, force_refresh=args.force_refresh)
     logger.info(f"Retrieved fundamental data for {len(fundamental_data)} symbols")
     
     # 5. Process data

@@ -28,6 +28,19 @@ def main():
     parser.add_argument('--output', type=str, default='./output',
                       help='Output directory for reports')
     
+    # Cache management options
+    parser.add_argument('--cache-info', action='store_true',
+                      help='Display information about the current cache and exit')
+    
+    parser.add_argument('--clear-cache', action='store_true',
+                      help='Clear the entire cache before running pipeline')
+    
+    parser.add_argument('--force-refresh', action='store_true',
+                      help='Force refresh of all data, bypassing cache')
+    
+    parser.add_argument('--clear-old-cache', type=float, default=None, metavar='HOURS',
+                      help='Clear cache files older than specified hours')
+    
     args = parser.parse_args()
     
     # Build the command
@@ -47,6 +60,19 @@ def main():
                     '--strategies', 'price_to_book,pe_ratio,cash_rich_biotech'])
     
     cmd.extend(['--output', args.output])
+    
+    # Add cache management options
+    if args.cache_info:
+        cmd.append('--cache-info')
+    
+    if args.clear_cache:
+        cmd.append('--clear-cache')
+    
+    if args.force_refresh:
+        cmd.append('--force-refresh')
+    
+    if args.clear_old_cache is not None:
+        cmd.extend(['--clear-old-cache', str(args.clear_old_cache)])
     
     # Print the command we're running
     print(f"Executing: {' '.join(cmd)}")

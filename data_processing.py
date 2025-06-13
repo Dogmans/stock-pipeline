@@ -331,6 +331,102 @@ def save_processed_data(df, filename):
     df.to_csv(filepath, index=True)
     logger.info(f"Saved processed data to {filepath}")
 
+def process_stock_data(price_data, fundamental_data):
+    """
+    Process stock data by calculating technical indicators, price statistics, and combining with fundamentals
+    
+    Args:
+        price_data (dict): Dictionary with price data for each symbol
+        fundamental_data (dict): Dictionary with fundamental data for each symbol
+        
+    Returns:
+        DataFrame: Processed DataFrame with combined price and fundamental data
+    """
+    logger.info("Processing stock data...")
+    
+    # Create empty list to hold processed data for each stock
+    processed_stocks = []
+    
+    # Process each stock
+    for symbol, df in price_data.items():
+        if df.empty:
+            continue
+            
+        # Calculate technical indicators
+        df_with_indicators = calculate_technical_indicators(df)
+        
+        # Calculate price statistics
+        df_with_stats = calculate_price_statistics(df_with_indicators)
+        
+        # Get the most recent data point
+        latest_data = df_with_stats.iloc[-1].copy()
+        latest_data['symbol'] = symbol
+        
+        # Add fundamental ratios if available
+        if symbol in fundamental_data and fundamental_data[symbol]:
+            ticker_data = fundamental_data[symbol]
+            
+            # Calculate fundamental ratios
+            ratios = calculate_fundamental_ratios(ticker_data, fundamental_data.get(symbol))
+            
+            # Add debt and cash analysis
+            cash_analysis = analyze_debt_and_cash(ticker_data, fundamental_data.get(symbol))
+            
+            # Combine all data
+            combined_data = {**latest_data.to_dict(), **ratios, **cash_analysis}
+            processed_stocks.append(combined_data)
+        else:
+            processed_stocks.append(latest_data.to_dict())
+    
+    # Convert to DataFrame
+    if processed_stocks:
+        result_df = pd.DataFrame(processed_stocks)
+        
+        # Calculate sector relative metrics
+        if 'sector' in result_df.columns:
+            result_df = normalize_sector_metrics(result_df)
+        
+        return result_df
+    else:
+        logger.warning("No stocks could be processed")
+        return pd.DataFrame()
+
+
+def calculate_financial_ratios(fundamental_data):
+    """
+    Calculate financial ratios for all stocks based on fundamental data
+    
+    Args:
+        fundamental_data (dict): Dictionary with fundamental data for each symbol
+        
+    Returns:
+        DataFrame: DataFrame with financial ratios for all stocks
+    """
+    logger.info("Calculating financial ratios...")
+    
+    # Create empty list to hold ratio data for each stock
+    ratios_list = []
+    
+    # Calculate ratios for each stock
+    for symbol, ticker_data in fundamental_data.items():
+        if not ticker_data:
+            continue
+            
+        # Calculate fundamental ratios
+        ratios = calculate_fundamental_ratios(ticker_data, fundamental_data.get(symbol))
+        ratios['symbol'] = symbol
+        
+        # Add to list
+        ratios_list.append(ratios)
+    
+    # Convert to DataFrame
+    if ratios_list:
+        ratios_df = pd.DataFrame(ratios_list)
+        return ratios_df
+    else:
+        logger.warning("No financial ratios could be calculated")
+        return pd.DataFrame()
+
 if __name__ == "__main__":
     logger.info("Testing data processing module...")
     

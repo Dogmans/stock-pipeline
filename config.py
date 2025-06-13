@@ -11,7 +11,6 @@ load_dotenv()
 # API Keys - set these in your environment or .env file
 ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
 FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
-FINANCIAL_MODELING_PREP_API_KEY = os.getenv('FINANCIAL_MODELING_PREP_API_KEY')
 
 # Screening Parameters
 class ScreeningThresholds:

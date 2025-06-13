@@ -49,6 +49,22 @@ python run_pipeline.py --full    # Comprehensive scan of all stocks
 python run_pipeline.py --value   # Value-focused strategies only
 ```
 
+### Cache Management
+
+The pipeline includes a caching system to reduce redundant API calls:
+
+```bash
+python main.py --cache-info        # Show cache statistics
+python main.py --clear-cache       # Clear all cache files
+python main.py --clear-old-cache 48  # Clear cache files older than 48 hours
+python main.py --force-refresh     # Force refresh all data ignoring cache
+```
+
+For more options, see:
+```bash
+python main.py --help
+```
+
 ## Configuration
 
 Edit `config.py` to adjust:
@@ -58,3 +74,15 @@ Edit `config.py` to adjust:
 - Stock universes to scan
 
 For detailed documentation on all components, see [DOCUMENTATION.md](DOCUMENTATION.md)
+
+## Modules
+
+- `main.py` - Main entry point and orchestrator
+- `run_pipeline.py` - Command-line wrapper with common presets
+- `universe.py` - Stock universe selection
+- `market_data.py` - Market condition assessment
+- `stock_data.py` - Stock data collection
+- `data_processing.py` - Data processing and calculation
+- `screeners.py` - Screening strategies
+- `visualization.py` - Reporting and visualization
+- `cache_manager.py` - API response caching system

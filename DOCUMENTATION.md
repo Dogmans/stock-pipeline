@@ -33,6 +33,7 @@ These modules handle fetching data from various sources and APIs.
 | `universe.py` | Defines and retrieves stock universes (S&P 500, NASDAQ 100, Russell 2000) which serve as the basis for screening. |
 | `market_data.py` | Gathers market-level data including indices, VIX, and sector performance metrics to provide market context. |
 | `stock_data.py` | Retrieves historical price data and fundamental information for individual stocks. |
+| `cache_manager.py` | Implements file-based caching system to reduce redundant API calls, improve performance, and persist data between program runs. |
 
 ### Data Processing
 
@@ -46,6 +47,18 @@ These modules handle fetching data from various sources and APIs.
 | Module | Description |
 |--------|-------------|
 | `screeners.py` | Implements the various screening strategies based on the "15 Tools for Stock Picking" series. Each strategy is a separate function with configurable parameters, and can be run individually or combined. |
+
+### Caching System
+
+The pipeline includes a comprehensive caching system to improve performance and reduce redundant API calls.
+
+| Feature | Description |
+|---------|-------------|
+| File-based cache | Cache data is stored in JSON files in the `data/cache` directory, with filenames derived from function names and arguments |
+| Configurable expiration | Each cache type can have its own expiration time (default: 24 hours), after which data is automatically refreshed |
+| Force refresh option | Any cached function can be forced to ignore cache and fetch fresh data by passing `force_refresh=True` |
+| Cache management | Command-line options allow viewing cache stats, clearing all cache, or removing old cache files |
+| DataFrame serialization | Special JSON serialization/deserialization for pandas DataFrames ensures proper caching of complex data structures |
 
 ### Visualization and Output
 

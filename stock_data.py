@@ -20,10 +20,12 @@ from alpha_vantage.fundamentaldata import FundamentalData
 import config
 from utils import setup_logging
 from universe import get_stock_universe
+from cache_manager import cache_api_call
 
 # Set up logger for this module
 logger = setup_logging()
 
+@cache_api_call(cache_key_prefix="historical_prices")
 def get_historical_prices(symbols, period="1y", interval="1d"):
     """
     Fetch historical price data for a list of symbols.
@@ -35,6 +37,7 @@ def get_historical_prices(symbols, period="1y", interval="1d"):
         symbols (list): List of ticker symbols
         period (str): Time period to fetch (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
         interval (str): Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         dict: Dictionary of DataFrames with historical price data,
@@ -82,6 +85,7 @@ def get_historical_prices(symbols, period="1y", interval="1d"):
     logger.info(f"Successfully retrieved historical prices for {len(price_data)} symbols")
     return price_data
 
+@cache_api_call(expiry_hours=24, cache_key_prefix="fundamental_data")
 def get_fundamental_data(symbols):
     """
     Fetch fundamental data for a list of symbols using Alpha Vantage.
@@ -91,6 +95,7 @@ def get_fundamental_data(symbols):
     
     Args:
         symbols (list): List of ticker symbols
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         dict: Dictionary with fundamental data for each symbol
@@ -137,6 +142,7 @@ def get_fundamental_data(symbols):
     logger.info(f"Successfully retrieved fundamental data for {len(fundamental_data)} symbols")
     return fundamental_data
 
+@cache_api_call(expiry_hours=24, cache_key_prefix="52_week_lows")
 def fetch_52_week_lows(top_n=50):
     """
     Fetch stocks currently at or near their 52-week lows.
@@ -146,6 +152,7 @@ def fetch_52_week_lows(top_n=50):
     
     Args:
         top_n (int): Number of stocks to return
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         DataFrame: DataFrame with stocks at or near 52-week lows, sorted by

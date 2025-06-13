@@ -20,16 +20,21 @@ from datetime import datetime, timedelta
 
 import config
 from utils import setup_logging
+from cache_manager import cache_api_call
 
 # Set up logger for this module
 logger = setup_logging()
 
+@cache_api_call(expiry_hours=6, cache_key_prefix="market_conditions")
 def get_market_conditions():
     """
     Fetch current market conditions, including index values and VIX.
     
     Downloads historical data for major market indexes and the VIX to assess
     the current market environment.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         dict: Dictionary with market condition data, containing DataFrames
@@ -64,6 +69,7 @@ def get_market_conditions():
     
     return market_data
 
+@cache_api_call(expiry_hours=6, cache_key_prefix="market_correction")
 def is_market_in_correction():
     """
     Determine if the market is in a correction or crash based on VIX levels.
@@ -71,6 +77,9 @@ def is_market_in_correction():
     VIX level thresholds are defined in config.py:
     - VIX >= VIX_BLACK_SWAN_THRESHOLD indicates a major market event
     - VIX >= VIX_CORRECTION_THRESHOLD indicates a market correction
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         tuple: (bool, str) - Is in correction state and description
@@ -94,12 +103,16 @@ def is_market_in_correction():
         logger.error(f"Error checking market correction status: {e}")
         return False, "Unknown (Error fetching data)"
 
+@cache_api_call(expiry_hours=6, cache_key_prefix="sector_performances")
 def get_sector_performances():
     """
     Calculate the performance of different market sectors.
     
     Analyzes the performance of sector ETFs to identify sector-specific
     trends, corrections, and opportunities.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         DataFrame: DataFrame with sector performance data, including:
