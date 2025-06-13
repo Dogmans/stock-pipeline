@@ -1,6 +1,16 @@
 """
 Data processing module for stock screening pipeline.
 Processes raw stock data and prepares it for screening and analysis.
+
+Functions:
+    process_stock_data(): Main function to process stock data, combining technical indicators and fundamentals
+    calculate_financial_ratios(): Calculate financial ratios for all stocks based on fundamental data
+    calculate_technical_indicators(): Calculate technical indicators from price data
+    calculate_price_statistics(): Calculate price statistics from historical data
+    calculate_fundamental_ratios(): Calculate fundamental ratios for a single stock
+    analyze_debt_and_cash(): Analyze debt and cash metrics for a single stock
+    normalize_sector_metrics(): Calculate sector-relative metrics
+    save_processed_data(): Save processed data to CSV
 """
 
 import pandas as pd
@@ -8,18 +18,22 @@ import numpy as np
 import logging
 from pathlib import Path
 import os
-import talib
 from sklearn.preprocessing import StandardScaler
 
 import config
+from utils import setup_logging
 from stock_data import get_historical_prices
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Try to import TA-Lib, but provide fallback if not available
+try:
+    import talib
+    HAS_TALIB = True
+except ImportError:
+    logging.warning("TA-Lib not available. Some technical indicators will be calculated using pandas instead.")
+    HAS_TALIB = False
+
+# Set up logger for this module
+logger = setup_logging()
 
 # Ensure results directory exists
 Path(config.RESULTS_DIR).mkdir(parents=True, exist_ok=True)
@@ -49,6 +63,46 @@ def calculate_technical_indicators(df):
     df['ema_12'] = df['close'].ewm(span=12, adjust=False).mean()
     df['ema_26'] = df['close'].ewm(span=26, adjust=False).mean()
     
+    # Calculate MACD using pandas
+    df['macd'] = df['ema_12'] - df['ema_26']
+    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+    df['macd_hist'] = df['macd'] - df['macd_signal']
+    
+    # Calculate RSI using pandas (14-period)
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['rsi'] = 100 - (100 / (1 + rs))
+    
+    # Use TA-Lib for advanced indicators if available
+    if HAS_TALIB:
+        try:
+            # RSI using TA-Lib (more accurate)
+            df['rsi'] = talib.RSI(df['close'], timeperiod=14)
+            
+            # Bollinger Bands
+            df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(
+                df['close'], timeperiod=20, nbdevup=2, nbdevdn=2, matype=0
+            )
+            
+            # Stochastic
+            df['slowk'], df['slowd'] = talib.STOCH(
+                df['high'], df['low'], df['close'],
+                fastk_period=14, slowk_period=3, slowd_period=3
+            )
+            
+            # Average Directional Index
+            df['adx'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+        except Exception as e:
+            logger.error(f"Error calculating TA-Lib indicators: {e}")
+    else:
+        # Simplified Bollinger Bands calculation without TA-Lib
+        df['middle_band'] = df['sma_20']
+        rolling_std = df['close'].rolling(window=20).std()
+        df['upper_band'] = df['middle_band'] + (rolling_std * 2)
+        df['lower_band'] = df['middle_band'] - (rolling_std * 2)
+    
     # MACD
     df['macd'] = df['ema_12'] - df['ema_26']
     df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
@@ -72,29 +126,30 @@ def calculate_technical_indicators(df):
     df['volume_ratio'] = df['volume'] / df['volume_ma']
     
     # Add more indicators if talib is available
-    try:
-        # ATR - Average True Range (volatility indicator)
-        df['atr'] = talib.ATR(df['high'].values, df['low'].values, 
-                              df['close'].values, timeperiod=14)
-        
-        # OBV - On Balance Volume
-        df['obv'] = talib.OBV(df['close'].values, df['volume'].values)
-        
-        # CCI - Commodity Channel Index
-        df['cci'] = talib.CCI(df['high'].values, df['low'].values,
-                              df['close'].values, timeperiod=20)
-        
-        # STOCH - Stochastic Oscillator
-        df['slowk'], df['slowd'] = talib.STOCH(df['high'].values, df['low'].values,
-                                               df['close'].values, fastk_period=14,
-                                               slowk_period=3, slowk_matype=0,
-                                               slowd_period=3, slowd_matype=0)
-        
-        # ADX - Average Directional Movement Index
-        df['adx'] = talib.ADX(df['high'].values, df['low'].values,
-                              df['close'].values, timeperiod=14)
-    except:
-        logger.warning("TALib not available, skipping advanced indicators")
+    if HAS_TALIB:
+        try:
+            # ATR - Average True Range (volatility indicator)
+            df['atr'] = talib.ATR(df['high'].values, df['low'].values, 
+                                  df['close'].values, timeperiod=14)
+            
+            # OBV - On Balance Volume
+            df['obv'] = talib.OBV(df['close'].values, df['volume'].values)
+            
+            # CCI - Commodity Channel Index
+            df['cci'] = talib.CCI(df['high'].values, df['low'].values,
+                                  df['close'].values, timeperiod=20)
+            
+            # STOCH - Stochastic Oscillator
+            df['slowk'], df['slowd'] = talib.STOCH(df['high'].values, df['low'].values,
+                                                   df['close'].values, fastk_period=14,
+                                                   slowk_period=3, slowk_matype=0,
+                                                   slowd_period=3, slowd_matype=0)
+            
+            # ADX - Average Directional Movement Index
+            df['adx'] = talib.ADX(df['high'].values, df['low'].values,
+                                  df['close'].values, timeperiod=14)
+        except:
+            logger.warning("Error calculating TA-Lib indicators")
     
     return df
 
