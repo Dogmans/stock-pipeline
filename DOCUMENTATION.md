@@ -10,7 +10,7 @@ The stock screening pipeline is built with a modular architecture that separates
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │                 │     │                 │     │                 │
 │  Data Collection│────▶│ Data Processing │────▶│    Screeners    │
-│                 │     │                 │     │                 │
+│   & Caching     │     │                 │     │                 │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
         │                                               │
         │                                               │
@@ -39,7 +39,7 @@ These modules handle fetching data from various sources and APIs.
 
 | Module | Description |
 |--------|-------------|
-| `data_processing.py` | Processes raw data by calculating technical indicators, financial ratios, and other metrics needed for screening. Includes functions for standardizing and normalizing data across different stocks. |
+| `data_processing.py` | Processes raw data by calculating technical indicators, financial ratios, and other metrics needed for screening. Includes functions for standardizing and normalizing data across different stocks. Main functions: `process_stock_data`, `calculate_financial_ratios`, `calculate_technical_indicators`. |
 | `utils.py` | Provides common utility functions used throughout the pipeline, including logging setup, directory creation, and data helpers. |
 
 ### Screening Engine
@@ -59,6 +59,18 @@ The pipeline includes a comprehensive caching system to improve performance and 
 | Force refresh option | Any cached function can be forced to ignore cache and fetch fresh data by passing `force_refresh=True` |
 | Cache management | Command-line options allow viewing cache stats, clearing all cache, or removing old cache files |
 | DataFrame serialization | Special JSON serialization/deserialization for pandas DataFrames ensures proper caching of complex data structures |
+| CLI integration | Both `main.py` and `run_pipeline.py` support cache management arguments for easier control |
+
+Command-line options for cache management:
+
+```
+--cache-info         Display cache statistics and exit
+--clear-cache        Clear all cache files before running
+--force-refresh      Bypass cache and fetch fresh data for all API calls
+--clear-old-cache N  Clear cache files older than N hours
+```
+
+See `scripts.md` for examples of combining these options with other commands.
 
 ### Visualization and Output
 

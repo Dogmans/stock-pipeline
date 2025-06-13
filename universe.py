@@ -1,15 +1,16 @@
 """
-universe.py - Stock universe selection functions.
+universe.py - Stock universe selection functions with caching.
 
 This module provides functions for defining and retrieving various 
 stock universes (e.g., S&P 500, NASDAQ 100, Russell 2000) which serve 
-as the basis for stock screening.
+as the basis for stock screening. All functions use caching to minimize 
+redundant network requests.
 
 Functions:
-    get_sp500_symbols(): Get list of S&P 500 companies
-    get_russell2000_symbols(): Get list of Russell 2000 companies
-    get_nasdaq100_symbols(): Get list of NASDAQ 100 companies
-    get_stock_universe(): Get the specified universe of stocks
+    get_sp500_symbols(): Get cached list of S&P 500 companies
+    get_russell2000_symbols(): Get cached list of Russell 2000 companies
+    get_nasdaq100_symbols(): Get cached list of NASDAQ 100 companies
+    get_stock_universe(): Get the specified universe of stocks with caching
 """
 
 import os
@@ -159,11 +160,13 @@ def get_nasdaq100_symbols():
 def get_stock_universe(universe=None, force_refresh=False):
     """
     Get a list of stock symbols based on the specified universe.
+    Results are cached for 24 hours by default.
     
     Args:
         universe (str): Which universe of stocks to use. Options:
                         'sp500', 'russell2000', 'nasdaq100', 'all'
                         If None, uses the default universe from config
+        force_refresh (bool): If True, bypass cache and fetch fresh data
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:

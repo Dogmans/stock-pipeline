@@ -15,6 +15,7 @@ This pipeline implements a comprehensive stock screening system based on the val
 ## Setup Instructions
 
 1. Install requirements: `pip install -r requirements.txt`
+   - Note: TA-Lib may require additional setup steps. See [TA-Lib Installation Guide](https://github.com/mrjbq7/ta-lib#installation)
 2. Set up your API keys in the `config.py` file
 3. Run the main pipeline: `python main.py`
 
@@ -24,9 +25,10 @@ This pipeline implements a comprehensive stock screening system based on the val
   - `universe.py`: Stock universe selection (S&P 500, NASDAQ 100, Russell 2000)
   - `market_data.py`: Market-level data collection (indices, VIX, sectors)
   - `stock_data.py`: Individual stock data collection (prices, fundamentals)
+  - `cache_manager.py`: Caching system to reduce redundant API calls
 
 - Core Processing:
-  - `data_processing.py`: Tools to process and clean the collected data
+  - `data_processing.py`: Tools to process and clean the collected data, calculate indicators and financial ratios
   - `screeners.py`: Implementation of various stock screening strategies
   - `visualization.py`: Functions to visualize screening results
 
@@ -48,6 +50,16 @@ python run_pipeline.py --quick   # Quick scan of S&P 500
 python run_pipeline.py --full    # Comprehensive scan of all stocks
 python run_pipeline.py --value   # Value-focused strategies only
 ```
+
+Cache management options:
+```
+python main.py --cache-info        # Display cache information
+python main.py --clear-cache       # Clear all cache before running
+python main.py --force-refresh     # Bypass cache and fetch fresh data
+python main.py --clear-old-cache 24  # Clear cache older than 24 hours
+```
+
+See the `scripts.md` file for additional examples and command combinations.
 
 ### Cache Management
 
