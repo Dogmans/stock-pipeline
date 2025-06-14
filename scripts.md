@@ -63,6 +63,66 @@ python main.py --cache-info
 python run_pipeline.py --quick
 ```
 
+## Running Tests
+
+### Run All Tests
+To run all unit tests for the pipeline:
+```powershell
+python -m unittest discover -s tests
+```
+
+### Run Tests for a Specific Module
+To run tests for a specific module (e.g., cache_manager):
+```powershell
+python -m unittest tests.test_cache_manager
+```
+
+### Generate Test Coverage Report
+To generate a test coverage report:
+```powershell
+pip install coverage
+coverage run -m unittest discover -s tests
+coverage report
+```
+
+### Generate HTML Coverage Report
+To generate an interactive HTML coverage report:
+```powershell
+coverage html
+```
+This will create a directory called `htmlcov` with the coverage report.
+
+### Using the PowerShell Test Script
+To run tests using the PowerShell script:
+```powershell
+.\run_tests.ps1
+```
+
+To run tests for a specific module:
+```powershell
+.\run_tests.ps1 test_cache_manager
+```
+
+To generate coverage report:
+```powershell
+.\run_tests.ps1 -Coverage
+```
+
+To generate HTML coverage report:
+```powershell
+.\run_tests.ps1 -Html
+```
+
+For verbose output:
+```powershell
+.\run_tests.ps1 -Verbose
+```
+
+For help on all options:
+```powershell
+.\run_tests.ps1 -Help
+```
+
 ## Maintenance Tasks
 
 ### Removed Deprecated Files
