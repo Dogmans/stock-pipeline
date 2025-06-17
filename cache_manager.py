@@ -128,7 +128,8 @@ def _json_to_dataframe(obj):
     """
     if isinstance(obj, dict) and '_type' in obj:
         if obj['_type'] == 'pandas.DataFrame':
-            return pd.read_json(obj['data'], orient='split')
+            from io import StringIO
+            return pd.read_json(StringIO(obj['data']), orient='split', convert_dates=True)
     return obj
 
 def cache_api_call(expiry_hours=None, cache_key_prefix=None):

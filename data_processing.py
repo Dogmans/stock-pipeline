@@ -361,6 +361,13 @@ def analyze_debt_and_cash(ticker_data, fundamental_data=None):
     else:
         results['debt_to_ebitda'] = float('inf') if results['total_debt'] > 0 else 0
         
+    # Calculate debt to equity
+    total_stockholder_equity = ticker_data.get('totalStockholderEquity', 0)
+    if total_stockholder_equity > 0:
+        results['debt_to_equity'] = results['total_debt'] / total_stockholder_equity
+    else:
+        results['debt_to_equity'] = float('inf') if results['total_debt'] > 0 else 0
+        
     # Calculate cash to market cap ratio (for biotech/unprofitable stocks)
     market_cap = ticker_data.get('marketCap', 0)
     if market_cap > 0:

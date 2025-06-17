@@ -4,6 +4,7 @@ Unit tests for main.py
 
 import unittest
 import sys
+import pandas as pd
 from io import StringIO
 from unittest.mock import patch, MagicMock, call, ANY
 
@@ -23,9 +24,13 @@ class TestMain(unittest.TestCase):
         self.held_output = StringIO()
         self.old_stdout = sys.stdout
         sys.stdout = self.held_output
-        
-        # Set up sample data
-        self.sample_universe = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'META']
+          # Set up sample data
+        self.sample_universe = pd.DataFrame({
+            'symbol': ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'META'],
+            'security': ['Apple Inc', 'Microsoft Corp', 'Alphabet Inc', 'Amazon.com Inc', 'Meta Platforms Inc'],
+            'gics_sector': ['Technology'] * 5,
+            'gics_sub-industry': ['Technology'] * 5
+        })
         
         # Default mock arguments
         self.default_args = MagicMock()

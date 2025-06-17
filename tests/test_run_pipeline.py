@@ -85,10 +85,9 @@ class TestRunPipeline(unittest.TestCase):
         self.assertEqual(cmd[0:2], ['python', 'main.py'])
         self.assertIn('--output', cmd)
         self.assertIn('./test_output', cmd)
-        
-        # Check that "Running comprehensive scan..." was printed
+          # Check that "Running full comprehensive scan..." was printed
         output = self.held_output.getvalue()
-        self.assertIn("Running comprehensive scan", output.lower())
+        self.assertIn("running full comprehensive scan", output.lower())
     
     @patch('argparse.ArgumentParser.parse_args')
     @patch('subprocess.run')

@@ -78,6 +78,7 @@ DAILY_REPORT_TIME = "08:00"  # Time for daily summary report
 # File Paths
 DATA_DIR = "data"
 RESULTS_DIR = "results"
+OUTPUT_DIR = "output"
 
 # Universe of stocks to screen
 UNIVERSES = {

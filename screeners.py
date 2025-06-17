@@ -28,6 +28,19 @@ logger = setup_logging()
 # Ensure results directory exists
 Path(config.RESULTS_DIR).mkdir(parents=True, exist_ok=True)
 
+# Add aliases for screener functions to match what tests are expecting
+def price_to_book_screener(*args, **kwargs):
+    """Alias for screen_for_price_to_book to maintain test compatibility"""
+    return screen_for_price_to_book(*args, **kwargs)
+
+def pe_ratio_screener(*args, **kwargs):
+    """Alias for screen_for_pe_ratio to maintain test compatibility"""
+    return screen_for_pe_ratio(*args, **kwargs)
+
+def fifty_two_week_low_screener(*args, **kwargs):
+    """Alias for screen_for_52_week_lows to maintain test compatibility"""
+    return screen_for_52_week_lows(*args, **kwargs)
+
 def get_available_screeners():
     """
     Get a list of all available screener strategy names.

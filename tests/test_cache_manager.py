@@ -89,7 +89,7 @@ class TestCacheManager(unittest.TestCase):
         df = pd.DataFrame({
             'A': [1, 2, 3],
             'B': ['a', 'b', 'c'],
-            'C': pd.date_range('2022-01-01', periods=3)
+            'C': ['2022-01-01', '2022-01-02', '2022-01-03']
         })
         
         # Serialize

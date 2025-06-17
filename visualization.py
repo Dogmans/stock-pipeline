@@ -490,6 +490,100 @@ def create_stock_detail_chart(symbol, price_data):
     
     return fig
 
+def create_stock_charts(stock_data, output_dir=None):
+    """
+    Create charts for multiple stocks
+    
+    Args:
+        stock_data (dict): Dictionary with stock symbols as keys and price DataFrames as values
+        output_dir (str): Directory to save the charts
+        
+    Returns:
+        dict: Dictionary with stock symbols as keys and chart figures as values
+    """
+    if output_dir is None:
+        output_dir = config.RESULTS_DIR
+    
+    # Make sure output directory exists
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    charts = {}
+    for symbol, data in stock_data.items():
+        charts[symbol] = create_stock_detail_chart(symbol, data)
+        
+    return charts
+
+def create_market_overview(market_indexes):
+    """
+    Create an overview of market conditions
+    
+    Args:
+        market_indexes (dict): Dictionary with index symbols as keys and price DataFrames as values
+        
+    Returns:
+        plotly.Figure: Interactive plot of market index performance
+    """
+    if not market_indexes:
+        logger.warning("No market index data provided for overview")
+        return None
+    
+    # Create a subplot with 2 rows
+    fig = make_subplots(
+        rows=2, 
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.1,
+        subplot_titles=("Market Performance", "Trading Volume")
+    )
+    
+    colors = ['blue', 'red', 'green', 'purple', 'orange']
+    color_idx = 0
+    
+    # Add price data to the top subplot
+    for index_name, df in market_indexes.items():
+        if df is None or df.empty:
+            continue
+            
+        color = colors[color_idx % len(colors)]
+        color_idx += 1
+        
+        fig.add_trace(
+            go.Scatter(
+                x=df.index, 
+                y=df['close'], 
+                name=f"{index_name} Price",
+                line=dict(color=color)
+            ),
+            row=1, col=1
+        )
+        
+        # Add volume to bottom subplot
+        fig.add_trace(
+            go.Bar(
+                x=df.index, 
+                y=df['volume'], 
+                name=f"{index_name} Volume",
+                marker_color=color,
+                opacity=0.7
+            ),
+            row=2, col=1
+        )
+    
+    # Update layout
+    fig.update_layout(
+        height=800,
+        title="Market Overview",
+        xaxis_title="Date",
+        legend_title="Indexes",
+        template="plotly_white"
+    )
+    
+    # Update y-axis titles
+    fig.update_yaxes(title_text="Price ($)", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1)
+    
+    return fig
+
 def create_dashboard(screening_results):
     """
     Create a comprehensive dashboard of screening results
