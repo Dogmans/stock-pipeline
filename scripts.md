@@ -266,3 +266,186 @@ Tests passing in all stages:
    - test_cache_manager.py
    - test_run_pipeline.py
    - test_main.py
+
+## Multi-Source Financial Data Architecture (June 18, 2025)
+
+### Modular Data Provider Architecture
+
+We've implemented a modular abstraction layer for financial data sources:
+
+| Component | Purpose |
+|-----------|---------|
+| `data_providers/` | Directory containing all data provider modules |
+| `data_providers/base.py` | Abstract base class defining the provider interface |
+| `data_providers/alpha_vantage.py` | Alpha Vantage implementation |
+| `data_providers/yfinance_provider.py` | Yahoo Finance implementation |
+| `data_providers/financial_modeling_prep.py` | Financial Modeling Prep implementation |
+| `data_providers/sec_edgar.py` | SEC EDGAR implementation |
+| `data_providers/finnhub_provider.py` | Finnhub implementation |
+| `data_providers/multi_provider.py` | Meta-provider that combines multiple sources |
+
+### Using Different Data Sources
+
+```powershell
+# Use the default provider (multi-provider with fallbacks)
+python main.py --universe sp500
+
+# Explicitly use a specific provider
+python main.py --universe sp500 --data-provider alpha_vantage
+python main.py --universe sp500 --data-provider yfinance
+python main.py --universe sp500 --data-provider financial_modeling_prep
+```
+
+### Chunked Processing to Stay Within API Limits
+
+```powershell
+# Process the SP500 in chunks of 200 symbols per day
+python main.py --universe custom --symbols-file "sp500_chunk1.txt" --chunk-size 200
+```
+
+### Creating Symbol Chunks for Processing
+
+```powershell
+# Create manageable chunks for processing
+python create_symbol_chunks.py --universe sp500 --chunk-size 200
+```
+
+### Monitoring Provider Performance
+
+```powershell
+# Generate a report on data provider usage and success rates
+python main.py --provider-stats
+```
+
+### 2025-06-18: Added Multi-Source Data Provider Architecture
+
+1. Major architectural improvements:
+   - Created modular data provider abstraction layer
+   - Implemented adapter classes for multiple data sources (Alpha Vantage, yfinance, Financial Modeling Prep, Finnhub)
+   - Added MultiProvider with automatic fallback between data sources
+   - Created chunking mechanism to stay within API limits
+   - Updated CLI to support provider selection and chunk processing
+
+2. New commands for working with multiple data sources:
+   ```powershell
+   # Using specific data provider
+   python main.py --data-provider yfinance --universe sp500
+   python main.py --data-provider financial_modeling_prep --universe sp500
+   python main.py --data-provider alpha_vantage --universe sp500
+   
+   # Using multi-provider with automatic fallbacks
+   python main.py --multi-source --universe sp500
+   
+   # Process in chunks to stay within API limits
+   python main.py --universe sp500 --chunk-size 200
+   
+   # Create chunks for processing over multiple days
+   python create_symbol_chunks.py --universe sp500 --chunk-size 200
+   
+   # Check provider statistics
+   python main.py --provider-stats
+   ```
+
+3. Benefits of the new architecture:
+   - Resilience: Automatic fallback if one API fails
+   - Efficiency: Optimized API usage within free tier limits
+   - Flexibility: Easy swapping between data sources
+   - Consistency: Standardized data format regardless of source
+   - Extensibility: Easy to add new data providers
+
+4. Key files added to the architecture:
+   - `data_providers/base.py` - Abstract base provider interface
+   - `data_providers/alpha_vantage.py` - Alpha Vantage implementation
+   - `data_providers/yfinance_provider.py` - Yahoo Finance implementation
+   - `data_providers/financial_modeling_prep.py` - FMP implementation
+   - `data_providers/finnhub_provider.py` - Finnhub implementation
+   - `data_providers/multi_provider.py` - Multi-source provider with failover
+   - `create_symbol_chunks.py` - Script to split universe into manageable chunks
+
+### 2025-06-19: Fixed Market Data Provider Integration
+
+1. Fixed market data provider issues:
+   - Modified `market_data.py` to use the data provider abstraction
+   - Updated all market data functions to accept a data_provider parameter
+   - Eliminated redundant market data fetching in main pipeline
+   - Added chunked processing for price data to stay within API limits
+   - Made market_data.py fully compatible with all data providers
+
+2. Command to run the pipeline with a specific data provider for market data:
+```powershell
+python main.py --data-provider yfinance --universe sp500
+```
+
+3. Command to run the pipeline with chunked processing for large universes:
+```powershell
+python main.py --universe sp500 --chunk-size 100 --data-provider alpha_vantage
+```
+
+4. Command to run the pipeline with all these optimizations:
+```powershell
+python main.py --multi-source --universe russell2000 --chunk-size 50 --clear-old-cache 24
+```
+
+5. Benefits of these changes:
+   - Consistent market data retrieval across all data providers
+   - Reduced redundant API calls for market data
+   - More efficient processing of large stock universes
+   - Better resilience with automatic provider fallback
+   - Proper handling of API rate limits
+
+## PowerShell Command Syntax Notes
+
+When running multiple commands in PowerShell, use the semicolon (`;`) as a command separator instead of double ampersand (`&&`), which is used in cmd.exe or bash:
+
+```powershell
+# Correct PowerShell syntax for multiple commands 
+cd c:\Programs\stock_pipeline; python -m unittest tests.test_market_data
+
+# Alternatively, you can use multiple statements
+cd c:\Programs\stock_pipeline
+python -m unittest tests.test_market_data
+```
+
+This is important when scripting or running commands directly in PowerShell.
+
+### 2025-06-18: Added Financial Modeling Prep API Key
+
+1. Added Financial Modeling Prep API key configuration:
+   - Added `FINANCIAL_MODELING_PREP_API_KEY` to `config.py`
+   - The key should be set in the .env file or as an environment variable
+   
+2. Environment variables used by the pipeline:
+   ```
+   ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+   FINNHUB_API_KEY=your_finnhub_key_here
+   FINANCIAL_MODELING_PREP_API_KEY=your_financial_modeling_prep_key_here
+   ```
+
+### 2025-06-18: Prioritized Financial Modeling Prep API
+
+1. Updated the MultiProvider to prioritize Financial Modeling Prep over Alpha Vantage:
+   - Changed provider ordering in MultiProvider to try FMP before Alpha Vantage
+   - Financial Modeling Prep is now our preferred data source after YFinance
+   
+2. Why Financial Modeling Prep is preferred over Alpha Vantage:
+   - Provides all essential data types with better documentation
+   - More stable API endpoints and consistent response formats
+   - Better batch processing capabilities for some endpoints
+   - More affordable premium plans if needed
+   
+3. Example commands to use Financial Modeling Prep directly:
+   ```powershell
+   # Run the pipeline using Financial Modeling Prep as primary data provider
+   python main.py --universe sp500 --limit 10 --data-provider financial_modeling_prep
+   
+   # Test FMP API key configuration
+   python -c "import data_providers; provider = data_providers.get_provider('financial_modeling_prep'); print(f'Provider initialized: {provider.get_provider_name()}')"
+   ```
+   
+4. API endpoint comparison (Alpha Vantage vs Financial Modeling Prep):
+   - Historical Prices: TIME_SERIES_DAILY → /historical-price-full/{symbol}
+   - Income Statement: INCOME_STATEMENT → /income-statement/{symbol}
+   - Balance Sheet: BALANCE_SHEET → /balance-sheet-statement/{symbol}
+   - Cash Flow: CASH_FLOW → /cash-flow-statement/{symbol}
+   - Company Overview: OVERVIEW → /profile/{symbol}
+   - Sector Performance: SECTOR → /stock/sectors-performance

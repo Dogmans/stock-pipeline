@@ -16,6 +16,7 @@ import config
 from market_data import (
     get_market_conditions, is_market_in_correction, get_sector_performances
 )
+import data_providers
 
 class TestMarketData(unittest.TestCase):
     """Tests for the market_data module."""
@@ -69,14 +70,18 @@ class TestMarketData(unittest.TestCase):
                 
             start_price = 100
             end_price = start_price * (1 + perf)
-            self.sector_data[etf] = pd.DataFrame({                'Close': np.linspace(start_price, end_price, 90),
+            self.sector_data[etf] = pd.DataFrame({
+                'Close': np.linspace(start_price, end_price, 90),
                 'High': [max(start_price, end_price) * 1.05] * 90,
-                'Low': [min(start_price, end_price) * 0.95] * 90,                'Volume': np.random.randint(5000000, 20000000, 90)
+                'Low': [min(start_price, end_price) * 0.95] * 90,
+                'Volume': np.random.randint(5000000, 20000000, 90)
             }, index=sector_dates)
     
-    @patch('yfinance.download')
-    def test_get_market_conditions(self, mock_yf_download):
+    def test_get_market_conditions(self):
         """Test retrieving market conditions data."""
+        # Create a mock data provider
+        mock_provider = MagicMock()
+        
         # Create test data
         mock_sp500_data = pd.DataFrame({
             'Open': [100, 101, 102],
@@ -87,47 +92,41 @@ class TestMarketData(unittest.TestCase):
             'Volume': [1000, 1100, 1200]
         }, index=pd.date_range(start='2023-01-01', periods=3))
         
-        # Setup mock to return our test data
-        def mock_download(*args, **kwargs):
-            tickers = args[0] if args else kwargs.get('tickers', None)
-            
-            if tickers == "^VIX":
-                return mock_sp500_data.copy()
-                
-            # For any other case, return multi-index DataFrame with our data
-            if 'group_by' in kwargs and kwargs['group_by'] == 'ticker':
-                # Handle multiple indexes
-                if isinstance(tickers, list) and len(tickers) > 0:
-                    # Build a proper multi-index DataFrame
-                    idx = pd.MultiIndex.from_product([tickers, mock_sp500_data.columns],
-                                                   names=['Ticker', 'Attributes'])
-                    data = np.tile(mock_sp500_data.values, len(tickers))
-                    return pd.DataFrame(data, columns=idx, index=mock_sp500_data.index)
-            
-            # Default - just return the test data
-            return mock_sp500_data
-            
-        mock_yf_download.side_effect = mock_download
+        # Setup the mock provider to return our test data
+        mock_provider.get_historical_prices.return_value = {
+            '^GSPC': mock_sp500_data.copy(),
+            '^DJI': mock_sp500_data.copy(),
+            '^IXIC': mock_sp500_data.copy(),
+            '^VIX': mock_sp500_data.copy(),
+            'XLK': mock_sp500_data.copy(),
+            'XLF': mock_sp500_data.copy(),
+        }
         
-        # Test
-        result = get_market_conditions(force_refresh=True)
+        # Mock the provider name
+        mock_provider.get_provider_name.return_value = 'Test Provider'
+        
+        # Test with our mock provider
+        result = get_market_conditions(data_provider=mock_provider, force_refresh=True)
         
         # Verify basic structure
         self.assertIsInstance(result, dict)
-        # We should have some market data, though maybe not the specific indexes
-        # depending on what yfinance returns. Just check we have *some* data.
+        # We should have some market data
         self.assertTrue(len(result) > 0, "Should have at least some market data")
         
         # Check if one of the values is a DataFrame
         if len(result) > 0:
             first_key = next(iter(result))
             self.assertIsInstance(result[first_key], pd.DataFrame)
-              # Ensure the DataFrame has basic expected columns
+            # Ensure the DataFrame has basic expected columns
             self.assertIn('Close', result[first_key].columns)
+              # Make sure our mock was called with the expected parameters
+        mock_provider.get_historical_prices.assert_called()
     
-    @patch('market_data.yf.download')
-    def test_is_market_in_correction(self, mock_yf_download):
+    def test_is_market_in_correction(self):
         """Test detecting market correction status."""
+        # Create a mock data provider
+        mock_provider = MagicMock()
+        
         # Create a mock VIX response with a high value indicating correction
         mock_vix_data = pd.DataFrame({
             'Open': [28, 30, 32],
@@ -138,8 +137,13 @@ class TestMarketData(unittest.TestCase):
             'Volume': [1000, 1100, 1200]
         }, index=pd.date_range(start='2023-01-01', periods=3))
         
-        # Configure the mock to return high VIX values
-        mock_yf_download.return_value = mock_vix_data
+        # Configure the mock provider to return high VIX values
+        mock_provider.get_historical_prices.return_value = {
+            "^VIX": mock_vix_data
+        }
+        
+        # Mock the provider name
+        mock_provider.get_provider_name.return_value = 'Test Provider'
         
         # We need to patch the config to make sure our threshold matches our test data
         with patch('market_data.config') as mock_config:
@@ -148,71 +152,55 @@ class TestMarketData(unittest.TestCase):
             mock_config.VIX_BLACK_SWAN_THRESHOLD = 40
             
             # Test
-            is_correction, status_text = is_market_in_correction(force_refresh=True)
+            is_correction, status_text = is_market_in_correction(data_provider=mock_provider, force_refresh=True)
             
             # Verify
             self.assertTrue(is_correction)  # VIX is at 33, above the 30 threshold
             self.assertIn("correction", status_text.lower())  # Status should mention correction
+              # Make sure our mock was called with the expected parameters
+        mock_provider.get_historical_prices.assert_called()
     
-    @patch('yfinance.download')
-    def test_get_sector_performances(self, mock_yf_download):
+    def test_get_sector_performances(self):
         """Test retrieving sector performance data."""
-        # Configure mock
-        def mock_download(tickers, *args, **kwargs):
-            if isinstance(tickers, str):
-                tickers = [tickers]
-            
-            result = {}
-            for ticker in tickers:
-                if ticker in self.sector_data:
-                    result[ticker] = self.sector_data[ticker]
-                else:
-                    # Return empty DataFrame for unknown tickers
-                    result[ticker] = pd.DataFrame()
-            
-            # If a single ticker was requested, return the DataFrame directly
-            if len(result) == 1:
-                return result[tickers[0]]
-              # For multiple tickers, combine into a multi-index DataFrame
-            # Skip empty DataFrames to avoid the FutureWarning
-            non_empty_results = {k: v for k, v in result.items() if not v.empty}
-            if non_empty_results:
-                combined = pd.concat(non_empty_results, names=['Ticker', 'Date'])
-                return combined
-            return pd.DataFrame()  # Return empty DataFrame if all results were empty
+        # Create a mock data provider
+        mock_provider = MagicMock()
         
-        mock_yf_download.side_effect = mock_download
+        # Configure mock to return our sector data directly
+        mock_provider.get_historical_prices.return_value = self.sector_data
+        
+        # Mock the provider name
+        mock_provider.get_provider_name.return_value = 'Test Provider'
         
         # Test
-        result = get_sector_performances(force_refresh=True)
-          # Verify
+        result = get_sector_performances(data_provider=mock_provider, force_refresh=True)
+        
+        # Verify we got a DataFrame
         self.assertIsInstance(result, pd.DataFrame)
         
-        # Update column name assertions to match what the function actually returns
-        # Adjust based on the actual implementation in market_data.py
-        if '1_month_change' in result.columns:
-            performance_col = '1_month_change'
-        elif '1m_return' in result.columns:
-            performance_col = '1m_return'
-        elif 'ytd_change' in result.columns:
-            performance_col = 'ytd_change'
-        elif 'ytd_return' in result.columns:
-            performance_col = 'ytd_return'
-        else:
-            # If none of the expected columns are found, find any column with numeric values
-            numeric_cols = [col for col in result.columns if result[col].dtype in ('float64', 'int64')]
-            self.assertTrue(len(numeric_cols) > 0, "No numeric columns found for performance data")
-            performance_col = numeric_cols[0]
-        
-        # Only test sector names if sectors are present in the index
-        if not result.empty and result.index.size > 0:
-            found_sectors = set(result.index) & {'Energy', 'Financials', 'Technology', 'Health Care', 'Consumer Discretionary', 'XLE', 'XLF', 'XLK', 'XLV', 'XLY'}
-            self.assertTrue(len(found_sectors) > 0, "Should have sector names in the index")
+        # Verify we have all sectors
+        if not result.empty:
+            # Check for XLE (energy) and XLF (financials)
+            self.assertIn('XLE', result['etf'].values)
+            self.assertIn('XLF', result['etf'].values)
+            
+            # Check that sectors are sorted by performance (1_month_change)
+            # XLF should be at the top (worst performer at -18%)
+            self.assertEqual(result.iloc[0]['etf'], 'XLF')
+            
+            # Check required columns
+            self.assertIn('sector', result.columns)
+            self.assertIn('price', result.columns)
+            self.assertIn('1_week_change', result.columns)
+            self.assertIn('1_month_change', result.columns)
+              # Make sure our mock was called with the expected parameters
+        mock_provider.get_historical_prices.assert_called()
     
-    @patch('yfinance.download')
-    def test_get_market_conditions_simple(self, mock_yf_download):
+    def test_get_market_conditions_simple(self):
         """Test retrieving market conditions data using simple mocks."""
-        # Create a simplified single-index DataFrame to avoid concat issues
+        # Create a mock data provider
+        mock_provider = MagicMock()
+        
+        # Create a simplified DataFrame
         mock_sp500_data = pd.DataFrame({
             'Open': [100, 101, 102],
             'High': [105, 106, 107],
@@ -231,39 +219,31 @@ class TestMarketData(unittest.TestCase):
             'Adj Close': [21, 22, 23],
             'Volume': [10000, 11000, 12000]
         }, index=pd.date_range(start='2023-01-01', periods=3))
+          # Setup mock provider to return our test data
+        market_data = {}
         
-        # Setup the mock to return our simple data
-        def mock_download_simple(*args, **kwargs):
-            tickers = args[0] if args else kwargs.get('tickers', None)
-            
-            # Single ticker - VIX case
-            if tickers == "^VIX":
-                return mock_vix_data
-                
-            # Multiple tickers with group_by='ticker'
-            if 'group_by' in kwargs and kwargs['group_by'] == 'ticker':
-                # Create a multi-index DataFrame that mimics yfinance
-                if isinstance(tickers, list) and len(tickers) > 1:
-                    # Create proper multi-index DataFrame
-                    df_dict = {}
-                    for ticker in tickers:
-                        if ticker == '^GSPC':
-                            df_dict[ticker] = mock_sp500_data
-                        else:
-                            # Add other indexes as needed
-                            df_dict[ticker] = mock_sp500_data.copy()
-                    
-                    # Create multi-index by stacking
-                    return pd.concat(df_dict, axis=1)
-                else:
-                    return mock_sp500_data
-            else:
-                return mock_sp500_data
+        # Add S&P 500
+        market_data['^GSPC'] = mock_sp500_data.copy()
         
-        mock_yf_download.side_effect = mock_download_simple
+        # Add Dow Jones
+        market_data['^DJI'] = mock_sp500_data.copy()
         
-        # Test directly without the nested patch
-        result = get_market_conditions(force_refresh=True)
+        # Add NASDAQ
+        market_data['^IXIC'] = mock_sp500_data.copy()
+        
+        # Add VIX
+        market_data['^VIX'] = mock_vix_data.copy()
+        
+        # Add sector ETFs
+        for etf in config.SECTOR_ETFS.keys():
+            market_data[etf] = mock_sp500_data.copy()
+        
+        # Configure the mock provider to return our data
+        mock_provider.get_historical_prices.return_value = market_data
+        mock_provider.get_provider_name.return_value = 'Test Provider'
+        
+        # Test with our mock provider
+        result = get_market_conditions(data_provider=mock_provider, force_refresh=True)
         
         # Verify basics
         self.assertIsInstance(result, dict)

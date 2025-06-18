@@ -21,12 +21,16 @@ import config
 from utils import setup_logging
 from universe import get_stock_universe
 from cache_manager import cache_api_call
+import data_providers
 
 # Set up logger for this module
 logger = setup_logging()
 
+# Default data provider - Multi-provider with fallbacks
+default_provider = data_providers.default_provider
+
 @cache_api_call(cache_key_prefix="historical_prices")
-def get_historical_prices(symbols, period="1y", interval="1d"):
+def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=False, provider=None):
     """
     Fetch historical price data for a list of symbols.
     
@@ -38,16 +42,26 @@ def get_historical_prices(symbols, period="1y", interval="1d"):
         period (str): Time period to fetch (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
         interval (str): Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
     
     Returns:
         dict: Dictionary of DataFrames with historical price data,
               keyed by symbol
+    """
+    # Use the specified provider or the default one
+    data_provider = provider or default_provider
+    
+    # Use the provider to get historical prices
+    return data_provider.get_historical_prices(symbols, period, interval, force_refresh)
+    
+    # Legacy implementation below for reference
     """
     price_data = {}
     
     # Handle case where symbols is a single string
     if isinstance(symbols, str):
         symbols = [symbols]
+    """
     
     # Use a batch approach with tqdm progress bar
     chunk_size = 50  # Process in batches to avoid rate limiting
@@ -86,9 +100,9 @@ def get_historical_prices(symbols, period="1y", interval="1d"):
     return price_data
 
 @cache_api_call(expiry_hours=24, cache_key_prefix="fundamental_data")
-def get_fundamental_data(symbols):
+def get_fundamental_data(symbols, force_refresh=False, provider=None):
     """
-    Fetch fundamental data for a list of symbols using Alpha Vantage.
+    Fetch fundamental data for a list of symbols using the configured provider.
     
     Retrieves income statements, balance sheets, cash flow statements,
     and company overviews.
@@ -96,54 +110,49 @@ def get_fundamental_data(symbols):
     Args:
         symbols (list): List of ticker symbols
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
     
     Returns:
         dict: Dictionary with fundamental data for each symbol
     """
-    if not config.ALPHA_VANTAGE_API_KEY:
-        logger.error("Alpha Vantage API key not found. Cannot fetch fundamental data.")
-        return {}
+    # Use the specified provider or the default one
+    data_provider = provider or default_provider
     
     # Handle case where symbols is a single string
     if isinstance(symbols, str):
         symbols = [symbols]
-    
-    fd = FundamentalData(key=config.ALPHA_VANTAGE_API_KEY, output_format='pandas')
+      # Check if we should process in small batches to respect API limits
+    batch_size = 10  # Small batch size to avoid hitting API limits
     fundamental_data = {}
     
-    for symbol in tqdm(symbols, desc="Fetching fundamental data"):
-        symbol_data = {}
+    if len(symbols) <= batch_size:
+        # Process all at once if small enough
+        return data_provider.get_batch_fundamental_data(symbols, force_refresh=force_refresh)
+    else:
+        # Process in batches to respect API limits
+        chunks = [symbols[i:i+batch_size] for i in range(0, len(symbols), batch_size)]
         
-        try:
-            # Get income statement
-            income_statement, _ = fd.get_income_statement_annual(symbol=symbol)
-            symbol_data['income_statement'] = income_statement
-            
-            # Get balance sheet
-            balance_sheet, _ = fd.get_balance_sheet_annual(symbol=symbol)
-            symbol_data['balance_sheet'] = balance_sheet
-            
-            # Get cash flow
-            cash_flow, _ = fd.get_cash_flow_annual(symbol=symbol)
-            symbol_data['cash_flow'] = cash_flow
-            
-            # Get company overview
-            overview, _ = fd.get_company_overview(symbol=symbol)
-            symbol_data['overview'] = overview
-            
-            fundamental_data[symbol] = symbol_data
-            
-            # Sleep to avoid hitting API limits (Alpha Vantage has a limit of 5 calls per minute)
-            time.sleep(12.5)  # 12.5 seconds * 4 calls = ~50 seconds for all 4 calls
-            
-        except Exception as e:
-            logger.error(f"Error fetching fundamental data for {symbol}: {e}")
+        for i, chunk in enumerate(tqdm(chunks, desc="Fetching fundamental data")):
+            try:
+                chunk_data = data_provider.get_batch_fundamental_data(
+                    chunk, 
+                    force_refresh=force_refresh,
+                    max_workers=5,
+                    rate_limit=getattr(data_provider, 'RATE_LIMIT', None)
+                )
+                fundamental_data.update(chunk_data)
+                
+                # Log progress
+                logger.info(f"Processed batch {i+1}/{len(chunks)} ({len(chunk)} symbols)")
+                
+            except Exception as e:
+                logger.error(f"Error processing batch {i+1}: {e}")
     
     logger.info(f"Successfully retrieved fundamental data for {len(fundamental_data)} symbols")
     return fundamental_data
 
 @cache_api_call(expiry_hours=24, cache_key_prefix="52_week_lows")
-def fetch_52_week_lows(top_n=50):
+def fetch_52_week_lows(top_n=50, force_refresh=False, provider=None):
     """
     Fetch stocks currently at or near their 52-week lows.
     
@@ -153,16 +162,16 @@ def fetch_52_week_lows(top_n=50):
     Args:
         top_n (int): Number of stocks to return
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
     
     Returns:
         DataFrame: DataFrame with stocks at or near 52-week lows, sorted by
                   percentage above 52-week low (ascending)
-    """
-    universe = get_stock_universe()
+    """    universe = get_stock_universe()
     symbols = universe['symbol'].tolist()
     
     # Get historical data for all symbols
-    hist_data = get_historical_prices(symbols, period="1y")
+    hist_data = get_historical_prices(symbols, period="1y", force_refresh=force_refresh, provider=provider)
     
     results = []
     for symbol, data in hist_data.items():
