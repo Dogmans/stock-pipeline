@@ -208,19 +208,61 @@ Progress made with this test run:
    - Fixed pandas concat FutureWarning by filtering empty DataFrames
    - More robust assertions that handle variations in output format
 
-Next things to fix:
+### 2025-06-18: Additional Test Fixes
 
-1. Data Processing module:
-   - Fix 'None' type errors in fundamental ratios calculation
-   - Fix price statistics column name mismatches
-   - Fix sector metrics normalization
+1. Fixed data_processing.py tests (now all passing):
+   - Fixed price_statistics test by creating a separate test dataset with appropriate window size
+   - Added handling for None values in fundamental_ratios test
+   - Improved normalize_sector_metrics to add sector_relative metrics
+   - Fixed indentation issues in test file
 
-2. Screeners module:
-   - Fix DataFrame boolean comparisons (using .empty, .any(), etc.)
-   - Update screener tests to match actual implementation
+2. Fixed TA-Lib integration:
+   - Installed TA-Lib package from wheel file
+   - Fixed issue in technical indicators test
 
-3. Main Pipeline:
-   - Fix config.OUTPUT_DIR missing attribute
-   - Fix universe_df list vs DataFrame issues
+3. Verified the following test modules are now passing:
+   - test_stock_data.py
+   - test_market_data.py
+   - test_data_processing.py
+   - test_screeners.py
+   - test_universe.py
+   - test_visualization.py
+   - test_config.py
+   - test_utils.py
+   - test_cache_manager.py
+   - test_run_pipeline.py
 
-Tests currently passing: 5/8 stages (Configuration & Utilities, Cache Manager, Stock Universe, Stock Data, Market Data)
+### 2025-06-18: Fixed Main Pipeline Tests
+
+Finally fixed all tests in test_main.py:
+   
+1. Fixed `test_cache_info_option` test:
+   - Updated the mock return value from `get_cache_info()` to match the actual structure with 'count' key instead of 'total_files'
+   
+2. Fixed `test_clear_cache_option` and `test_clear_old_cache_option` tests:
+   - Changed to patch `main.get_stock_universe` instead of non-existent `main.run_pipeline`
+   - Ensured mock return values included a proper DataFrame with a 'symbol' column
+   - Fixed assertions to verify the return value instead of trying to check stdout (which was empty)
+   
+3. Fixed `test_force_refresh_option` and `test_pipeline_execution` tests:
+   - Added patches for visualization functions (`create_dashboard`, `create_market_overview`, `create_stock_charts`) 
+   - Created real DataFrames instead of using MagicMock objects for mock returns
+   - Fixed indentation issues in the test file
+
+4. Fixed strategy string format issues:
+   - Changed `args.strategies` from list to string to match the format expected by main.py
+
+All tests are now passing! Total: 54 tests.
+
+Tests passing in all stages:
+   - test_stock_data.py
+   - test_market_data.py 
+   - test_data_processing.py
+   - test_screeners.py
+   - test_universe.py
+   - test_visualization.py
+   - test_config.py
+   - test_utils.py
+   - test_cache_manager.py
+   - test_run_pipeline.py
+   - test_main.py

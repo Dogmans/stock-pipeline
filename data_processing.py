@@ -298,10 +298,14 @@ def normalize_sector_metrics(stocks_df, sector_col='sector'):
             
             # Replace NaNs with median for scaling purposes
             temp_values = df.loc[sector_mask, metric].fillna(df.loc[sector_mask, metric].median())
-            
-            # Scale and create new column for normalized values
+              # Scale and create new column for normalized values
             normalized_values = scaler.fit_transform(temp_values.values.reshape(-1, 1))
             df.loc[sector_mask, f'{metric}_normalized'] = normalized_values
+            
+            # Also calculate sector-relative metrics (ratio to sector average)
+            sector_avg = temp_values.mean()
+            if sector_avg != 0:  # Avoid division by zero
+                df.loc[sector_mask, f'{metric}_sector_relative'] = df.loc[sector_mask, metric] / sector_avg
     
     return df
 
