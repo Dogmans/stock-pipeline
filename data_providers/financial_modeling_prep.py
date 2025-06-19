@@ -13,7 +13,7 @@ from .base import BaseDataProvider
 from cache_manager import cache_api_call
 import config
 from utils.logger import setup_logging
-from rate_limiter import RateLimiter
+from utils.rate_limiter import RateLimiter
 
 # Set up logger for this module
 logger = setup_logging()
@@ -46,7 +46,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.warning("Financial Modeling Prep API key not provided")
         
         # Base URL for FMP API
-        self.base_url = "https://financialmodelingprep.com/api/v3"    @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_prices")
+        self.base_url = "https://financialmodelingprep.com/api/v3"
+    
+    @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_prices")
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
@@ -298,8 +300,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting cash flow for {symbol}: {e}")
             return pd.DataFrame()
-      @functools.wraps(BaseDataProvider.get_company_overview)
-    @rate_limiter
+
     @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_overview")
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
