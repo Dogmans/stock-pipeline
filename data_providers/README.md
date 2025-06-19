@@ -59,3 +59,22 @@ python main.py --provider-stats
 ```
 
 This shows success rates, call counts, and errors for each provider.
+
+## Testing Provider Priority
+
+The provider priority order is enforced in the `MultiProvider` class and verified by unit tests:
+
+```powershell
+python -m unittest tests.test_provider_priority
+```
+
+The tests verify that:
+1. Providers are initialized in the correct order
+2. The fallback mechanism works properly
+3. Results include provider tracking information
+
+You can also check the current provider order with:
+
+```powershell
+python -c "import data_providers; provider = data_providers.get_provider('multi'); print([p.get_provider_name() for p in provider.providers])"
+```

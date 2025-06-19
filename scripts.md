@@ -449,3 +449,46 @@ This is important when scripting or running commands directly in PowerShell.
    - Cash Flow: CASH_FLOW → /cash-flow-statement/{symbol}
    - Company Overview: OVERVIEW → /profile/{symbol}
    - Sector Performance: SECTOR → /stock/sectors-performance
+
+### 2025-06-18: Added Provider Priority Test
+
+1. Added unit tests for data provider priority:
+   - Created `tests/test_provider_priority.py` with unittest-based tests
+   - Tests verify that providers are initialized in the correct order (YFinance → FMP → Alpha Vantage → Finnhub)
+   - Tests confirm that provider fallback works properly when a provider fails
+   - Tests check that results include the `_provider_used` field to track which provider supplied the data
+   
+2. Running the provider priority tests:
+   ```powershell
+   # Run only the provider priority tests
+   python -m unittest tests.test_provider_priority
+   
+   # Run as part of the full test suite
+   python -m unittest discover -s tests
+   ```
+   
+3. Standalone provider verification script (interactive):
+   ```powershell
+   # Simple interactive verification
+   python -c "import sys; sys.path.append('.'); from data_providers import get_provider; provider = get_provider('multi'); print([p.get_provider_name() for p in provider.providers])"
+   ```
+
+### 2025-06-19: Provider Priority Test Success
+
+1. Successfully ran the provider priority tests:
+   ```powershell
+   cd C:\Programs\stock_pipeline; python -m unittest tests.test_provider_priority
+   ```
+
+2. Results confirmed:
+   - Providers are initialized in the correct order (YFinance → FMP → Alpha Vantage → Finnhub)
+   - The fallback mechanism works correctly when a provider fails
+   - Results include proper provider tracking via the `_provider_used` field
+   
+3. All 4 provider priority tests passed:
+   - `test_provider_initialization_order`
+   - `test_provider_order`
+   - `test_provider_fallback` 
+   - `test_provider_tracking`
+
+4. This confirms that Financial Modeling Prep is correctly prioritized over Alpha Vantage in the provider order.

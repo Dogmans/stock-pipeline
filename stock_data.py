@@ -161,13 +161,13 @@ def fetch_52_week_lows(top_n=50, force_refresh=False, provider=None):
     
     Args:
         top_n (int): Number of stocks to return
-        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
-        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
     
     Returns:
         DataFrame: DataFrame with stocks at or near 52-week lows, sorted by
                   percentage above 52-week low (ascending)
-    """    universe = get_stock_universe()
+    """
+    universe = get_stock_universe()
     symbols = universe['symbol'].tolist()
     
     # Get historical data for all symbols

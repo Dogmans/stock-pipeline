@@ -39,17 +39,27 @@ This pipeline implements a comprehensive stock screening system based on the val
 
 ## Running the Pipeline
 
-Basic usage:
-```
-python main.py
-```
+There are two main scripts for running the pipeline:
 
-For common use cases:
+### 1. run_pipeline.py (Recommended for most users)
+A simplified wrapper with convenient presets for common use cases:
+
 ```
-python run_pipeline.py --quick   # Quick scan of S&P 500
+python run_pipeline.py --quick   # Quick scan of S&P 500 with basic strategies
 python run_pipeline.py --full    # Comprehensive scan of all stocks
 python run_pipeline.py --value   # Value-focused strategies only
 ```
+
+This script provides simple flags and handles timing of pipeline execution. It's designed for everyday usage and common scenarios.
+
+### 2. main.py (For advanced customization)
+The core implementation with all available options and fine-grained control:
+
+```
+python main.py --universe sp500 --strategies value,growth --limit 100
+```
+
+Use main.py directly when you need detailed control over specific parameters or for advanced customizations.
 
 Cache management options:
 ```
