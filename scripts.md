@@ -837,4 +837,47 @@ pio.write_html(fig, 'market_overview_test.html', auto_open=True)
 "
 ```
 
+## Logging Changes (June 19, 2025)
+
+We've updated the logging architecture to properly separate logger setup from logger retrieval. This prevents duplicate log entries and ensures consistent logging throughout the application.
+
+### Proper Logger Usage
+
+```powershell
+# In your module, get a logger (don't set it up):
+from utils.logger import get_logger
+
+# Use __name__ to get a logger specific to your module
+logger = get_logger(__name__)
+
+# Then use the logger as normal
+logger.info("This is a log message")
+logger.error("Something went wrong")
+```
+
+### Central Logging Configuration
+
+Logging is now centrally configured in `main.py` as the application entry point:
+
+```powershell
+# How main.py sets up logging for the entire application
+from utils.logger import setup_logging
+
+# This sets up logging for the entire application - call only ONCE
+setup_logging()
+
+# Then get a logger for the current module
+logger = get_logger(__name__)
+```
+
+### Checking Logs
+
+```powershell
+# View the last 10 log entries
+Get-Content -Tail 10 stock_pipeline.log
+
+# Filter logs for errors only
+Get-Content stock_pipeline.log | Where-Object { $_ -like "*ERROR*" }
+```
+
 

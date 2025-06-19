@@ -19,11 +19,11 @@ import logging
 from datetime import datetime, timedelta
 
 import config
-from utils.logger import setup_logging
+from utils.logger import get_logger
 from cache_manager import cache_api_call
 
-# Set up logger for this module
-logger = setup_logging()
+# Get logger for this module
+logger = get_logger(__name__)
 
 @cache_api_call(expiry_hours=6, cache_key_prefix="market_conditions")
 def get_market_conditions(data_provider=None, force_refresh=False):

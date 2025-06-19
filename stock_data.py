@@ -18,14 +18,14 @@ from tqdm import tqdm
 from alpha_vantage.fundamentaldata import FundamentalData
 
 import config
-from utils.logger import setup_logging
+from utils.logger import get_logger
 from universe import get_stock_universe
 from cache_manager import cache_api_call
 import data_providers
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 
-# Set up logger for this module
-logger = setup_logging()
+# Get logger for this module
+logger = get_logger(__name__)
 
 # Default data provider - Financial Modeling Prep since we have a paid subscription
 default_provider = FinancialModelingPrepProvider()

@@ -20,10 +20,10 @@ from data_processing import (
     calculate_price_statistics,
     analyze_debt_and_cash
 )
-from utils.logger import setup_logging
+from utils.logger import get_logger
 
-# Set up logging
-logger = setup_logging()
+# Get logger for this module
+logger = get_logger(__name__)
 
 # Ensure results directory exists
 Path(config.RESULTS_DIR).mkdir(parents=True, exist_ok=True)

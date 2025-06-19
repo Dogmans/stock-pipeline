@@ -26,7 +26,7 @@ import pandas as pd
 
 # Import pipeline modules
 import config
-from utils.logger import setup_logging
+from utils.logger import setup_logging, get_logger
 from utils.filesystem import ensure_directories_exist
 from universe import get_stock_universe
 from stock_data import get_historical_prices, get_fundamental_data, fetch_52_week_lows
@@ -107,12 +107,14 @@ def parse_arguments():
 def main():
     """
     Main function to run the stock screening pipeline.
-    """
-    # Parse command line arguments
+    """    # Parse command line arguments
     args = parse_arguments()
     
-    # Setup logging
-    logger = setup_logging()
+    # Setup logging - only here in main.py since this is the entry point
+    setup_logging()
+    
+    # Get a logger for this module
+    logger = get_logger(__name__)
     logger.info("Starting stock screening pipeline")
     
     # Create necessary directories

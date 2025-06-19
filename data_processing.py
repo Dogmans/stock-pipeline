@@ -21,7 +21,7 @@ import os
 from sklearn.preprocessing import StandardScaler
 
 import config
-from utils.logger import setup_logging
+from utils.logger import get_logger
 from stock_data import get_historical_prices
 
 # Try to import TA-Lib, but provide fallback if not available
@@ -32,8 +32,8 @@ except ImportError:
     logging.warning("TA-Lib not available. Some technical indicators will be calculated using pandas instead.")
     HAS_TALIB = False
 
-# Set up logger for this module
-logger = setup_logging()
+# Get logger for this module
+logger = get_logger(__name__)
 
 # Ensure results directory exists
 Path(config.RESULTS_DIR).mkdir(parents=True, exist_ok=True)
