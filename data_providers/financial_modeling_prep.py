@@ -2,6 +2,73 @@
 Financial Modeling Prep data provider for retrieving financial data.
 
 This module implements the BaseDataProvider interface for Financial Modeling Prep API.
+
+Example Responses
+----------------
+
+get_historical_prices:
+    Returns a dictionary where keys are symbols and values are DataFrames:
+    {
+        'AAPL': DataFrame(
+            Date        Open      High       Low      Close     Volume
+            2023-01-03  130.28    130.90     124.17   125.07    111019584
+            2023-01-04  127.13    128.66     125.08   126.36    70790742
+            ...
+        )
+    }
+    
+    Each DataFrame contains columns: Open, High, Low, Close, Volume
+
+get_income_statement:
+    Returns a DataFrame with financial statement data:
+    
+    fiscalDateEnding  symbol  reportedCurrency  cik    fillingDate  acceptedDate    calendarYear  period  revenue        costOfRevenue  grossProfit    totalRevenue   operatingExpenses  operatingIncome  netIncome     ...
+    2022-09-30        AAPL    USD              320193  2022-10-28   2022-10-28      2022         FY      394328000000   223546000000   170782000000   394328000000   48187000000        119800000000     99803000000   ...
+    2021-09-30        AAPL    USD              320193  2021-10-29   2021-10-29      2021         FY      365817000000   212981000000   152836000000   365817000000   43887000000        108949000000     94680000000   ...
+    ...
+
+get_balance_sheet:
+    Returns a DataFrame with balance sheet data:
+    
+    fiscalDateEnding  symbol  reportedCurrency  cik    fillingDate  acceptedDate    calendarYear  period  cashAndCashEquivalents  shortTermInvestments  totalCurrentAssets  totalAssets   totalCurrentLiabilities  totalLiabilities  totalShareholderEquity  ...
+    2022-09-30        AAPL    USD              320193  2022-10-28   2022-10-28      2022         FY      23646000000            24658000000          135405000000       352755000000  153982000000             302083000000      50672000000           ...
+    2021-09-30        AAPL    USD              320193  2021-10-29   2021-10-29      2021         FY      17305000000            27699000000          134836000000       351002000000  125481000000             287912000000      63090000000           ...
+    ...
+
+get_cash_flow:
+    Returns a DataFrame with cash flow data:
+    
+    fiscalDateEnding  symbol  reportedCurrency  cik    fillingDate  acceptedDate    calendarYear  period  netIncome   operatingCashflow  capitalExpenditures  freeCashFlow   dividendPayout  changeInCash  repurchaseOfStock  issuanceOfStock  ...
+    2022-09-30        AAPL    USD              320193  2022-10-28   2022-10-28      2022         FY      99803000000  122151000000      -11085000000        111066000000   14841000000     480000000      89402000000        4800000000       ...
+    2021-09-30        AAPL    USD              320193  2021-10-29   2021-10-29      2021         FY      94680000000  104038000000      -11085000000        92953000000    14467000000     -3860000000    85971000000        1105000000       ...
+    ...
+
+get_company_overview:
+    Returns a dictionary with company information:
+    {
+        'Symbol': 'AAPL', 
+        'Name': 'Apple Inc',
+        'Description': 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide...',
+        'Exchange': 'NASDAQ',
+        'Sector': 'Technology',
+        'Industry': 'Consumer Electronics',
+        'MarketCapitalization': 3019983978000,
+        'PERatio': 31.4,
+        'EPS': 6.14,
+        'Beta': 1.28,
+        '52WeekHigh': '198.23',
+        '52WeekLow': '124.17',
+        'LastDividendDate': '2023-05-12',
+        'PriceToBookRatio': 49.7,
+        'PriceToSalesRatio': 7.65,
+        'SharesOutstanding': 15634232000,
+        'ReturnOnEquityTTM': 1.566,
+        'ReturnOnAssetsTTM': 0.2223,
+        'ProfitMargin': 0.246,
+        'OperatingMarginTTM': 0.3039,
+        'DebtToEquityRatio': 1.86,
+        'EVToEBITDA': 18.4
+    }
 """
 from typing import Dict, List, Union, Any
 import pandas as pd

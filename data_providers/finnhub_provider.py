@@ -2,6 +2,73 @@
 Finnhub data provider for retrieving financial data.
 
 This module implements the BaseDataProvider interface for Finnhub API.
+
+Example Responses
+----------------
+
+get_historical_prices:
+    Returns a dictionary where keys are symbols and values are DataFrames:
+    {
+        'AAPL': DataFrame(
+            Date        Open      High       Low      Close    Volume
+            2023-01-03  130.28    130.90     124.17   125.07   111019584
+            2023-01-04  127.13    128.66     125.08   126.36   70790742
+            ...
+        )
+    }
+    
+    Each DataFrame contains columns: Open, High, Low, Close, Volume
+
+get_income_statement:
+    Returns a DataFrame with financial statement data:
+    
+    fiscalDateEnding  period     reportedCurrency  totalRevenue   costOfRevenue  grossProfit   operatingExpenses  operatingIncome  netIncome    ebit        ebitda      ...
+    2022-12-31        annual     USD              394328000000   223546000000   170782000000  48187000000        119800000000     99803000000  119800000000 135372000000 ...
+    2021-12-31        annual     USD              365817000000   212981000000   152836000000  43887000000        108949000000     94680000000  108949000000 123136000000 ...
+    ...
+
+get_balance_sheet:
+    Returns a DataFrame with balance sheet data:
+    
+    fiscalDateEnding  period     reportedCurrency  totalAssets   totalCurrentAssets  totalLiabilities  totalCurrentLiabilities  totalShareholderEquity  cash        shortTermInvestments  longTermDebt  ...
+    2022-12-31        annual     USD              352755000000  135405000000        302083000000      153982000000             50672000000            23646000000  24658000000           110000000000  ...
+    2021-12-31        annual     USD              351002000000  134836000000        287912000000      125481000000             63090000000            17305000000  27699000000           109106000000  ...
+    ...
+
+get_cash_flow:
+    Returns a DataFrame with cash flow data:
+    
+    fiscalDateEnding  period     reportedCurrency  operatingCashflow  capitalExpenditures  freeCashflow   dividendPayout  changeInCash  ...
+    2022-12-31        annual     USD              122151000000      -11085000000         111066000000   14841000000     480000000     ...
+    2021-12-31        annual     USD              104038000000      -11085000000         92953000000    14467000000     -3860000000   ...
+    ...
+
+get_company_overview:
+    Returns a dictionary with company information:
+    {
+        'Symbol': 'AAPL',
+        'Name': 'Apple Inc',
+        'Description': 'Technology',
+        'Exchange': 'NASDAQ NMS - GLOBAL MARKET',
+        'Industry': 'Technology',
+        'Sector': 'Technology',
+        'MarketCapitalization': 3019983978000,
+        '52WeekHigh': 198.23,
+        '52WeekLow': 124.17,
+        'PERatio': 31.4,
+        'PEGRatio': 2.91,
+        'BookValue': 3.835,
+        'DividendPerShare': 0.96,
+        'DividendYield': 0.0049,
+        'EPS': 6.14,
+        'ProfitMargin': 0.246,
+        'OperatingMarginTTM': 0.3039,
+        'ReturnOnAssetsTTM': 0.2223,
+        'ReturnOnEquityTTM': 1.566,
+        'RevenueTTM': 394328000000,
+        'GrossProfitTTM': 0.433,
+        'Beta': 1.28
+    }
 """
 from typing import Dict, List, Union, Any
 import pandas as pd

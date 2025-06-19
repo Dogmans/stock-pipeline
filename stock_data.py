@@ -22,12 +22,13 @@ from utils.logger import setup_logging
 from universe import get_stock_universe
 from cache_manager import cache_api_call
 import data_providers
+from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 
 # Set up logger for this module
 logger = setup_logging()
 
-# Default data provider - Multi-provider with fallbacks
-default_provider = data_providers.default_provider
+# Default data provider - Financial Modeling Prep since we have a paid subscription
+default_provider = FinancialModelingPrepProvider()
 
 @cache_api_call(cache_key_prefix="historical_prices")
 def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=False, provider=None):
@@ -42,13 +43,13 @@ def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=Fal
         period (str): Time period to fetch (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
         interval (str): Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
-        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
+        provider (BaseDataProvider, optional): Data provider to use. If None, uses Financial Modeling Prep.
     
     Returns:
         dict: Dictionary of DataFrames with historical price data,
               keyed by symbol
     """
-    # Use the specified provider or the default one
+    # Use the specified provider or the default Financial Modeling Prep provider
     data_provider = provider or default_provider
     
     # Use the provider to get historical prices
@@ -102,7 +103,7 @@ def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=Fal
 @cache_api_call(expiry_hours=24, cache_key_prefix="fundamental_data")
 def get_fundamental_data(symbols, force_refresh=False, provider=None):
     """
-    Fetch fundamental data for a list of symbols using the configured provider.
+    Fetch fundamental data for a list of symbols using the Financial Modeling Prep provider.
     
     Retrieves income statements, balance sheets, cash flow statements,
     and company overviews.
@@ -110,12 +111,12 @@ def get_fundamental_data(symbols, force_refresh=False, provider=None):
     Args:
         symbols (list): List of ticker symbols
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
-        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
+        provider (BaseDataProvider, optional): Data provider to use. If None, uses Financial Modeling Prep.
     
     Returns:
         dict: Dictionary with fundamental data for each symbol
     """
-    # Use the specified provider or the default one
+    # Use the specified provider or the default Financial Modeling Prep provider
     data_provider = provider or default_provider
     
     # Handle case where symbols is a single string
@@ -161,7 +162,8 @@ def fetch_52_week_lows(top_n=50, force_refresh=False, provider=None):
     
     Args:
         top_n (int): Number of stocks to return
-        force_refresh (bool, optional): If True, bypass cache and fetch fresh data        provider (BaseDataProvider, optional): Data provider to use. If None, uses default provider.
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+        provider (BaseDataProvider, optional): Data provider to use. If None, uses Financial Modeling Prep.
     
     Returns:
         DataFrame: DataFrame with stocks at or near 52-week lows, sorted by

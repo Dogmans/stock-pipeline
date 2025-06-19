@@ -83,10 +83,9 @@ def parse_arguments():
     
     parser.add_argument('--cache-info', action='store_true',
                         help='Display information about the current cache and exit')
-    
-    # Data provider options
+      # Data provider options
     parser.add_argument('--data-provider', type=str, default=None,
-                        choices=['alpha_vantage', 'yfinance', 'financial_modeling_prep', 'finnhub', 'multi'],
+                        choices=['alpha_vantage', 'yfinance', 'financial_modeling_prep', 'finnhub'],
                         help='Data provider to use for financial data')
     
     parser.add_argument('--provider-stats', action='store_true',
@@ -94,9 +93,6 @@ def parse_arguments():
     
     parser.add_argument('--chunk-size', type=int, default=None,
                         help='Process symbols in chunks of this size to stay within API limits')
-    
-    parser.add_argument('--multi-source', action='store_true',
-                        help='Use multiple data sources with automatic failover')
     
     # Rate limiting options
     parser.add_argument('--disable-rate-limiting', action='store_true',
@@ -148,14 +144,11 @@ def main():
     # Set the output directory
     output_dir = args.output
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Select data provider
-    if args.multi_source:
-        provider_name = 'multi'
-    elif args.data_provider:
+      # Select data provider
+    if args.data_provider:
         provider_name = args.data_provider
     else:
-        provider_name = None  # Use default
+        provider_name = None  # Use default (Financial Modeling Prep)
     
     data_provider = data_providers.get_provider(provider_name)
     logger.info(f"Using data provider: {data_provider.get_provider_name()}")

@@ -147,6 +147,18 @@ del "c:\Programs\stock_pipeline\data_collection.py.new"
 
 These files were no longer used as their functionality had been refactored into more focused modules.
 
+# Files to be Removed
+The following file has been deprecated and can be removed after all references have been updated:
+```
+data_providers/multi_provider.py
+tests/test_provider_priority.py
+```
+
+Please run all tests before removing these files to ensure no functionality is broken.
+```powershell
+python -m unittest discover -s tests
+```
+
 ## Maintenance Logs
 
 ### 2025-06-13: Codebase Cleanup and Documentation Update
@@ -401,20 +413,23 @@ python main.py --multi-source --universe russell2000 --chunk-size 50 --clear-old
    - Better resilience with automatic provider fallback
    - Proper handling of API rate limits
 
-## PowerShell Command Syntax Notes
+## Provider Changes (June 19, 2025)
 
-When running multiple commands in PowerShell, use the semicolon (`;`) as a command separator instead of double ampersand (`&&`), which is used in cmd.exe or bash:
+### Removed MultiProvider
+The `multi_provider.py` has been removed in favor of directly selecting specific providers best suited for each data type. Financial Modeling Prep is now the default provider since we have a paid subscription.
 
 ```powershell
-# Correct PowerShell syntax for multiple commands 
-cd c:\Programs\stock_pipeline; python -m unittest tests.test_market_data
+# Check current default provider
+python -c "import data_providers; print(data_providers.default_provider.get_provider_name())"
 
-# Alternatively, you can use multiple statements
-cd c:\Programs\stock_pipeline
-python -m unittest tests.test_market_data
+# Use a specific provider
+python main.py --data-provider yfinance
 ```
 
-This is important when scripting or running commands directly in PowerShell.
+### Provider Selection by Data Type
+- **Market Indexes & VIX**: Automatically uses YFinance provider
+- **Fundamental Data**: Uses Financial Modeling Prep by default
+- **Historical Prices**: Uses Financial Modeling Prep by default
 
 ### 2025-06-18: Added Financial Modeling Prep API Key
 
@@ -743,5 +758,83 @@ When writing tests that interact with the cache system:
 1. Mock the `cache_store` object instead of patching or manipulating the `CACHE_DIR`
 2. Use the store's methods: `save()`, `load()`, `exists()`, `delete()`, `clear_all()`
 3. Always call `close()` on the store when done to avoid file locking issues
+
+## Testing the New Provider Structure (June 19, 2025)
+
+We've updated our testing strategy to focus on testing each provider for only the relevant methods they're actually used for in our system:
+
+```powershell
+# Run tests for the updated provider structure
+python -m unittest tests.test_providers
+
+# Check specific test cases for YFinance (used for market indexes and VIX)
+python -m unittest tests.test_providers.TestProviders.test_yfinance_get_market_indexes
+python -m unittest tests.test_providers.TestProviders.test_yfinance_get_vix_data
+
+# Check specific test cases for Financial Modeling Prep (our primary data provider)
+python -m unittest tests.test_providers.TestProviders.test_fmp_get_historical_prices
+python -m unittest tests.test_providers.TestProviders.test_fmp_get_company_overview
+```
+
+## Provider Testing Strategy (June 19, 2025)
+
+After removing the `MultiProvider` approach, we've implemented a focused testing strategy that only tests the methods actually used from each provider:
+
+```powershell
+# Run the provider tests
+python -m unittest tests.test_providers
+
+# Run tests for a specific provider
+python -m unittest tests.test_providers.TestProviders.test_yfinance_get_market_indexes
+python -m unittest tests.test_providers.TestProviders.test_fmp_get_historical_prices
+```
+
+### Provider Specializations
+
+Each provider is now tested only for their specialized functionality:
+
+1. **YFinance Provider**:
+   - Market indexes (^GSPC, ^DJI, etc.)
+   - VIX data (^VIX)
+
+2. **Financial Modeling Prep Provider** (Primary):
+   - Stock historical prices
+   - Company overview/profile
+   - Financial statements (income statement, balance sheet, cash flow)
+
+3. **Finnhub Provider**:
+   - Company overview/profile
+
+This approach ensures we only test the functionality that's actually being used in the application, rather than testing all methods against all providers.
+
+## MultiIndex DataFrame Handling (June 19, 2025)
+
+YFinance provider returns MultiIndex DataFrames for market indexes and VIX data. We've updated code to handle both standard and MultiIndex DataFrame formats:
+
+1. Updated `market_data.py` to handle various DataFrame structures for VIX data
+2. Updated `visualization.py` to properly extract Close and Volume data regardless of the DataFrame structure
+
+### Testing MultiIndex DataFrame Handling
+
+```powershell
+# Run specific YFinance tests
+python -m unittest tests.test_providers.TestProviders.test_yfinance_get_market_indexes
+python -m unittest tests.test_providers.TestProviders.test_yfinance_get_vix_data
+
+# Run visualization with market data
+python -c "
+import sys
+sys.path.append('.')
+from data_providers.yfinance_provider import YFinanceProvider
+from visualization import create_market_overview
+import plotly.io as pio
+
+# Get market index data
+provider = YFinanceProvider()
+indexes = provider.get_historical_prices(['^GSPC', '^DJI'], period='1mo')
+fig = create_market_overview(indexes)
+pio.write_html(fig, 'market_overview_test.html', auto_open=True)
+"
+```
 
 

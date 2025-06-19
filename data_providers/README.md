@@ -1,15 +1,15 @@
 # Data Provider Architecture
 
-This directory contains the data provider abstraction layer that allows the stock pipeline to retrieve financial data from multiple sources with automatic failback and error handling.
+This directory contains the data provider abstraction layer that allows the stock pipeline to retrieve financial data from various sources.
 
-## Provider Priority (as of June 18, 2025)
+## Provider Selection (as of June 19, 2025)
 
-Providers are tried in the following order in the MultiProvider:
+The project now directly uses specific providers for different data needs:
 
-1. **YFinance** - Always available with no API key required, but limited data for some metrics
-2. **Financial Modeling Prep** - Primary API source, comprehensive data with good documentation (PREFERRED)
-3. **Alpha Vantage** - Secondary API source, fallback when FMP is unavailable
-4. **Finnhub** - Additional data source, mainly for real-time quotes and technical indicators
+1. **Financial Modeling Prep** - Primary provider for most data (PREFERRED, default due to paid subscription)
+2. **YFinance** - Used specifically for market indexes and VIX data where it excels
+3. **Alpha Vantage** - Available for specific data types if needed
+4. **Finnhub** - Available for specific real-time quotes and technical indicators if needed
 
 ## API Limits
 
@@ -45,15 +45,11 @@ The pipeline now includes automatic rate limiting to prevent exceeding API limit
 
 2. **Leverage Caching**: Most API responses are cached for 24 hours (prices) or 1 week (fundamentals)
 
-3. **Prefer Direct Provider Selection** for specific needs:
+3. **Choose Specific Provider** for special cases:
    ```powershell
-   python main.py --data-provider financial_modeling_prep
+   python main.py --data-provider yfinance
    ```
-
-4. **Use MultiProvider** for production:
-   ```powershell
-   python main.py --multi-source
-   ```
+   (Financial Modeling Prep is the default provider with paid subscription)
 
 ## Implementation Details
 
@@ -64,7 +60,7 @@ Each provider implements the BaseDataProvider interface defined in `base.py`. Th
 1. Create a new file: `my_provider.py`
 2. Implement the BaseDataProvider interface
 3. Add it to the provider registry in `__init__.py`
-4. Update the MultiProvider to include it
+4. Import it and use it directly in the appropriate modules
 
 ### Provider Statistics
 
@@ -76,21 +72,21 @@ python main.py --provider-stats
 
 This shows success rates, call counts, and errors for each provider.
 
-## Testing Provider Priority
+## Testing Providers
 
-The provider priority order is enforced in the `MultiProvider` class and verified by unit tests:
+Each provider is tested individually:
 
 ```powershell
-python -m unittest tests.test_provider_priority
+python -m unittest tests.test_providers
 ```
 
 The tests verify that:
-1. Providers are initialized in the correct order
-2. The fallback mechanism works properly
-3. Results include provider tracking information
+1. Each provider correctly retrieves data
+2. The data format is standardized
+3. Error handling works as expected
 
-You can also check the current provider order with:
+You can check the default provider with:
 
 ```powershell
-python -c "import data_providers; provider = data_providers.get_provider('multi'); print([p.get_provider_name() for p in provider.providers])"
+python -c "import data_providers; provider = data_providers.get_provider(); print(provider.get_provider_name())"
 ```

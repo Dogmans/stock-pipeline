@@ -547,27 +547,66 @@ def create_market_overview(market_indexes):
         color = colors[color_idx % len(colors)]
         color_idx += 1
         
-        fig.add_trace(
-            go.Scatter(
-                x=df.index, 
-                y=df['close'], 
-                name=f"{index_name} Price",
-                line=dict(color=color)
-            ),
-            row=1, col=1
-        )
+        # Handle MultiIndex columns from YFinance
+        close_series = None
+        volume_series = None
         
-        # Add volume to bottom subplot
-        fig.add_trace(
-            go.Bar(
-                x=df.index, 
-                y=df['volume'], 
-                name=f"{index_name} Volume",
-                marker_color=color,
-                opacity=0.7
-            ),
-            row=2, col=1
-        )
+        # Check if this is a MultiIndex DataFrame (from YFinance)
+        if isinstance(df.columns, pd.MultiIndex):
+            logger.info(f"Processing MultiIndex DataFrame for {index_name}")
+            
+            # Try to find 'Close' and 'Volume' in the MultiIndex
+            for column in df.columns:
+                if 'Close' in column:
+                    close_series = df[column]
+                elif 'close' in column:
+                    close_series = df[column]
+                
+                if 'Volume' in column:
+                    volume_series = df[column]
+                elif 'volume' in column:
+                    volume_series = df[column]
+            
+            logger.info(f"Found close series: {close_series is not None}")
+            logger.info(f"Found volume series: {volume_series is not None}")
+        else:
+            # Standard DataFrame
+            if 'Close' in df.columns:
+                close_series = df['Close']
+            elif 'close' in df.columns:
+                close_series = df['close']
+            
+            if 'Volume' in df.columns:
+                volume_series = df['Volume']
+            elif 'volume' in df.columns:
+                volume_series = df['volume']
+        
+        # Add price data if we found the close series
+        if close_series is not None:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index, 
+                    y=close_series, 
+                    name=f"{index_name} Price",
+                    line=dict(color=color)
+                ),
+                row=1, col=1
+            )
+        
+        # Add volume data if we found the volume series
+        if volume_series is not None:
+            fig.add_trace(
+                go.Bar(
+                    x=df.index, 
+                    y=volume_series, 
+                    name=f"{index_name} Volume",
+                    marker_color=color,
+                    opacity=0.7
+                ),
+                row=2, col=1
+            )
+        else:
+            logger.warning(f"Could not find volume data for {index_name}")
     
     # Update layout
     fig.update_layout(

@@ -44,14 +44,24 @@ def get_market_conditions(data_provider=None, force_refresh=False):
     market_data = {}
     
     try:
-        # Import the data provider module if not provided
+        # Import the data provider modules if not provided
         if data_provider is None:
-            import data_providers
-            data_provider = data_providers.get_provider()
-            logger.info(f"Using default data provider: {data_provider.get_provider_name()}")
+            # For index data, use YFinance provider specifically as it works best with market indexes
+            from data_providers.yfinance_provider import YFinanceProvider
+            yf_provider = YFinanceProvider()
+            logger.info(f"Using YFinance provider for market index data")
             
-        # Get data for market indexes
-        indexes_data = data_provider.get_historical_prices(
+            # For sector ETF data, use Financial Modeling Prep as preferred provider
+            from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+            fmp_provider = FinancialModelingPrepProvider()
+            logger.info(f"Using Financial Modeling Prep provider for sector ETF data")
+        else:
+            # If a specific provider is requested, use it for both
+            yf_provider = data_provider
+            fmp_provider = data_provider
+            
+        # Get data for market indexes - YFinance tends to be most reliable for these
+        indexes_data = yf_provider.get_historical_prices(
             config.MARKET_INDEXES, 
             period="1y", 
             interval="1d",
@@ -62,8 +72,8 @@ def get_market_conditions(data_provider=None, force_refresh=False):
             if index in indexes_data:
                 market_data[index] = indexes_data[index]
         
-        # Get VIX data
-        vix_data = data_provider.get_historical_prices(
+        # Get VIX data - YFinance tends to be most reliable for VIX
+        vix_data = yf_provider.get_historical_prices(
             ["^VIX"], 
             period="1y", 
             interval="1d",
@@ -72,9 +82,9 @@ def get_market_conditions(data_provider=None, force_refresh=False):
         if "^VIX" in vix_data:
             market_data['VIX'] = vix_data["^VIX"]
         
-        # Get sector ETF data
+        # Get sector ETF data - Use FMP for ETFs since we have a paid subscription
         sector_etfs = list(config.SECTOR_ETFS.keys())
-        etf_data = data_provider.get_historical_prices(
+        etf_data = fmp_provider.get_historical_prices(
             sector_etfs, 
             period="1y", 
             interval="1d",
@@ -113,9 +123,7 @@ def is_market_in_correction(data_provider=None, force_refresh=False):
         if data_provider is None:
             import data_providers
             data_provider = data_providers.get_provider()
-            logger.info(f"Using default data provider for VIX data: {data_provider.get_provider_name()}")
-            
-        # Get latest VIX value
+            logger.info(f"Using default data provider for VIX data: {data_provider.get_provider_name()}")        # Get latest VIX value
         vix_data = data_provider.get_historical_prices(
             ["^VIX"], 
             period="5d", 
@@ -123,8 +131,95 @@ def is_market_in_correction(data_provider=None, force_refresh=False):
             force_refresh=force_refresh
         )
         
+        latest_vix = None
+        
         if "^VIX" in vix_data:
-            latest_vix = vix_data["^VIX"]['Close'].iloc[-1]
+            df = vix_data["^VIX"]
+            
+            # Handle different DataFrame structures that could be returned
+            try:
+                # Case 1: Standard DataFrame with 'Close' as a column
+                if 'Close' in df.columns and not isinstance(df.columns, pd.MultiIndex):
+                    latest_vix = df['Close'].iloc[-1]
+                    logger.info(f"Retrieved VIX from standard DataFrame structure: {latest_vix}")
+                
+                # Case 2: MultiIndex columns with ('Ticker', 'Price') format
+                elif isinstance(df.columns, pd.MultiIndex):
+                    # Identify which level contains 'Close'
+                    levels = [df.columns.get_level_values(i) for i in range(df.columns.nlevels)]
+                    
+                    # If 'Close' is in any level
+                    for i, level in enumerate(levels):
+                        if 'Close' in level:
+                            # Get all columns where this level has value 'Close'
+                            close_cols = [col for col in df.columns if col[i] == 'Close']
+                            if close_cols:
+                                latest_vix = df[close_cols[0]].iloc[-1]
+                                logger.info(f"Retrieved VIX from MultiIndex columns: {latest_vix}")
+                                break
+                
+                # Case 3: Last row might contain Close in MultiIndex
+                if latest_vix is None:
+                    last_row = df.iloc[-1]
+                    if isinstance(last_row.index, pd.MultiIndex):
+                        # If MultiIndex has 'Close' in it
+                        for i in range(last_row.index.nlevels):
+                            if 'Close' in last_row.index.get_level_values(i):
+                                # This level contains 'Close', find the position
+                                for j, idx in enumerate(last_row.index):
+                                    if isinstance(idx, tuple) and 'Close' in idx:
+                                        latest_vix = last_row.iloc[j]
+                                        logger.info(f"Retrieved VIX from MultiIndex rows: {latest_vix}")
+                                        break
+                    # Handle case shown in last request where 'Close' is in the index
+                    elif hasattr(last_row, 'Close'):
+                        latest_vix = last_row.Close
+                        logger.info(f"Retrieved VIX from last_row.Close: {latest_vix}")
+                    elif 'Close' in last_row.index:
+                        latest_vix = last_row['Close']
+                        logger.info(f"Retrieved VIX from last_row['Close']: {latest_vix}")
+                        
+                # Case 4: Using xs() method to access MultiIndex
+                if latest_vix is None and isinstance(last_row.index, pd.MultiIndex):
+                    try:
+                        latest_vix = df.xs('Close', level=1, axis=1).iloc[-1]
+                        logger.info(f"Retrieved VIX using xs() method: {latest_vix}")
+                    except:
+                        pass
+            
+            except Exception as inner_e:
+                logger.error(f"Failed to extract Close price from VIX data: {inner_e}")
+                # Print the structure of the DataFrame to help diagnose issues
+                try:
+                    if not df.empty:
+                        logger.info(f"VIX data structure - columns: {df.columns}")
+                        logger.info(f"VIX data structure - last row index: {type(df.iloc[-1].index)}")
+                except:
+                    pass
+        
+        # If we were unable to extract VIX data by any method
+        if latest_vix is None:
+            # Try with 'VIX' symbol without caret as fallback
+            try:
+                fallback_data = data_provider.get_historical_prices(
+                    ["VIX"], 
+                    period="5d", 
+                    interval="1d",
+                    force_refresh=force_refresh
+                )
+                
+                if "VIX" in fallback_data and not fallback_data["VIX"].empty:
+                    df = fallback_data["VIX"]
+                    if 'Close' in df.columns:
+                        latest_vix = df['Close'].iloc[-1]
+                        logger.info(f"Retrieved VIX using fallback symbol without caret: {latest_vix}")
+            except Exception as fallback_e:
+                logger.error(f"Fallback VIX retrieval failed: {fallback_e}")
+        
+        # If we still don't have VIX data, return error
+        if latest_vix is None:
+            logger.error("Could not retrieve VIX data using any available method")
+            return False, "Error: Could not retrieve market status"
             
             if latest_vix >= config.VIX_BLACK_SWAN_THRESHOLD:
                 logger.info(f"Market is in Black Swan territory (VIX: {latest_vix:.2f})")

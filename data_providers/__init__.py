@@ -10,10 +10,9 @@ from .alpha_vantage import AlphaVantageProvider
 from .yfinance_provider import YFinanceProvider
 from .financial_modeling_prep import FinancialModelingPrepProvider
 from .finnhub_provider import FinnhubProvider
-from .multi_provider import MultiProvider
 
-# Default provider instance for easy access
-default_provider = MultiProvider()
+# Default provider instance for easy access - Financial Modeling Prep
+default_provider = FinancialModelingPrepProvider()
 
 # Factory function to create a provider instance by name
 def get_provider(provider_name=None):
@@ -21,7 +20,7 @@ def get_provider(provider_name=None):
     Get a provider instance by name.
     
     Args:
-        provider_name (str): Name of the provider. If None, returns the default MultiProvider.
+        provider_name (str): Name of the provider. If None, returns the default provider.
         
     Returns:
         BaseDataProvider: Provider instance.
@@ -31,9 +30,7 @@ def get_provider(provider_name=None):
         'yfinance': YFinanceProvider(),
         'financial_modeling_prep': FinancialModelingPrepProvider(),
         'finnhub': FinnhubProvider(),
-        'multi': MultiProvider(),
-    }
-    
+    }    
     if provider_name is None:
         return default_provider
     

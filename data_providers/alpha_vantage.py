@@ -2,6 +2,77 @@
 Alpha Vantage data provider for retrieving financial data.
 
 This module implements the BaseDataProvider interface for Alpha Vantage API.
+
+Example Responses
+----------------
+
+get_historical_prices:
+    Returns a dictionary where keys are symbols and values are DataFrames:
+    {
+        'AAPL': DataFrame(
+            Date        Open      High       Low      Close    Volume
+            2023-01-03  130.28    130.90     124.17   125.07   111019584
+            2023-01-04  127.13    128.66     125.08   126.36   70790742
+            ...
+        )
+    }
+    
+    Each DataFrame contains columns: Open, High, Low, Close, Volume
+
+get_income_statement:
+    Returns a DataFrame with financial statement data:
+    
+    fiscalDateEnding  reportedCurrency  grossProfit   totalRevenue   costOfRevenue  ...  netIncome  ebitda      ebit        ...
+    2022-09-30        USD              170782000000   394328000000   223546000000   ...  99803000000 135372000000 119800000000 ...
+    2021-09-30        USD              152836000000   365817000000   212981000000   ...  94680000000 123136000000 108949000000 ...
+    ...
+
+get_balance_sheet:
+    Returns a DataFrame with balance sheet data:
+    
+    fiscalDateEnding  reportedCurrency  totalAssets   totalCurrentAssets  ...  totalShareholderEquity  commonStockSharesOutstanding  ...
+    2022-09-30        USD              352755000000   135405000000        ...  50672000000            15908118000                   ...
+    2021-09-30        USD              351002000000   134836000000        ...  63090000000            16426786000                   ...
+    ...
+
+get_cash_flow:
+    Returns a DataFrame with cash flow data:
+    
+    fiscalDateEnding  reportedCurrency  operatingCashflow  capitalExpenditures  ...  dividendPayout  netIncome    ...
+    2022-09-30        USD              122151000000      -11085000000          ...  14841000000     99803000000   ...
+    2021-09-30        USD              104038000000      -11085000000          ...  14467000000     94680000000   ...
+    ...
+
+get_company_overview:
+    Returns a dictionary with company information:
+    {
+        'Symbol': 'AAPL',
+        'AssetType': 'Common Stock',
+        'Name': 'Apple Inc',
+        'Description': 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide...',
+        'CIK': '320193',
+        'Exchange': 'NASDAQ',
+        'Currency': 'USD',
+        'Country': 'USA',
+        'Sector': 'Technology',
+        'Industry': 'Consumer Electronics',
+        'Address': 'One Apple Park Way, Cupertino, CA, United States, 95014',
+        'FiscalYearEnd': 'September',
+        'LatestQuarter': '2023-06-30',
+        'MarketCapitalization': '3019983978000',
+        'EBITDA': '126330004000',
+        'PERatio': '31.4',
+        'PEGRatio': '2.91',
+        'BookValue': '3.835',
+        'DividendPerShare': '0.96',
+        'DividendYield': '0.0049',
+        'EPS': '6.14',
+        'RevenuePerShareTTM': '25.01',
+        'ProfitMargin': '0.246',
+        '52WeekHigh': '198.23',
+        '52WeekLow': '124.17',
+        ...
+    }
 """
 from typing import Dict, List, Union, Any
 import pandas as pd

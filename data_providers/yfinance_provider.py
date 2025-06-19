@@ -2,6 +2,69 @@
 Yahoo Finance data provider for retrieving financial data.
 
 This module implements the BaseDataProvider interface for yfinance.
+
+Example Responses
+----------------
+
+get_historical_prices:
+    Returns a dictionary where keys are symbols and values are DataFrames:
+    {
+        'AAPL': DataFrame(
+            Date        Open      High       Low     Close    Volume  Dividends  Stock Splits
+            2023-01-03  125.07    130.90    124.17   125.07   111019584  0.0      0.0
+            2023-01-04  126.89    128.66    125.08   126.36   70790742   0.0      0.0
+            ...
+        )
+    }
+    
+    Note: For multiple symbols, yfinance may return MultiIndex DataFrames.
+    Each DataFrame contains columns: Open, High, Low, Close, Volume, Dividends, Stock Splits
+
+get_income_statement:
+    Returns a DataFrame with financial statement data:
+    
+    fiscalDateEnding  totalRevenue  costOfRevenue  grossProfit  operatingExpenses  operatingIncome  netIncome  ebit      ebitda
+    2022-09-30        394328000000  223546000000   170782000000  48187000000        119800000000     99803000000  119800000000  135372000000
+    2021-09-30        365817000000  212981000000   152836000000  43887000000        108949000000     94680000000  108949000000  123136000000
+    ...
+
+get_balance_sheet:
+    Returns a DataFrame with balance sheet data:
+    
+    fiscalDateEnding  totalAssets   totalCurrentAssets  totalLiabilities  totalCurrentLiabilities  totalShareholderEquity  cash        shortTermInvestments  longTermDebt  commonStock
+    2022-09-30        352755000000  135405000000        302083000000      153982000000            50672000000            23646000000  24658000000            110000000000  64849000000
+    2021-09-30        351002000000  134836000000        287912000000      125481000000            63090000000            17305000000  27699000000            109106000000  57365000000
+    ...
+
+get_cash_flow:
+    Returns a DataFrame with cash flow data:
+    
+    fiscalDateEnding  operatingCashflow  capitalExpenditures  freeCashflow   dividendPayout  netBorrowings  netIncome    changeInCash  repurchaseOfStock  issuanceOfStock
+    2022-09-30        122151000000      -11085000000         111066000000   14841000000     -9543000000    99803000000   480000000     89402000000        4800000000  
+    2021-09-30        104038000000      -11085000000         92953000000    14467000000     12665000000    94680000000   -3860000000   85971000000        1105000000
+    ...
+
+get_company_overview:
+    Returns a dictionary with company information:
+    {
+        'Symbol': 'AAPL', 
+        'Name': 'Apple Inc.',
+        'Description': 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide...',
+        'Exchange': 'NASDAQ',
+        'Sector': 'Technology',
+        'Industry': 'Consumer Electronics',
+        'MarketCapitalization': 2900000000000,
+        'EBITDA': 135372000000,
+        'PERatio': 29.12,
+        'PEGRatio': 2.85,
+        'BookValue': 3.73,
+        'DividendPerShare': 0.92,
+        'DividendYield': 0.0050,
+        'EPS': 6.11,
+        'ProfitMargin': 0.2531,
+        'OperatingMarginTTM': 0.3039,
+        ...
+    }
 """
 from typing import Dict, List, Union, Any
 import pandas as pd
