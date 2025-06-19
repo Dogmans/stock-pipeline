@@ -708,33 +708,11 @@ The stock pipeline now uses a robust, shelve-based persistence infrastructure:
    - Consider adding more features like compression or encryption if needed
    - Monitor performance in production use
 
-### 2025-06-20: Utils Module Restructuring
-
-The utilities module has been restructured to be more organized and modular:
-
-1. Major changes:
-   - Removed the monolithic `utils.py` file 
-   - Migrated all functionality to the `utils/` package with specialized modules
-   - Updated all imports throughout the codebase to reference the new module structure
-   - Eliminated duplicate code and unused functionality
-
-2. New structure:
-   ```
-   utils/
-   ├── __init__.py       # Package exports
-   ├── logger.py         # Logging functionality
-   ├── filesystem.py     # Directory and file operations
-   ├── rate_limiter.py   # API rate limiting
-   └── shared_persistence.py  # Persistence layer
-   ```
-
-3. Benefits of this restructuring:
-   - Better organization of related functionality
-   - Clearer responsibilities for each module
-   - Easier maintenance and future enhancements
-   - More consistent import patterns
-   - Reduced code duplication
-
-4. The `utils/__init__.py` file now re-exports the most commonly used functions and classes for backward compatibility in tests, but all new code should import directly from the specific modules.
+### Test the Persistence System
+To verify that the diskcache-based persistence system is working correctly:
+```powershell
+python test_persistence.py
+```
+This runs a simple test of the shared persistence layer used by both the cache manager and rate limiter.
 
 

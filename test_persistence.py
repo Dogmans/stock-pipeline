@@ -1,13 +1,12 @@
 """
-Test script for the shelve-based persistence system.
+Test script for the diskcache-based persistence system.
 
 This script performs a simple test of the shared_persistence module
-to verify that the shelve-based persistence system is working correctly.
+to verify that the diskcache-based persistence system is working correctly.
 """
 
 import os
 import sys
-import shutil
 from datetime import datetime, timedelta
 
 # Add the parent directory to the path
@@ -21,10 +20,10 @@ def test_persistent_store():
     """
     # Create a test store
     test_dir = os.path.join('data', 'test_store')
-    if os.path.exists(test_dir):
-        shutil.rmtree(test_dir)
-        
     os.makedirs(test_dir, exist_ok=True)
+    
+    # Variable to hold our store instance
+    store = None
     
     try:
         # Create a new store
@@ -60,16 +59,24 @@ def test_persistent_store():
     except Exception as e:
         print(f"Error during test: {e}")
         return False
+        
     finally:
-        # Clean up
-        if os.path.exists(test_dir):
-            shutil.rmtree(test_dir)
+        # Clean up using diskcache's own methods and close properly
+        try:
+            if store is not None:
+                # Clear the cache first
+                store.clear_all()
+                # Properly close the cache to release file locks
+                store.close()
+                print("Cache properly cleared and closed")
+        except Exception as e:
+            print(f"Error during cache cleanup: {e}")
 
 if __name__ == "__main__":
-    print("Testing shelve-based persistence system...")
+    print("Testing diskcache-based persistence system...")
     success = test_persistent_store()
     
     if success:
-        print("\nSUCCESS: The shelve-based persistence system is working correctly!")
+        print("\nSUCCESS: The diskcache-based persistence system is working correctly!")
     else:
-        print("\nFAILURE: There were errors in the shelve-based persistence test.")
+        print("\nFAILURE: There were errors in the diskcache-based persistence test.")
