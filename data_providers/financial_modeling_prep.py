@@ -7,25 +7,32 @@ from typing import Dict, List, Union, Any
 import pandas as pd
 import requests
 import logging
+import functools
 
 from .base import BaseDataProvider
 from cache_manager import cache_api_call
 import config
 from utils import setup_logging
+from rate_limiter import RateLimiter
 
 # Set up logger for this module
 logger = setup_logging()
+
+# Get rate limiter instance for Financial Modeling Prep
+fmp_rate_limiter = RateLimiter.get_instance("financial_modeling_prep")
 
 class FinancialModelingPrepProvider(BaseDataProvider):
     """
     Financial Modeling Prep data provider for financial data.
     
     Implements the BaseDataProvider interface using Financial Modeling Prep API.
+    Uses paid tier with no daily request limits.
+    Rate limiting is still applied to stay within per-minute limits.
     """
     
     # API limits
-    RATE_LIMIT = None  # No explicit rate limit mentioned
-    DAILY_LIMIT = 250  # 250 requests per day on free tier
+    RATE_LIMIT = config.API_RATE_LIMITS["financial_modeling_prep"]  # 300 calls per minute
+    DAILY_LIMIT = config.API_DAILY_LIMITS["financial_modeling_prep"]  # None - paid tier with no daily limit
     
     def __init__(self, api_key=None):
         """
@@ -39,9 +46,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.warning("Financial Modeling Prep API key not provided")
         
         # Base URL for FMP API
-        self.base_url = "https://financialmodelingprep.com/api/v3"
-    
-    @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_prices")
+        self.base_url = "https://financialmodelingprep.com/api/v3"    @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_prices")
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
@@ -78,10 +83,12 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         days = days_map.get(period, "365")  # Default to 1 year
         
         for symbol in symbols:
-            try:
+            try:                
                 url = f"{self.base_url}/historical-price-full/{symbol}"
                 params = {"apikey": self.api_key, "timeseries": days}
                 
+                # Apply rate limiting before API call
+                fmp_rate_limiter.wait_if_needed()
                 response = requests.get(url, params=params)
                 data = response.json()
                 
@@ -291,7 +298,8 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting cash flow for {symbol}: {e}")
             return pd.DataFrame()
-    
+      @functools.wraps(BaseDataProvider.get_company_overview)
+    @rate_limiter
     @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_overview")
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:

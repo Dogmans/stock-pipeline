@@ -491,4 +491,67 @@ This is important when scripting or running commands directly in PowerShell.
    - `test_provider_fallback` 
    - `test_provider_tracking`
 
-4. This confirms that Financial Modeling Prep is correctly prioritized over Alpha Vantage in the provider order.
+### 2025-06-19: Added API Rate Limiting
+
+1. Added API rate limiting functionality to prevent hitting API limits:
+   - Configured default rate limits for all providers in config.py
+   - Financial Modeling Prep (PAID): 300 calls per minute, No daily limit
+   - Alpha Vantage: 5 calls per minute, 500 calls per day
+   - Finnhub: 60 calls per minute (per API key)
+   - YFinance: 2000 calls per minute (approximate limit)
+   
+2. Implementation details:
+   - Added `ApiRateLimiter` class in utils.py
+   - Rate limiter automatically waits when limits are reached
+   - Per-provider rate limiter instances with singleton pattern
+   - Both per-minute and per-day limits enforced
+   
+3. Using rate limiting with command line options:
+```powershell
+# Run with default rate limits
+python main.py --universe sp500 --data-provider financial_modeling_prep
+
+# Disable rate limiting (not recommended)
+python main.py --universe sp500 --data-provider financial_modeling_prep --disable-rate-limiting
+
+# Override rate limit for a provider
+python main.py --universe sp500 --data-provider financial_modeling_prep --custom-rate-limit 150
+
+# Combine with chunking for optimal performance
+python main.py --universe sp500 --data-provider financial_modeling_prep --chunk-size 50
+```
+
+4. Benefits of rate limiting:
+   - Prevents API service bans
+   - Manages free tier usage
+   - Optimizes requests for paid tiers
+   - Delivers predictable performance
+   
+5. When using Financial Modeling Prep (FMP):
+   - Current setup: PAID TIER with no daily limit
+   - Default rate: 300 requests per minute
+   - No daily request limit (unlimited daily usage with paid plan)
+   - Configuration already updated in config.py
+
+### 2025-06-19: Upgraded to Financial Modeling Prep Paid Tier
+
+1. Updated configuration for Financial Modeling Prep to reflect paid subscription:
+   - Removed daily request limit (previously 250 calls/day)
+   - Maintained per-minute rate limit of 300 calls per minute
+   - Updated documentation to reflect paid status
+
+2. Benefits of the paid tier:
+   - No daily API call limits
+   - Access to all endpoints without restrictions
+   - Better data quality and reliability
+   - Faster API response times
+   - More historical data availability
+   
+3. Configuration changes:
+   - Updated `config.py` to set `"financial_modeling_prep": None` in the daily limits
+   - Updated provider class documentation to reflect paid status
+   - Updated documentation in README.md and scripts.md
+
+4. No changes needed to rate limiter implementation:
+   - Per-minute rate limiting still applies (300 calls/minute)
+   - Daily limit checks are automatically skipped when limit is set to None

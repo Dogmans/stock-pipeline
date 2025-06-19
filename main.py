@@ -97,6 +97,13 @@ def parse_arguments():
     parser.add_argument('--multi-source', action='store_true',
                         help='Use multiple data sources with automatic failover')
     
+    # Rate limiting options
+    parser.add_argument('--disable-rate-limiting', action='store_true',
+                        help='Disable API rate limiting (not recommended)')
+    
+    parser.add_argument('--custom-rate-limit', type=int, default=None, metavar='CALLS_PER_MINUTE',
+                        help='Override the default rate limit for the selected provider')
+    
     return parser.parse_args()
 
 

@@ -13,12 +13,28 @@ Providers are tried in the following order in the MultiProvider:
 
 ## API Limits
 
-| Provider | Free Tier Limits | Premium Options |
-|----------|------------------|-----------------|
+| Provider | Limits | Notes |
+|----------|--------|-------|
 | YFinance | No official limit, but rate limiting applies | N/A (Open source) |
-| Financial Modeling Prep | 250-300 calls/day | Starting ~$14/month |
-| Alpha Vantage | 5 calls/min, 500 calls/day | Starting ~$50/month |
-| Finnhub | 60 calls/min | Starting ~$15/month |
+| Financial Modeling Prep | 300 calls/min, No daily limit | **PAID TIER** in use |
+| Alpha Vantage | 5 calls/min, 500 calls/day | Free tier |
+| Finnhub | 60 calls/min | Free tier |
+
+## Rate Limiting (as of June 19, 2025)
+
+The pipeline now includes automatic rate limiting to prevent exceeding API limits:
+
+1. **Per-Provider Configuration**: Each provider has specific rate limits configured in `config.py`
+2. **Automatic Throttling**: The system automatically waits when approaching limits
+3. **Minute and Daily Limits**: Both per-minute and per-day limits are enforced
+4. **Command Line Options**:
+   ```powershell
+   # Custom rate limit
+   python main.py --data-provider financial_modeling_prep --custom-rate-limit 150
+   
+   # Disable rate limiting (not recommended)
+   python main.py --data-provider financial_modeling_prep --disable-rate-limiting
+   ```
 
 ## Best Practices
 
