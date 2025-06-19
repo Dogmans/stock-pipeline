@@ -12,7 +12,7 @@ import functools
 from .base import BaseDataProvider
 from cache_manager import cache_api_call
 import config
-from utils import setup_logging
+from utils.logger import setup_logging
 from rate_limiter import RateLimiter
 
 # Set up logger for this module

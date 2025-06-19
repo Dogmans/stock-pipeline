@@ -13,7 +13,7 @@ from .yfinance_provider import YFinanceProvider
 from .alpha_vantage import AlphaVantageProvider
 from .financial_modeling_prep import FinancialModelingPrepProvider
 from .finnhub_provider import FinnhubProvider
-from utils import setup_logging
+from utils.logger import setup_logging
 
 # Set up logger for this module
 logger = setup_logging()

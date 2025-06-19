@@ -20,7 +20,7 @@ from data_processing import (
     calculate_price_statistics,
     analyze_debt_and_cash
 )
-from utils import setup_logging
+from utils.logger import setup_logging
 
 # Set up logging
 logger = setup_logging()

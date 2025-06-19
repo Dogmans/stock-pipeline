@@ -16,7 +16,7 @@ import argparse
 import pandas as pd
 import numpy as np
 from universe import get_stock_universe
-from utils import setup_logging
+from utils.logger import setup_logging
 
 logger = setup_logging()
 

@@ -19,7 +19,7 @@ import logging
 from datetime import datetime, timedelta
 
 import config
-from utils import setup_logging
+from utils.logger import setup_logging
 from cache_manager import cache_api_call
 
 # Set up logger for this module

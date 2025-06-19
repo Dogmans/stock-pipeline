@@ -26,7 +26,8 @@ import pandas as pd
 
 # Import pipeline modules
 import config
-from utils import setup_logging, ensure_directories_exist
+from utils.logger import setup_logging
+from utils.filesystem import ensure_directories_exist
 from universe import get_stock_universe
 from stock_data import get_historical_prices, get_fundamental_data, fetch_52_week_lows
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances

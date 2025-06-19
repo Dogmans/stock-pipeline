@@ -35,7 +35,11 @@ This pipeline implements a comprehensive stock screening system based on the val
 - Orchestration:
   - `main.py`: Main script to run the complete pipeline
   - `run_pipeline.py`: Wrapper script with common execution options
-  - `utils.py`: Common utilities and helper functions
+  - `utils/`: Package containing common utilities and helper functions
+    - `logger.py`: Logging setup
+    - `filesystem.py`: Directory and file operations
+    - `rate_limiter.py`: API rate limiting
+    - `shared_persistence.py`: Shared persistence layer
 
 ## Running the Pipeline
 

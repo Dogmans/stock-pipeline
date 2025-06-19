@@ -21,7 +21,7 @@ import os
 from sklearn.preprocessing import StandardScaler
 
 import config
-from utils import setup_logging
+from utils.logger import setup_logging
 from stock_data import get_historical_prices
 
 # Try to import TA-Lib, but provide fallback if not available

@@ -40,7 +40,11 @@ These modules handle fetching data from various sources and APIs.
 | Module | Description |
 |--------|-------------|
 | `data_processing.py` | Processes raw data by calculating technical indicators, financial ratios, and other metrics needed for screening. Includes functions for standardizing and normalizing data across different stocks. Main functions: `process_stock_data`, `calculate_financial_ratios`, `calculate_technical_indicators`. |
-| `utils.py` | Provides common utility functions used throughout the pipeline, including logging setup, directory creation, and data helpers. |
+| `utils/` | Package providing common utility functions used throughout the pipeline:
+| | - `logger.py`: Logging setup functionality
+| | - `filesystem.py`: Directory and file operations 
+| | - `rate_limiter.py`: API rate limiting functionality
+| | - `shared_persistence.py`: Shared persistence layer for data storage |
 
 ### Screening Engine
 

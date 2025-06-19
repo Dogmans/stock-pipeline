@@ -18,7 +18,7 @@ from tqdm import tqdm
 from alpha_vantage.fundamentaldata import FundamentalData
 
 import config
-from utils import setup_logging
+from utils.logger import setup_logging
 from universe import get_stock_universe
 from cache_manager import cache_api_call
 import data_providers

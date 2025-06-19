@@ -10,7 +10,7 @@ import logging
 
 from .base import BaseDataProvider
 from cache_manager import cache_api_call
-from utils import setup_logging
+from utils.logger import setup_logging
 
 # Set up logger for this module
 logger = setup_logging()
