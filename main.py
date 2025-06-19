@@ -129,9 +129,9 @@ def main():
         print(f"Total files: {cache_info['count']}")
         print(f"Total size: {cache_info['total_size_kb']:.2f} KB")
         if cache_info['count'] > 0:
-            print(f"Oldest file: {cache_info['oldest_file']} ({cache_info['oldest_timestamp']})")
-            print(f"Newest file: {cache_info['newest_file']} ({cache_info['newest_timestamp']})")
-        print(f"Cache directory: {cache_info['cache_dir']}")
+            print(f"Oldest key: {cache_info.get('oldest_key', 'N/A')} ({cache_info.get('oldest_timestamp', 'N/A')})")
+            print(f"Newest key: {cache_info.get('newest_key', 'N/A')} ({cache_info.get('newest_timestamp', 'N/A')})")
+        print(f"Storage type: {cache_info.get('storage_type', 'N/A')}")
         print(f"Status: {cache_info['status']}")
         return  # Exit after showing cache info
     

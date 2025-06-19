@@ -452,9 +452,8 @@ def screen_for_fallen_ipos(processed_data=None, financial_ratios=None, market_da
         min_pct_off_high (float): Minimum percentage off post-IPO high
         
     Returns:
-        DataFrame: Stocks meeting the criteria
-    """
-    logger.info(f"Screening for fallen IPOs dropped ≥{min_pct_off_high}% from high...")
+        DataFrame: Stocks meeting the criteria    """
+    logger.info(f"Screening for fallen IPOs dropped >={min_pct_off_high}% from high...")
     
     # This requires specialized data on IPO dates
     # For this implementation, we'll use a simplification based on available data in Yahoo Finance
@@ -562,10 +561,9 @@ def screen_for_cash_rich_biotech(processed_data=None, financial_ratios=None, mar
     Returns:
         DataFrame: Stocks meeting the criteria
     """
-    if min_cash_to_mc_ratio is None:
-        min_cash_to_mc_ratio = config.ScreeningThresholds.BIOTECH_MIN_CASH_TO_MARKET_CAP
+    if min_cash_to_mc_ratio is None:        min_cash_to_mc_ratio = config.ScreeningThresholds.BIOTECH_MIN_CASH_TO_MARKET_CAP
     
-    logger.info(f"Screening for biotech stocks with cash ≥ {min_cash_to_mc_ratio*100}% of market cap...")
+    logger.info(f"Screening for biotech stocks with cash >= {min_cash_to_mc_ratio*100}% of market cap...")
     
     # Get biotech stocks - this could be from IBB ETF holdings or by sector
     # For simplicity, we'll filter the stock universe by biotech sector

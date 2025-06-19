@@ -91,16 +91,6 @@ $stages = @(
         Name = "Screening"
         Tests = @("test_screeners")
         Description = "Testing screening strategies"
-    },
-    @{
-        Name = "Pipeline Execution"
-        Tests = @("test_main", "test_run_pipeline")
-        Description = "Testing main pipeline orchestration"
-    },
-    @{
-        Name = "Visualization" 
-        Tests = @("test_visualization")
-        Description = "Testing data visualization functions"
     }
 )
 

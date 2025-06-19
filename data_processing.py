@@ -211,7 +211,7 @@ def calculate_fundamental_ratios(ticker_data, fundamental_data):
     ratios['dividend_yield'] = ticker_data.get('dividendYield', 0) * 100 if ticker_data.get('dividendYield') else 0
     
     # If we have Alpha Vantage data, calculate more detailed ratios
-    if fundamental_data and 'overview' in fundamental_data:
+    if 'overview' in fundamental_data:
         overview = fundamental_data['overview']
         
         # Return on equity
@@ -475,7 +475,7 @@ def calculate_financial_ratios(fundamental_data):
     
     # Calculate ratios for each stock
     for symbol, ticker_data in fundamental_data.items():
-        if not ticker_data:
+        if ticker_data is None:
             continue
             
         # Calculate fundamental ratios

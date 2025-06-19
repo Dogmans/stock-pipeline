@@ -123,6 +123,18 @@ For help on all options:
 .\run_tests.ps1 -Help
 ```
 
+### Run Individual Test Modules
+To run a specific test module (e.g., test_universe.py):
+```powershell
+python -m unittest tests.test_universe
+```
+
+### Run a Specific Test Case
+To run a specific test case within a module:
+```powershell
+python -m unittest tests.test_universe.TestUniverse.test_get_sp500_symbols
+```
+
 ## Maintenance Tasks
 
 ### Removed Deprecated Files
@@ -708,11 +720,32 @@ The stock pipeline now uses a robust, shelve-based persistence infrastructure:
    - Consider adding more features like compression or encryption if needed
    - Monitor performance in production use
 
-### Test the Persistence System
-To verify that the diskcache-based persistence system is working correctly:
+### Common Test Issues and Solutions
+
+#### Directory Path and Cache Issues
+If tests fail with path-related errors:
 ```powershell
-python test_persistence.py
+# Check that tests properly handle cache directories
+python -m unittest tests.test_universe.TestUniverse.setUp
 ```
-This runs a simple test of the shared persistence layer used by both the cache manager and rate limiter.
+
+Remember that cache paths are defined in `cache_manager.py`, not directly in config.py. Tests should:
+1. Save and restore config.DATA_DIR
+2. Use temporary directories during tests
+3. Properly close resources and clean up temporary directories
+
+### Database and Cache Implementation Notes
+
+#### Cache Implementation
+The caching system now uses `diskcache` instead of file-based or shelve-based storage. Key changes:
+- No more direct file manipulation in `CACHE_DIR`
+- All cache operations are performed through the `cache_store` object from `utils.shared_persistence`
+- The `CACHE_DIR` constant has been removed from all modules
+- Cache information is available through `python main.py --cache-info`
+
+When writing tests that interact with the cache system:
+1. Mock the `cache_store` object instead of patching or manipulating the `CACHE_DIR`
+2. Use the store's methods: `save()`, `load()`, `exists()`, `delete()`, `clear_all()`
+3. Always call `close()` on the store when done to avoid file locking issues
 
 

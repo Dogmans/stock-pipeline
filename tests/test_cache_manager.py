@@ -1,16 +1,16 @@
 """
 Unit tests for cache_manager.py
+
+These tests directly use the real cache implementation with diskcache
+instead of mocks and temporary directories.
 """
 
 import unittest
-import os
-import json
-import tempfile
-import shutil
 import time
 import pandas as pd
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock, Mock
+import json
+import uuid
 
 # Add parent directory to path to allow imports
 import sys
@@ -19,37 +19,28 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import config
 from cache_manager import (
-    _get_cache_key, _is_cache_valid, 
+    _get_cache_key,
     cache_api_call, clear_cache, get_cache_info,
-    _dataframe_to_json, _json_to_dataframe
+    _dataframe_to_json, _json_to_dataframe,
+    _is_cache_valid
 )
 from utils.shared_persistence import cache_store
 
 class TestCacheManager(unittest.TestCase):
     """Tests for the cache manager module."""
-      def setUp(self):
-        """Set up test environment."""
-        # Create temporary directory for cache
-        self.temp_dir = tempfile.mkdtemp()
-        # Store original cache directory
-        self.original_cache_dir = config.DATA_DIR
-        # Patch config to use temporary directory
-        self.cache_dir_patcher = patch('cache_manager.CACHE_DIR', self.temp_dir)
-        self.cache_dir_patcher.start()
-        
-        # Mock the cache_store for tests
-        self.mock_cache_store = MagicMock()
-        self.cache_store_patcher = patch('cache_manager.cache_store', self.mock_cache_store)
-        self.cache_store_patcher.start()
+    
+    def setUp(self):
+        """Set up test environment with real cache."""
+        # We'll use an isolated test area in the real cache for our tests
+        self.test_prefix = f"test_cache_manager_{uuid.uuid4().hex}_"
+        self.test_keys = []
         
     def tearDown(self):
-        """Clean up after tests."""
-        # Stop patches
-        self.cache_dir_patcher.stop()
-        self.cache_store_patcher.stop()
-        # Remove temporary directory
-        shutil.rmtree(self.temp_dir)
-
+        """Clean up after tests by removing test keys."""
+        # Clean up any keys we created
+        for key in self.test_keys:
+            cache_store.delete(key)
+            
     def test_get_cache_key(self):
         """Test generating a cache key."""
         key1 = _get_cache_key('test_func', ('arg1', 'arg2'), {'kwarg1': 'value1'})
@@ -62,32 +53,47 @@ class TestCacheManager(unittest.TestCase):
         # Different args should produce different key
         key4 = _get_cache_key('test_func', ('arg1', 'arg3'), {'kwarg1': 'value1'})
         self.assertNotEqual(key1, key4)
-
-    def test_get_cache_file_path(self):
-        """Test generating cache file path."""
-        cache_key = "test_cache_key"
-        file_path = _get_cache_file_path(cache_key)
-        expected_path = os.path.join(self.temp_dir, f"{cache_key}.json")
-        self.assertEqual(file_path, expected_path)
-
+        
+    def test_cache_store_integration(self):
+        """Test integration with the real cache_store."""
+        # Generate a unique test key
+        test_key = f"{self.test_prefix}integration_{int(time.time())}"
+        self.test_keys.append(test_key)
+        
+        # Save some data to the cache
+        test_data = {"message": "test data"}
+        cache_store.save(test_key, test_data)
+        
+        # Verify we can load the data back
+        loaded_data = cache_store.load(test_key)
+        self.assertIsNotNone(loaded_data)
+        self.assertIn('data', loaded_data)
+        self.assertEqual(loaded_data['data'], test_data)
     def test_is_cache_valid(self):
         """Test cache validation based on time."""
-        # Create a test cache file
-        cache_file = os.path.join(self.temp_dir, "test_cache.json")
-        with open(cache_file, 'w') as f:
-            f.write('{"test": "data"}')
+        # Create a test entry that is current
+        current_key = f"{self.test_prefix}current_{int(time.time())}"
+        self.test_keys.append(current_key)
+        cache_store.save(current_key, {"test": "current"})
         
-        # Test with valid cache (file just created)
-        self.assertTrue(_is_cache_valid(cache_file, 24))
+        # Create a test entry that's expired (manually set timestamp)
+        expired_key = f"{self.test_prefix}expired_{int(time.time())}"
+        self.test_keys.append(expired_key)
+        old_time = (datetime.now() - timedelta(hours=25)).isoformat()
+        cache_store.save(
+            expired_key, 
+            {"test": "expired"}, 
+            {"timestamp": old_time}  # Override the timestamp
+        )
         
-        # Test with invalid cache (file too old)
-        # Mock os.path.getmtime to return a time in the past
-        future_time = time.time() - 25 * 3600  # 25 hours ago
-        with patch('os.path.getmtime', return_value=future_time):
-            self.assertFalse(_is_cache_valid(cache_file, 24))
+        # Test valid cache
+        self.assertTrue(_is_cache_valid(current_key, 24))
         
-        # Test with non-existent file
-        self.assertFalse(_is_cache_valid("nonexistent_file.json", 24))
+        # Test expired cache
+        self.assertFalse(_is_cache_valid(expired_key, 24))
+        
+        # Test non-existent cache key
+        self.assertFalse(_is_cache_valid("nonexistent_key", 24))
     
     def test_dataframe_serialization(self):
         """Test serialization of pandas DataFrame."""
@@ -106,109 +112,113 @@ class TestCacheManager(unittest.TestCase):
         # Deserialize
         deserialized = _json_to_dataframe(serialized)
         pd.testing.assert_frame_equal(df, deserialized)
-        
-        # Test with non-DataFrame
+          # Test with non-DataFrame
         regular_obj = {'key': 'value'}
         self.assertEqual(_dataframe_to_json(regular_obj), str(regular_obj))
         self.assertEqual(_json_to_dataframe(regular_obj), regular_obj)
-
-    def test_cache_api_call_decorator(self):
-        """Test the cache_api_call decorator."""
-        # Create a mock function that counts calls
-        mock_func = MagicMock(return_value={'data': 'test'})
-        mock_func.__name__ = 'mock_func'
         
-        # Apply decorator
-        decorated_func = cache_api_call(expiry_hours=24)(mock_func)
+    def test_cache_api_call_decorator_real(self):
+        """Test the cache_api_call decorator with a real function."""
+        call_count = 0
         
-        # First call should hit the function
-        result1 = decorated_func('arg1', kwarg1='value1')
-        self.assertEqual(result1, {'data': 'test'})
-        mock_func.assert_called_once()
+        # Define a test function to be decorated
+        @cache_api_call(expiry_hours=1, cache_key_prefix=self.test_prefix)
+        def test_func(param, kwparam=None):
+            nonlocal call_count
+            call_count += 1
+            return {
+                "param": param,
+                "kwparam": kwparam,
+                "call_count": call_count
+            }
         
-        # Second call should use cache
-        result2 = decorated_func('arg1', kwarg1='value1')
-        self.assertEqual(result2, {'data': 'test'})
-        # Should still be called only once (cache hit)
-        self.assertEqual(mock_func.call_count, 1)
+        # Add key to cleanup list - extract it by calling the function and seeing the key
+        key = _get_cache_key(self.test_prefix, ("test_value",), {"kwparam": "test_kwparam"})
+        self.test_keys.append(key)
         
-        # Call with force_refresh should hit the function again
-        result3 = decorated_func('arg1', kwarg1='value1', force_refresh=True)
-        self.assertEqual(result3, {'data': 'test'})
-        self.assertEqual(mock_func.call_count, 2)
-    
-    def test_clear_cache(self):
-        """Test clearing the cache."""
-        # Create some test cache files
+        # First call should execute the function
+        result1 = test_func("test_value", kwparam="test_kwparam")
+        self.assertEqual(result1["call_count"], 1)
+        self.assertEqual(result1["param"], "test_value")
+        
+        # Second call should use the cache
+        result2 = test_func("test_value", kwparam="test_kwparam")
+        self.assertEqual(result2["call_count"], 1)  # Still 1, not incremented
+        
+        # Call with force_refresh should execute the function again
+        result3 = test_func("test_value", kwparam="test_kwparam", force_refresh=True)
+        self.assertEqual(result3["call_count"], 2)  # Should increment to 2
+        
+        # Different parameters should create different cache entry
+        new_key = _get_cache_key(self.test_prefix, ("different",), {"kwparam": "different"})
+        self.test_keys.append(new_key)
+        result4 = test_func("different", kwparam="different")
+        self.assertEqual(result4["call_count"], 3)  # Should increment to 3
+    def test_clear_and_get_cache(self):
+        """Test clearing the cache and getting cache info with real cache."""
+        # Add several test entries to the cache
         for i in range(5):
-            file_path = os.path.join(self.temp_dir, f"cache_file_{i}.json")
-            with open(file_path, 'w') as f:
-                f.write('{"test": "data"}')
+            key = f"{self.test_prefix}clear_test_{i}"
+            self.test_keys.append(key)
+            cache_store.save(key, {"test_data": f"value_{i}"})
         
-        # Verify files exist
-        self.assertEqual(len(os.listdir(self.temp_dir)), 5)
+        # Get initial cache info
+        before_info = get_cache_info()
+        initial_count = before_info['count']
         
-        # Clear cache
-        files_deleted = clear_cache()
-        self.assertEqual(files_deleted, 5)
-        self.assertEqual(len(os.listdir(self.temp_dir)), 0)
-    
-    def test_clear_cache_older_than(self):
-        """Test clearing cache files older than specified time."""
-        # Create some test cache files with different timestamps
-        now = time.time()
+        # First create a snapshot of existing keys to avoid clearing real cache
+        real_keys = [key for key in cache_store.list_keys() 
+                     if key.startswith(self.test_prefix)]
         
-        # Create 3 new files
-        for i in range(3):
-            file_path = os.path.join(self.temp_dir, f"new_file_{i}.json")
-            with open(file_path, 'w') as f:
-                f.write('{"test": "data"}')
+        # Test partial clear with older_than
+        # First add a test entry with an old timestamp
+        old_key = f"{self.test_prefix}old_entry"
+        self.test_keys.append(old_key)
+        old_time = (datetime.now() - timedelta(hours=25)).isoformat()
+        cache_store.save(old_key, {"test": "old_data"}, {"timestamp": old_time})
         
-        # Create 2 old files
-        for i in range(2):
-            file_path = os.path.join(self.temp_dir, f"old_file_{i}.json")
-            with open(file_path, 'w') as f:
-                f.write('{"test": "data"}')
-            # Set modification time to 2 days ago
-            os.utime(file_path, (now, now - 48 * 3600))
+        # Clear entries older than 24 hours (should only clear our old entry)
+        deleted = clear_cache(older_than_hours=24)
+        self.assertEqual(deleted, 1)  # Our single old entry
         
-        # Verify all files exist
-        self.assertEqual(len(os.listdir(self.temp_dir)), 5)
+        # Test that our old entry is gone but newer ones remain
+        self.assertFalse(cache_store.exists(old_key))
         
-        # Clear files older than 24 hours
-        with patch('os.path.getmtime', side_effect=lambda f: now if 'new' in f else now - 48 * 3600):
-            files_deleted = clear_cache(older_than_hours=24)
-            self.assertEqual(files_deleted, 2)
-            # Only new files should remain
-            self.assertEqual(len(os.listdir(self.temp_dir)), 3)
+        # Now clear all our test entries
+        # We'll only clear our test keys to avoid disrupting real cache
+        for key in self.test_keys:
+            cache_store.delete(key)
+        
+        # Verify they're gone
+        for key in self.test_keys:
+            self.assertFalse(cache_store.exists(key))
     
     def test_get_cache_info(self):
-        """Test getting cache info."""
-        # Create some test cache files
-        now = time.time()
+        """Test getting cache info from the real cache."""
+        # Add multiple test entries to the cache
+        for i in range(5):
+            key = f"{self.test_prefix}info_test_{i}"
+            self.test_keys.append(key)
+            cache_store.save(key, {"test_data": f"value_{i}"})
         
-        # Create a newer file
-        newer_file = os.path.join(self.temp_dir, "newer_file.json")
-        with open(newer_file, 'w') as f:
-            f.write('{"test": "data"}')
+        # Get cache info
+        info = get_cache_info()
         
-        # Create an older file
-        older_file = os.path.join(self.temp_dir, "older_file.json")
-        with open(older_file, 'w') as f:
-            f.write('{"test": "data"}')
-        # Set modification time to 1 day ago
-        os.utime(older_file, (now, now - 24 * 3600))
+        # Basic validations
+        self.assertIsInstance(info, dict)
+        self.assertIn('count', info)
+        self.assertIn('total_size_kb', info)
+        self.assertIn('storage_type', info)
+        self.assertIn('status', info)
         
-        # Mock os.path getmtime and getsize
-        with patch('os.path.getmtime', side_effect=lambda f: now if 'newer' in f else now - 24 * 3600):
-            with patch('os.path.getsize', return_value=100):
-                info = get_cache_info()
-                
-                self.assertEqual(info['count'], 2)
-                self.assertEqual(info['total_size_kb'], 200 / 1024)
-                self.assertEqual(info['oldest_file'], "older_file.json")
-                self.assertEqual(info['newest_file'], "newer_file.json")
-                self.assertEqual(info['status'], "active")
+        # The total count should be at least our 5 test entries
+        self.assertGreaterEqual(info['count'], 5)
+        
+        # Storage type should be diskcache
+        self.assertEqual(info['storage_type'], 'diskcache')
+        
+        # Status should be active
+        self.assertEqual(info['status'], 'active')
 
 if __name__ == '__main__':
     unittest.main()

@@ -37,12 +37,6 @@ logging.basicConfig(
 # Set up logger
 logger = logging.getLogger(__name__)
 
-# Cache directory (kept for backward compatibility and cache info functions)
-CACHE_DIR = os.path.join(config.DATA_DIR, 'cache')
-
-# Ensure cache directory exists
-Path(CACHE_DIR).mkdir(parents=True, exist_ok=True)
-
 def _get_cache_key(func_name, args, kwargs):
     """
     Generate a unique cache key based on function name and arguments.
@@ -267,35 +261,24 @@ def get_cache_info():
                 'message': 'Cannot determine timestamps',
                 'storage_type': 'shelve'
             }
-            
-        # Sort by timestamp
+              # Sort by timestamp
         timestamps.sort(key=lambda x: x[1])
         
         # Get oldest and newest
         oldest_key, oldest_time = timestamps[0]
         newest_key, newest_time = timestamps[-1]
         
-        # Get estimate of size (shelve doesn't have direct size info)
-        # This is a fallback that checks the directory size
-        total_size = 0
-        try:
-            for dirpath, _, filenames in os.walk(CACHE_DIR):
-                for f in filenames:
-                    fp = os.path.join(dirpath, f)
-                    if os.path.exists(fp) and os.path.isfile(fp):
-                        total_size += os.path.getsize(fp)
-        except Exception:
-            pass  # Ignore size calculation errors
-            
+        # Get cache stats from diskcache
+        cache_stats = cache_store.get_stats()
+        
         return {
             'count': len(cache_keys),
-            'total_size_kb': total_size / 1024,
+            'total_size_kb': cache_stats.get('size', 0) / 1024,
             'oldest_key': oldest_key,
             'oldest_timestamp': oldest_time,
             'newest_key': newest_key,
             'newest_timestamp': newest_time,
-            'storage_type': 'shelve',
-            'cache_dir': CACHE_DIR,
+            'storage_type': 'diskcache',
             'status': 'active'
         }
     
