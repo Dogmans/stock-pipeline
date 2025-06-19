@@ -2,6 +2,8 @@
 Rate limiter for API calls to prevent exceeding rate limits.
 
 This module provides the RateLimiter class to enforce API rate limits.
+It includes persistent tracking of API calls between program executions
+using the shared persistence layer.
 """
 import collections
 from datetime import datetime, timedelta
@@ -11,6 +13,7 @@ from threading import Lock
 
 import config
 from utils import setup_logging
+from utils.shared_persistence import rate_limit_store
 
 # Set up logger for this module
 logger = setup_logging()
@@ -21,6 +24,7 @@ class RateLimiter:
     
     This class tracks API calls and enforces rate limits by time window 
     (per minute and per day). It will block when necessary to stay within limits.
+    Uses the shared persistence layer for tracking API calls between executions.
     """
     
     _instances = {}
@@ -49,6 +53,9 @@ class RateLimiter:
         self.minute_calls = collections.deque()
         self.day_calls = collections.deque()
         self.lock = Lock()
+        
+        # Load persistent call history using shared persistence
+        self._load_call_history()
         
     def _clean_old_calls(self):
         """Remove calls outside the current time windows."""
@@ -105,14 +112,59 @@ class RateLimiter:
                                   f"Waiting {wait_seconds/60:.1f} minutes to stay within {self.daily_limit} calls/day limit.")
                     time.sleep(wait_seconds)
                     wait_time = max(wait_time, wait_seconds)
-            
-            # Record this call
+              # Record this call
             now = datetime.now()  # Update now after any waiting
             self.minute_calls.append(now)
             self.day_calls.append(now)
             
-            return wait_time
+            # Save the updated call history using shared persistence
+            self._save_call_history()
             
+            return wait_time
+      def _load_call_history(self):
+        """Load persistent call history using shared persistence layer."""
+        try:
+            # Get stored data from shared persistence
+            stored_data = rate_limit_store.load(self.provider_name)
+            
+            if stored_data and 'data' in stored_data:
+                data = stored_data['data']
+                
+                # Convert ISO timestamp strings back to datetime objects
+                minute_calls = [datetime.fromisoformat(ts) for ts in data.get('minute_calls', [])]
+                day_calls = [datetime.fromisoformat(ts) for ts in data.get('day_calls', [])]
+                
+                # Only load calls that are still within the time windows
+                now = datetime.now()
+                minute_ago = now - timedelta(minutes=1)
+                day_ago = now - timedelta(days=1)
+                
+                self.minute_calls = collections.deque([ts for ts in minute_calls if ts > minute_ago])
+                self.day_calls = collections.deque([ts for ts in day_calls if ts > day_ago])
+                
+                logger.info(f"Loaded {len(self.minute_calls)} minute calls and {len(self.day_calls)} day calls "
+                           f"for {self.provider_name} from persistent storage.")
+        except Exception as e:
+            logger.warning(f"Failed to load rate limit history for {self.provider_name}: {e}")
+            # Start with empty call history if there was an error
+            self.minute_calls = collections.deque()
+            self.day_calls = collections.deque()
+    
+    def _save_call_history(self):
+        """Save call history using shared persistence layer."""
+        try:
+            # Convert datetime objects to ISO format strings for JSON serialization
+            data = {
+                'minute_calls': [ts.isoformat() for ts in self.minute_calls],
+                'day_calls': [ts.isoformat() for ts in self.day_calls],
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Use shared persistence to save the data
+            rate_limit_store.save(self.provider_name, data)
+        except Exception as e:
+            logger.warning(f"Failed to save rate limit history for {self.provider_name}: {e}")
+    
     def __call__(self, func):
         """
         Decorator to apply rate limiting to a function.

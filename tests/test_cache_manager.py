@@ -10,7 +10,7 @@ import shutil
 import time
 import pandas as pd
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 # Add parent directory to path to allow imports
 import sys
@@ -19,28 +19,34 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import config
 from cache_manager import (
-    _get_cache_key, _get_cache_file_path, _is_cache_valid, 
+    _get_cache_key, _is_cache_valid, 
     cache_api_call, clear_cache, get_cache_info,
     _dataframe_to_json, _json_to_dataframe
 )
+from utils.shared_persistence import cache_store
 
 class TestCacheManager(unittest.TestCase):
     """Tests for the cache manager module."""
-    
-    def setUp(self):
+      def setUp(self):
         """Set up test environment."""
         # Create temporary directory for cache
         self.temp_dir = tempfile.mkdtemp()
         # Store original cache directory
         self.original_cache_dir = config.DATA_DIR
         # Patch config to use temporary directory
-        self.patcher = patch('cache_manager.CACHE_DIR', self.temp_dir)
-        self.patcher.start()
+        self.cache_dir_patcher = patch('cache_manager.CACHE_DIR', self.temp_dir)
+        self.cache_dir_patcher.start()
+        
+        # Mock the cache_store for tests
+        self.mock_cache_store = MagicMock()
+        self.cache_store_patcher = patch('cache_manager.cache_store', self.mock_cache_store)
+        self.cache_store_patcher.start()
         
     def tearDown(self):
         """Clean up after tests."""
-        # Stop patch
-        self.patcher.stop()
+        # Stop patches
+        self.cache_dir_patcher.stop()
+        self.cache_store_patcher.stop()
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
 

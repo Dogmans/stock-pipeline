@@ -3,7 +3,7 @@ cache_manager.py - Caching system for API calls
 
 This module provides functions for caching API responses to minimize
 redundant network calls and improve the performance of the stock screening pipeline.
-The cache uses a file-based approach that persists between program restarts.
+The cache uses a shelve-based persistence layer that persists between program restarts.
 
 Functions:
     cache_api_call: Decorator function to cache API calls
@@ -22,12 +22,22 @@ from pathlib import Path
 import pandas as pd
 
 import config
-from utils import setup_logging
+from utils.shared_persistence import cache_store
 
 # Set up logger
-logger = setup_logging()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("stock_pipeline.log"),
+        logging.StreamHandler()
+    ]
+)
 
-# Cache directory
+# Set up logger
+logger = logging.getLogger(__name__)
+
+# Cache directory (kept for backward compatibility and cache info functions)
 CACHE_DIR = os.path.join(config.DATA_DIR, 'cache')
 
 # Ensure cache directory exists
@@ -58,24 +68,12 @@ def _get_cache_key(func_name, args, kwargs):
     
     return key
 
-def _get_cache_file_path(cache_key):
+def _is_cache_valid(cache_key, expiry_hours=None):
     """
-    Get the file path for a cache key.
+    Check if a cache entry is still valid based on its timestamp.
     
     Args:
         cache_key (str): Cache key
-        
-    Returns:
-        str: Path to the cache file
-    """
-    return os.path.join(CACHE_DIR, f"{cache_key}.json")
-
-def _is_cache_valid(cache_file, expiry_hours=None):
-    """
-    Check if a cache file is still valid based on its creation time.
-    
-    Args:
-        cache_file (str): Path to the cache file
         expiry_hours (float, optional): Hours after which cache expires
             (defaults to config setting)
             
@@ -85,19 +83,28 @@ def _is_cache_valid(cache_file, expiry_hours=None):
     if expiry_hours is None:
         expiry_hours = config.CACHE_EXPIRY_HOURS
     
-    # If the file doesn't exist, it's not valid
-    if not os.path.exists(cache_file):
+    # Check if the key exists
+    if not cache_store.exists(cache_key):
         return False
     
-    # Get the file modification time
-    file_mtime = os.path.getmtime(cache_file)
-    file_date = datetime.fromtimestamp(file_mtime)
+    # Get the cache data with timestamp
+    cached_data = cache_store.load(cache_key)
     
-    # Calculate expiration time
-    expiry_time = datetime.now() - timedelta(hours=expiry_hours)
-    
-    # Check if the file is still valid
-    return file_date > expiry_time
+    if not cached_data or 'timestamp' not in cached_data:
+        return False
+        
+    try:
+        # Parse the timestamp
+        timestamp = datetime.fromisoformat(cached_data['timestamp'])
+        
+        # Calculate expiration time
+        expiry_time = datetime.now() - timedelta(hours=expiry_hours)
+        
+        # Check if the cache is still valid
+        return timestamp > expiry_time
+    except Exception as e:
+        logger.error(f"Error checking cache validity for {cache_key}: {e}")
+        return False
 
 def _dataframe_to_json(obj):
     """
@@ -134,7 +141,7 @@ def _json_to_dataframe(obj):
 
 def cache_api_call(expiry_hours=None, cache_key_prefix=None):
     """
-    Decorator to cache API call results to disk.
+    Decorator to cache API call results using shelve-based persistence.
     
     Args:
         expiry_hours (float, optional): Hours after which cache expires
@@ -153,20 +160,23 @@ def cache_api_call(expiry_hours=None, cache_key_prefix=None):
             # Generate a cache key
             prefix = cache_key_prefix or func.__name__
             cache_key = _get_cache_key(prefix, args, kwargs)
-            cache_file = _get_cache_file_path(cache_key)
             
             # Check if we have a valid cached result
-            if not force_refresh and _is_cache_valid(cache_file, expiry_hours):
+            if not force_refresh and _is_cache_valid(cache_key, expiry_hours):
                 try:
                     logger.debug(f"Loading cached result for {func.__name__}")
-                    with open(cache_file, 'r') as f:
-                        cached_data = json.load(f)
+                    cached_data = cache_store.load(cache_key)
+                    
+                    if not cached_data or 'result' not in cached_data['data']:
+                        raise ValueError("Invalid cache data format")
+                    
+                    result = cached_data['data']['result']
                     
                     # Handle data types like DataFrames
-                    if isinstance(cached_data['result'], dict) and '_type' in cached_data['result']:
-                        cached_data['result'] = _json_to_dataframe(cached_data['result'])
+                    if isinstance(result, dict) and '_type' in result:
+                        result = _json_to_dataframe(result)
                     
-                    return cached_data['result']
+                    return result
                 except Exception as e:
                     logger.error(f"Error loading cache for {func.__name__}: {e}")
             
@@ -176,14 +186,21 @@ def cache_api_call(expiry_hours=None, cache_key_prefix=None):
             
             # Save the result to cache
             try:
-                with open(cache_file, 'w') as f:
-                    json.dump({
-                        'timestamp': datetime.now().isoformat(),
-                        'function': func.__name__,
-                        'args': str(args),
-                        'kwargs': str(kwargs),
-                        'result': result
-                    }, f, default=_dataframe_to_json)
+                # Prepare result for serialization
+                serialized_result = result
+                # Use DataFrame serialization for pandas objects
+                if isinstance(result, pd.DataFrame):
+                    serialized_result = _dataframe_to_json(result)
+                    
+                # Store in persistence layer
+                cache_data = {
+                    'function': func.__name__,
+                    'args': str(args),
+                    'kwargs': str(kwargs),
+                    'result': serialized_result
+                }
+                
+                cache_store.save(cache_key, cache_data)
                 logger.debug(f"Cached result for {func.__name__}")
             except Exception as e:
                 logger.error(f"Error caching result for {func.__name__}: {e}")
@@ -194,43 +211,29 @@ def cache_api_call(expiry_hours=None, cache_key_prefix=None):
 
 def clear_cache(older_than_hours=None):
     """
-    Clear the entire cache or files older than specified hours.
+    Clear the entire cache or entries older than specified hours.
     
     Args:
-        older_than_hours (float, optional): Only clear files older than this many hours
-            If None, clear all cache files
+        older_than_hours (float, optional): Only clear entries older than this many hours
+            If None, clear all cache entries
             
     Returns:
-        int: Number of cache files deleted
+        int: Number of cache entries deleted
     """
-    files_deleted = 0
-    
     try:
-        for cache_file in os.listdir(CACHE_DIR):
-            file_path = os.path.join(CACHE_DIR, cache_file)
+        if older_than_hours is None:
+            # Clear all cache entries
+            deleted_count = cache_store.clear_all()
+        else:
+            # Clear only entries older than specified hours
+            deleted_count = cache_store.clear_older_than(older_than_hours)
             
-            # Skip if not a file
-            if not os.path.isfile(file_path):
-                continue
-            
-            # If older_than_hours is specified, check file age
-            if older_than_hours is not None:
-                file_mtime = os.path.getmtime(file_path)
-                file_date = datetime.fromtimestamp(file_mtime)
-                cutoff_time = datetime.now() - timedelta(hours=older_than_hours)
-                
-                if file_date > cutoff_time:
-                    continue
-            
-            # Delete the file
-            os.remove(file_path)
-            files_deleted += 1
-    
+        logger.info(f"Cleared {deleted_count} cache entries")
+        return deleted_count
+        
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
-    
-    logger.info(f"Cleared {files_deleted} cache files")
-    return files_deleted
+        return 0
 
 def get_cache_info():
     """
@@ -240,41 +243,58 @@ def get_cache_info():
         dict: Cache information including count, size, oldest, newest, etc.
     """
     try:
-        # Get all cache files
-        cache_files = [os.path.join(CACHE_DIR, f) for f in os.listdir(CACHE_DIR) 
-                      if os.path.isfile(os.path.join(CACHE_DIR, f))]
+        # Get all cache keys
+        cache_keys = cache_store.list_keys()
         
-        if not cache_files:
+        if not cache_keys:
             return {
                 'count': 0,
                 'total_size_kb': 0,
                 'status': 'empty'
             }
         
-        # Get file stats
-        file_stats = []
-        total_size = 0
+        # Get stats about entries
+        timestamps = []
+        for key in cache_keys:
+            cached_data = cache_store.load(key)
+            if cached_data and 'timestamp' in cached_data:
+                timestamps.append((key, cached_data['timestamp']))
         
-        for file_path in cache_files:
-            size = os.path.getsize(file_path)
-            mtime = os.path.getmtime(file_path)
-            file_stats.append((file_path, size, mtime))
-            total_size += size
-        
-        # Sort by modification time
-        file_stats.sort(key=lambda x: x[2])
+        if not timestamps:
+            return {
+                'count': len(cache_keys),
+                'status': 'active',
+                'message': 'Cannot determine timestamps',
+                'storage_type': 'shelve'
+            }
+            
+        # Sort by timestamp
+        timestamps.sort(key=lambda x: x[1])
         
         # Get oldest and newest
-        oldest_file, _, oldest_time = file_stats[0]
-        newest_file, _, newest_time = file_stats[-1]
+        oldest_key, oldest_time = timestamps[0]
+        newest_key, newest_time = timestamps[-1]
         
+        # Get estimate of size (shelve doesn't have direct size info)
+        # This is a fallback that checks the directory size
+        total_size = 0
+        try:
+            for dirpath, _, filenames in os.walk(CACHE_DIR):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    if os.path.exists(fp) and os.path.isfile(fp):
+                        total_size += os.path.getsize(fp)
+        except Exception:
+            pass  # Ignore size calculation errors
+            
         return {
-            'count': len(cache_files),
+            'count': len(cache_keys),
             'total_size_kb': total_size / 1024,
-            'oldest_file': os.path.basename(oldest_file),
-            'oldest_timestamp': datetime.fromtimestamp(oldest_time).isoformat(),
-            'newest_file': os.path.basename(newest_file),
-            'newest_timestamp': datetime.fromtimestamp(newest_time).isoformat(),
+            'oldest_key': oldest_key,
+            'oldest_timestamp': oldest_time,
+            'newest_key': newest_key,
+            'newest_timestamp': newest_time,
+            'storage_type': 'shelve',
             'cache_dir': CACHE_DIR,
             'status': 'active'
         }
