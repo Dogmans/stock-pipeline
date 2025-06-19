@@ -34,7 +34,6 @@ This pipeline implements a comprehensive stock screening system based on the val
 
 - Orchestration:
   - `main.py`: Main script to run the complete pipeline
-  - `run_pipeline.py`: Wrapper script with common execution options
   - `utils/`: Package containing common utilities and helper functions
     - `logger.py`: Logging setup
     - `filesystem.py`: Directory and file operations
@@ -43,20 +42,9 @@ This pipeline implements a comprehensive stock screening system based on the val
 
 ## Running the Pipeline
 
-There are two main scripts for running the pipeline:
+The main script for running the pipeline is `main.py`:
 
-### 1. run_pipeline.py (Recommended for most users)
-A simplified wrapper with convenient presets for common use cases:
-
-```
-python run_pipeline.py --quick   # Quick scan of S&P 500 with basic strategies
-python run_pipeline.py --full    # Comprehensive scan of all stocks
-python run_pipeline.py --value   # Value-focused strategies only
-```
-
-This script provides simple flags and handles timing of pipeline execution. It's designed for everyday usage and common scenarios.
-
-### 2. main.py (For advanced customization)
+### Running the Pipeline with main.py
 The core implementation with all available options and fine-grained control:
 
 ```

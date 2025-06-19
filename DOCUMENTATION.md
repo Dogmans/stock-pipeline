@@ -63,7 +63,7 @@ The pipeline includes a comprehensive caching system to improve performance and 
 | Force refresh option | Any cached function can be forced to ignore cache and fetch fresh data by passing `force_refresh=True` |
 | Cache management | Command-line options allow viewing cache stats, clearing all cache, or removing old cache files |
 | DataFrame serialization | Special JSON serialization/deserialization for pandas DataFrames ensures proper caching of complex data structures |
-| CLI integration | Both `main.py` and `run_pipeline.py` support cache management arguments for easier control |
+| CLI integration | The `main.py` script supports cache management arguments for easier control |
 
 Command-line options for cache management:
 
@@ -87,7 +87,6 @@ See `scripts.md` for examples of combining these options with other commands.
 | Module | Description |
 |--------|-------------|
 | `main.py` | The main entry point that orchestrates the entire pipeline. Handles command line arguments, executes the data collection, processing, screening, and visualization in sequence. |
-| `run_pipeline.py` | Provides convenient wrapper functions for common pipeline use cases with preset configurations. |
 
 ### Configuration
 

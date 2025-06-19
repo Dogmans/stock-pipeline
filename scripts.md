@@ -33,19 +33,19 @@ python main.py --clear-old-cache 48
 ### Quick Scan with Fresh Data
 To run a quick scan with fresh data (bypassing cache):
 ```powershell
-python run_pipeline.py --quick --force-refresh
+python main.py --universe sp500 --strategies value,growth --force-refresh
 ```
 
 ### Full Comprehensive Scan with Cache Cleared
 To run a full scan after clearing the cache:
 ```powershell
-python run_pipeline.py --full --clear-cache
+python main.py --full --clear-cache
 ```
 
 ### Value-Focused Scan with Custom Output Directory
 To run a value-focused scan with results in a custom directory:
 ```powershell
-python run_pipeline.py --value --output ./value_results
+python main.py --universe sp500 --strategies value --output ./value_results
 ```
 
 ## Combined Commands
@@ -53,14 +53,14 @@ python run_pipeline.py --value --output ./value_results
 ### Clear Old Cache and Run Full Scan
 To clear cache files older than 72 hours and run a full scan:
 ```powershell
-python run_pipeline.py --full --clear-old-cache 72
+python main.py --full --clear-old-cache 72
 ```
 
 ### Cache Information Check Before Running
 First check cache info, then run the pipeline if needed:
 ```powershell
 python main.py --cache-info
-python run_pipeline.py --quick
+python main.py --universe sp500 --strategies value,growth
 ```
 
 ## Running Tests
@@ -236,13 +236,11 @@ Progress made with this test run:
    - test_stock_data.py
    - test_market_data.py
    - test_data_processing.py
-   - test_screeners.py
-   - test_universe.py
+   - test_screeners.py   - test_universe.py
    - test_visualization.py
    - test_config.py
    - test_utils.py
    - test_cache_manager.py
-   - test_run_pipeline.py
 
 ### 2025-06-18: Fixed Main Pipeline Tests
 
@@ -274,9 +272,7 @@ Tests passing in all stages:
    - test_universe.py
    - test_visualization.py
    - test_config.py
-   - test_utils.py
-   - test_cache_manager.py
-   - test_run_pipeline.py
+   - test_utils.py   - test_cache_manager.py
    - test_main.py
 
 ## Multi-Source Financial Data Architecture (June 18, 2025)
