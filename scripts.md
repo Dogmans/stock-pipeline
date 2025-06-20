@@ -1,5 +1,45 @@
 # Stock Pipeline Scripts Documentation
 
+> **IMPORTANT**: This file has been deprecated in favor of a new documentation structure.
+> Please see below for details on the new structure.
+
+## New Documentation Structure (June 20, 2025)
+
+This document has been split into smaller, more manageable files organized in a new structure:
+
+```
+/docs
+  /daily_notes          # Day-by-day development notes
+    2025-06-20.md       # Notes from specific days
+  /guides               # Longer-form documentation
+    data_providers.md   # Notes about API providers
+    
+/scripts
+  /powershell           # PowerShell scripts by category
+    cache_management.md # Cache management commands
+    testing.md          # Testing commands
+  /python               # Python script examples
+    
+```
+
+To search across documentation files, use the new helper script:
+
+```powershell
+# List documentation structure
+.\scripts\powershell\manage_docs.ps1
+
+# Search documentation
+.\scripts\powershell\manage_docs.ps1 -SearchTerm "provider"
+
+# Create a new daily note
+.\scripts\powershell\manage_docs.ps1 -NewNote
+```
+
+The content below is retained for historical purposes, but new information 
+should be added to the appropriate files in the new structure.
+
+# Stock Pipeline Scripts Documentation
+
 This document contains information about how to run various tasks for the stock pipeline in PowerShell.
 
 ## Cache Management Commands
