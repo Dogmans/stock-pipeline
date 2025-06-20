@@ -78,7 +78,7 @@ import logging
 from datetime import datetime, timedelta
 
 from .base import BaseDataProvider
-from cache_manager import cache_api_call
+from cache_config import cache
 import config
 from utils.logger import get_logger
 
@@ -109,8 +109,7 @@ class FinnhubProvider(BaseDataProvider):
         
         # Create Finnhub client
         self.client = finnhub.Client(api_key=self.api_key)
-    
-    @cache_api_call(expiry_hours=24, cache_key_prefix="finnhub_prices")
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
@@ -127,6 +126,9 @@ class FinnhubProvider(BaseDataProvider):
         Returns:
             Dictionary mapping each symbol to its historical price DataFrame
         """
+        if force_refresh:
+            cache.delete(self.get_historical_prices, symbols, period, interval)
+            
         if isinstance(symbols, str):
             symbols = [symbols]
         
@@ -204,8 +206,7 @@ class FinnhubProvider(BaseDataProvider):
                 logger.error(f"Error getting price data for {symbol}: {e}")
         
         return result
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="finnhub_income")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
                             force_refresh: bool = False) -> pd.DataFrame:
@@ -220,6 +221,9 @@ class FinnhubProvider(BaseDataProvider):
         Returns:
             DataFrame containing income statement data
         """
+        if force_refresh:
+            cache.delete(self.get_income_statement, symbol, annual)
+            
         try:
             freq = "annual" if annual else "quarterly"
             financials = self.client.company_basic_financials(symbol, 'all')
@@ -268,8 +272,7 @@ class FinnhubProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting income statement for {symbol}: {e}")
             return pd.DataFrame()
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="finnhub_balance")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
                          force_refresh: bool = False) -> pd.DataFrame:
@@ -284,6 +287,9 @@ class FinnhubProvider(BaseDataProvider):
         Returns:
             DataFrame containing balance sheet data
         """
+        if force_refresh:
+            cache.delete(self.get_balance_sheet, symbol, annual)
+            
         try:
             freq = "annual" if annual else "quarterly"
             financials = self.client.company_basic_financials(symbol, 'all')
@@ -332,8 +338,7 @@ class FinnhubProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting balance sheet for {symbol}: {e}")
             return pd.DataFrame()
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="finnhub_cashflow")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
                      force_refresh: bool = False) -> pd.DataFrame:
@@ -348,6 +353,9 @@ class FinnhubProvider(BaseDataProvider):
         Returns:
             DataFrame containing cash flow data
         """
+        if force_refresh:
+            cache.delete(self.get_cash_flow, symbol, annual)
+            
         try:
             freq = "annual" if annual else "quarterly"
             financials = self.client.company_basic_financials(symbol, 'all')
@@ -393,8 +401,7 @@ class FinnhubProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting cash flow for {symbol}: {e}")
             return pd.DataFrame()
-    
-    @cache_api_call(expiry_hours=24, cache_key_prefix="finnhub_overview")
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
         """
@@ -407,6 +414,9 @@ class FinnhubProvider(BaseDataProvider):
         Returns:
             Dictionary containing company overview data
         """
+        if force_refresh:
+            cache.delete(self.get_company_overview, symbol)
+            
         try:
             # Get company profile
             profile = self.client.company_profile2(symbol=symbol)

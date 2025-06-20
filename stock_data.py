@@ -20,7 +20,7 @@ from alpha_vantage.fundamentaldata import FundamentalData
 import config
 from utils.logger import get_logger
 from universe import get_stock_universe
-from cache_manager import cache_api_call
+from cache_config import cache
 import data_providers
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 # Default data provider - Financial Modeling Prep since we have a paid subscription
 default_provider = FinancialModelingPrepProvider()
 
-@cache_api_call(cache_key_prefix="historical_prices")
+@cache.memoize(expire=24*3600)  # Cache for 24 hours (default)
 def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=False, provider=None):
     """
     Fetch historical price data for a list of symbols.
@@ -46,9 +46,10 @@ def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=Fal
         provider (BaseDataProvider, optional): Data provider to use. If None, uses Financial Modeling Prep.
     
     Returns:
-        dict: Dictionary of DataFrames with historical price data,
-              keyed by symbol
+        dict: Dictionary of DataFrames with historical price data, keyed by symbol
     """
+    if force_refresh:
+        cache.delete(get_historical_prices, symbols, period, interval, provider)
     # Use the specified provider or the default Financial Modeling Prep provider
     data_provider = provider or default_provider
     
@@ -100,7 +101,7 @@ def get_historical_prices(symbols, period="1y", interval="1d", force_refresh=Fal
     logger.info(f"Successfully retrieved historical prices for {len(price_data)} symbols")
     return price_data
 
-@cache_api_call(expiry_hours=24, cache_key_prefix="fundamental_data")
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_fundamental_data(symbols, force_refresh=False, provider=None):
     """
     Fetch fundamental data for a list of symbols using the Financial Modeling Prep provider.
@@ -116,6 +117,8 @@ def get_fundamental_data(symbols, force_refresh=False, provider=None):
     Returns:
         dict: Dictionary with fundamental data for each symbol
     """
+    if force_refresh:
+        cache.delete(get_fundamental_data, symbols, provider)
     # Use the specified provider or the default Financial Modeling Prep provider
     data_provider = provider or default_provider
     
@@ -152,7 +155,7 @@ def get_fundamental_data(symbols, force_refresh=False, provider=None):
     logger.info(f"Successfully retrieved fundamental data for {len(fundamental_data)} symbols")
     return fundamental_data
 
-@cache_api_call(expiry_hours=24, cache_key_prefix="52_week_lows")
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
 def fetch_52_week_lows(top_n=50, force_refresh=False, provider=None):
     """
     Fetch stocks currently at or near their 52-week lows.
@@ -166,9 +169,13 @@ def fetch_52_week_lows(top_n=50, force_refresh=False, provider=None):
         provider (BaseDataProvider, optional): Data provider to use. If None, uses Financial Modeling Prep.
     
     Returns:
-        DataFrame: DataFrame with stocks at or near 52-week lows, sorted by
-                  percentage above 52-week low (ascending)
+        DataFrame: Top N stocks near their 52-week lows with metrics
     """
+    if force_refresh:
+        cache.delete(fetch_52_week_lows, top_n, provider)
+    # Use the specified provider or the default Financial Modeling Prep provider
+    data_provider = provider or default_provider
+        
     universe = get_stock_universe()
     symbols = universe['symbol'].tolist()
     

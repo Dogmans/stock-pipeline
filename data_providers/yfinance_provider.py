@@ -72,7 +72,7 @@ import yfinance as yf
 import logging
 
 from .base import BaseDataProvider
-from cache_manager import cache_api_call
+from cache_config import cache
 from utils.logger import get_logger
 
 # Get logger for this module
@@ -88,16 +88,18 @@ class YFinanceProvider(BaseDataProvider):
     # No explicit API limits for yfinance, but being reasonable
     RATE_LIMIT = None
     DAILY_LIMIT = None
-    
     def __init__(self):
         """Initialize the Yahoo Finance provider."""
         pass
-    
-    @cache_api_call(expiry_hours=24, cache_key_prefix="yf_prices")
+        
+    @cache.memoize(expire=24*3600)  # expiry_hours=24 converted to seconds
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
                              force_refresh: bool = False) -> Dict[str, pd.DataFrame]:
+        """Force refresh handling"""
+        if force_refresh:
+            cache.delete(self.get_historical_prices, symbols, period, interval)
         """
         Get historical price data using yfinance.
         
@@ -141,8 +143,8 @@ class YFinanceProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error fetching historical prices: {e}")
             return {}
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="yf_income")  # Cache for 1 week
+            
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
                             force_refresh: bool = False) -> pd.DataFrame:
@@ -157,6 +159,8 @@ class YFinanceProvider(BaseDataProvider):
         Returns:
             DataFrame containing income statement data
         """
+        if force_refresh:
+            cache.delete(self.get_income_statement, symbol, annual)
         try:
             ticker = yf.Ticker(symbol)
             
@@ -197,7 +201,7 @@ class YFinanceProvider(BaseDataProvider):
             logger.error(f"Error getting income statement for {symbol}: {e}")
             return pd.DataFrame()
     
-    @cache_api_call(expiry_hours=168, cache_key_prefix="yf_balance")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
                          force_refresh: bool = False) -> pd.DataFrame:
@@ -253,7 +257,7 @@ class YFinanceProvider(BaseDataProvider):
             logger.error(f"Error getting balance sheet for {symbol}: {e}")
             return pd.DataFrame()
     
-    @cache_api_call(expiry_hours=168, cache_key_prefix="yf_cashflow")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
                      force_refresh: bool = False) -> pd.DataFrame:
@@ -309,7 +313,7 @@ class YFinanceProvider(BaseDataProvider):
             logger.error(f"Error getting cash flow for {symbol}: {e}")
             return pd.DataFrame()
     
-    @cache_api_call(expiry_hours=24, cache_key_prefix="yf_overview")
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
         """

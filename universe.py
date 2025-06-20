@@ -21,13 +21,13 @@ import finnhub
 
 import config
 from utils.logger import setup_logging
-from cache_manager import cache_api_call
+from cache_config import cache
 
 # Set up logger for this module
 logger = setup_logging()
 
-@cache_api_call(expiry_hours=24, cache_key_prefix="sp500_symbols")
-def get_sp500_symbols():
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
+def get_sp500_symbols(force_refresh=False):
     """
     Get a list of S&P 500 tickers from Wikipedia.
     
@@ -41,6 +41,9 @@ def get_sp500_symbols():
         DataFrame: DataFrame with ticker symbols and company information
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
+    if force_refresh:
+        cache.delete(get_sp500_symbols)
+        
     url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
     try:
         tables = pd.read_html(url)
@@ -58,8 +61,8 @@ def get_sp500_symbols():
         logger.error(f"Error fetching S&P 500 symbols: {e}")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-@cache_api_call(expiry_hours=24, cache_key_prefix="russell2000_symbols")
-def get_russell2000_symbols():
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
+def get_russell2000_symbols(force_refresh=False):
     """
     Get a list of Russell 2000 tickers.
     
@@ -70,10 +73,11 @@ def get_russell2000_symbols():
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
-        DataFrame: DataFrame with ticker symbols
-                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
-                  (note that for Russell 2000, sector info may be empty)
+        DataFrame: DataFrame with ticker symbols and metadata
     """
+    if force_refresh:
+        cache.delete(get_russell2000_symbols)
+        
     # Try to load from cached file first
     russell_file = os.path.join(config.DATA_DIR, 'russell2000.csv')
     
@@ -109,8 +113,8 @@ def get_russell2000_symbols():
     logger.warning("Could not fetch Russell 2000 symbols. Returning empty DataFrame.")
     return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-@cache_api_call(expiry_hours=24, cache_key_prefix="nasdaq100_symbols")
-def get_nasdaq100_symbols():
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
+def get_nasdaq100_symbols(force_refresh=False):
     """
     Get a list of NASDAQ 100 tickers from Wikipedia.
     
@@ -125,6 +129,9 @@ def get_nasdaq100_symbols():
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
                   (note that sector info may be empty)
     """
+    if force_refresh:
+        cache.delete(get_nasdaq100_symbols)
+        
     url = 'https://en.wikipedia.org/wiki/Nasdaq-100'
     try:
         tables = pd.read_html(url)
@@ -156,7 +163,7 @@ def get_nasdaq100_symbols():
         logger.error(f"Error fetching NASDAQ 100 symbols: {e}")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-@cache_api_call(expiry_hours=24, cache_key_prefix="stock_universe")
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_stock_universe(universe=None, force_refresh=False):
     """
     Get a list of stock symbols based on the specified universe.
@@ -166,13 +173,14 @@ def get_stock_universe(universe=None, force_refresh=False):
         universe (str): Which universe of stocks to use. Options:
                         'sp500', 'russell2000', 'nasdaq100', 'all'
                         If None, uses the default universe from config
-        force_refresh (bool): If True, bypass cache and fetch fresh data
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
         DataFrame: DataFrame with ticker symbols and metadata
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
+    if force_refresh:
+        cache.delete(get_stock_universe, universe)
     if universe is None:
         universe = config.DEFAULT_UNIVERSE
     

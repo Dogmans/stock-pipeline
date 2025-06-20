@@ -20,13 +20,16 @@ from datetime import datetime, timedelta
 
 import config
 from utils.logger import get_logger
-from cache_manager import cache_api_call
+from cache_config import cache
 
 # Get logger for this module
 logger = get_logger(__name__)
 
-@cache_api_call(expiry_hours=6, cache_key_prefix="market_conditions")
+@cache.memoize(expire=6*3600)  # expiry_hours=6 converted to seconds
 def get_market_conditions(data_provider=None, force_refresh=False):
+    """Force refresh handling"""
+    if force_refresh:
+        cache.delete(get_market_conditions, data_provider)
     """
     Fetch current market conditions, including index values and VIX.
     
@@ -102,8 +105,11 @@ def get_market_conditions(data_provider=None, force_refresh=False):
     
     return market_data
 
-@cache_api_call(expiry_hours=6, cache_key_prefix="market_correction")
+@cache.memoize(expire=6*3600)  # expiry_hours=6 converted to seconds
 def is_market_in_correction(data_provider=None, force_refresh=False):
+    """Force refresh handling"""
+    if force_refresh:
+        cache.delete(is_market_in_correction, data_provider)
     """
     Determine if the market is in a correction or crash based on VIX levels.
     
@@ -189,8 +195,11 @@ def is_market_in_correction(data_provider=None, force_refresh=False):
         logger.error(f"Error checking market correction status: {e}")
         return False, "Unknown (Error fetching data)"
 
-@cache_api_call(expiry_hours=6, cache_key_prefix="sector_performances")
+@cache.memoize(expire=6*3600)  # expiry_hours=6 converted to seconds
 def get_sector_performances(data_provider=None, force_refresh=False):
+    """Force refresh handling"""
+    if force_refresh:
+        cache.delete(get_sector_performances, data_provider)
     """
     Calculate the performance of different market sectors.
     

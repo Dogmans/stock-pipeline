@@ -81,7 +81,7 @@ import os
 import logging
 
 from .base import BaseDataProvider
-from cache_manager import cache_api_call
+from cache_config import cache
 
 import config
 from utils.logger import get_logger
@@ -114,8 +114,7 @@ class AlphaVantageProvider(BaseDataProvider):
         
         # Base URL for Alpha Vantage API
         self.base_url = "https://www.alphavantage.co/query"
-    
-    @cache_api_call(expiry_hours=24, cache_key_prefix="av_prices")
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
@@ -135,6 +134,9 @@ class AlphaVantageProvider(BaseDataProvider):
         Returns:
             Dictionary mapping each symbol to its historical price DataFrame
         """
+        if force_refresh:
+            cache.delete(self.get_historical_prices, symbols, period, interval)
+            
         if isinstance(symbols, str):
             symbols = [symbols]
         
@@ -208,8 +210,7 @@ class AlphaVantageProvider(BaseDataProvider):
                 logger.error(f"Error getting price data for {symbol}: {e}")
         
         return result
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="av_income")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
                             force_refresh: bool = False) -> pd.DataFrame:
@@ -224,6 +225,9 @@ class AlphaVantageProvider(BaseDataProvider):
         Returns:
             DataFrame containing income statement data
         """
+        if force_refresh:
+            cache.delete(self.get_income_statement, symbol, annual)
+            
         try:
             params = {
                 "function": "INCOME_STATEMENT",
@@ -252,8 +256,7 @@ class AlphaVantageProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting income statement for {symbol}: {e}")
             return pd.DataFrame()
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="av_balance")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
                          force_refresh: bool = False) -> pd.DataFrame:
@@ -268,6 +271,9 @@ class AlphaVantageProvider(BaseDataProvider):
         Returns:
             DataFrame containing balance sheet data
         """
+        if force_refresh:
+            cache.delete(self.get_balance_sheet, symbol, annual)
+            
         try:
             params = {
                 "function": "BALANCE_SHEET",
@@ -296,8 +302,7 @@ class AlphaVantageProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting balance sheet for {symbol}: {e}")
             return pd.DataFrame()
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="av_cashflow")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
                      force_refresh: bool = False) -> pd.DataFrame:
@@ -312,6 +317,8 @@ class AlphaVantageProvider(BaseDataProvider):
         Returns:
             DataFrame containing cash flow data
         """
+        if force_refresh:
+            cache.delete(self.get_cash_flow, symbol, annual)
         try:
             params = {
                 "function": "CASH_FLOW",
@@ -340,8 +347,7 @@ class AlphaVantageProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error getting cash flow for {symbol}: {e}")
             return pd.DataFrame()
-    
-    @cache_api_call(expiry_hours=168, cache_key_prefix="av_overview")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
         """
@@ -354,6 +360,9 @@ class AlphaVantageProvider(BaseDataProvider):
         Returns:
             Dictionary containing company overview data
         """
+        if force_refresh:
+            cache.delete(self.get_company_overview, symbol)
+            
         try:
             params = {
                 "function": "OVERVIEW",

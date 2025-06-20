@@ -77,7 +77,7 @@ import logging
 import functools
 
 from .base import BaseDataProvider
-from cache_manager import cache_api_call
+from cache_config import cache
 import config
 from utils.logger import get_logger
 from utils.rate_limiter import RateLimiter
@@ -115,12 +115,11 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         # Base URL for FMP API
         self.base_url = "https://financialmodelingprep.com/api/v3"
     
-    @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_prices")
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
-                             force_refresh: bool = False) -> Dict[str, pd.DataFrame]:
-        """
+                             force_refresh: bool = False) -> Dict[str, pd.DataFrame]:        """
         Get historical price data using Financial Modeling Prep API.
         
         Args:
@@ -132,6 +131,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             Dictionary mapping each symbol to its historical price DataFrame
         """
+        if force_refresh:
+            cache.delete(self.get_historical_prices, symbols, period, interval)
+            
         if isinstance(symbols, str):
             symbols = [symbols]
         
@@ -152,7 +154,8 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         days = days_map.get(period, "365")  # Default to 1 year
         
         for symbol in symbols:
-            try:                
+            try:
+                
                 url = f"{self.base_url}/historical-price-full/{symbol}"
                 params = {"apikey": self.api_key, "timeseries": days}
                 
@@ -194,7 +197,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
         return result
     
-    @cache_api_call(expiry_hours=168, cache_key_prefix="fmp_income")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
                             force_refresh: bool = False) -> pd.DataFrame:
@@ -209,6 +212,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             DataFrame containing income statement data
         """
+        if force_refresh:
+            cache.delete(self.get_income_statement, symbol, annual)
+        
         try:
             period = "annual" if annual else "quarter"
             url = f"{self.base_url}/income-statement/{symbol}"
@@ -252,7 +258,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.error(f"Error getting income statement for {symbol}: {e}")
             return pd.DataFrame()
     
-    @cache_api_call(expiry_hours=168, cache_key_prefix="fmp_balance")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
                          force_refresh: bool = False) -> pd.DataFrame:
@@ -267,6 +273,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             DataFrame containing balance sheet data
         """
+        if force_refresh:
+            cache.delete(self.get_balance_sheet, symbol, annual)
+        
         try:
             period = "annual" if annual else "quarter"
             url = f"{self.base_url}/balance-sheet-statement/{symbol}"
@@ -311,7 +320,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.error(f"Error getting balance sheet for {symbol}: {e}")
             return pd.DataFrame()
     
-    @cache_api_call(expiry_hours=168, cache_key_prefix="fmp_cashflow")  # Cache for 1 week
+    @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
                      force_refresh: bool = False) -> pd.DataFrame:
@@ -326,6 +335,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             DataFrame containing cash flow data
         """
+        if force_refresh:
+            cache.delete(self.get_cash_flow, symbol, annual)
+        
         try:
             period = "annual" if annual else "quarter"
             url = f"{self.base_url}/cash-flow-statement/{symbol}"
@@ -368,7 +380,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.error(f"Error getting cash flow for {symbol}: {e}")
             return pd.DataFrame()
 
-    @cache_api_call(expiry_hours=24, cache_key_prefix="fmp_overview")
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
         """
@@ -379,8 +391,11 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             force_refresh: Whether to bypass cache and fetch fresh data
             
         Returns:
-            Dictionary containing company overview data
+            Dictionary containing company profile and metrics
         """
+        if force_refresh:
+            cache.delete(self.get_company_overview, symbol)
+        
         try:
             url = f"{self.base_url}/profile/{symbol}"
             params = {"apikey": self.api_key}

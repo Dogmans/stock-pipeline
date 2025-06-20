@@ -34,7 +34,7 @@ from market_data import get_market_conditions, is_market_in_correction, get_sect
 from data_processing import process_stock_data, calculate_financial_ratios
 from screeners import run_all_screeners, get_available_screeners
 from reporting import generate_screening_report, generate_metrics_definitions
-from cache_manager import clear_cache, get_cache_info
+from cache_config import clear_all_cache, clear_old_cache, get_cache_info
 
 # Import data provider abstraction
 import data_providers
@@ -135,18 +135,19 @@ def main():
     
     # Clear cache if requested
     if args.clear_cache:
-        num_deleted = clear_cache()
+        num_deleted = clear_all_cache()
         logger.info(f"Cleared {num_deleted} cache files")
     
     # Clear old cache files if requested
     if args.clear_old_cache is not None:
-        num_deleted = clear_cache(older_than_hours=args.clear_old_cache)
+        num_deleted = clear_old_cache(args.clear_old_cache)
         logger.info(f"Cleared {num_deleted} cache files older than {args.clear_old_cache} hours")
     
     # Set the output directory
-    output_dir = args.output
+    output_dir = args.output    
     os.makedirs(output_dir, exist_ok=True)
-      # Select data provider
+    
+    # Select data provider
     if args.data_provider:
         provider_name = args.data_provider
     else:
