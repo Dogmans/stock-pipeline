@@ -138,54 +138,8 @@ def is_market_in_correction(data_provider=None, force_refresh=False):
             
             # Handle different DataFrame structures that could be returned
             try:
-                # Case 1: Standard DataFrame with 'Close' as a column
-                if 'Close' in df.columns and not isinstance(df.columns, pd.MultiIndex):
-                    latest_vix = df['Close'].iloc[-1]
-                    logger.info(f"Retrieved VIX from standard DataFrame structure: {latest_vix}")
-                
-                # Case 2: MultiIndex columns with ('Ticker', 'Price') format
-                elif isinstance(df.columns, pd.MultiIndex):
-                    # Identify which level contains 'Close'
-                    levels = [df.columns.get_level_values(i) for i in range(df.columns.nlevels)]
-                    
-                    # If 'Close' is in any level
-                    for i, level in enumerate(levels):
-                        if 'Close' in level:
-                            # Get all columns where this level has value 'Close'
-                            close_cols = [col for col in df.columns if col[i] == 'Close']
-                            if close_cols:
-                                latest_vix = df[close_cols[0]].iloc[-1]
-                                logger.info(f"Retrieved VIX from MultiIndex columns: {latest_vix}")
-                                break
-                
-                # Case 3: Last row might contain Close in MultiIndex
-                if latest_vix is None:
-                    last_row = df.iloc[-1]
-                    if isinstance(last_row.index, pd.MultiIndex):
-                        # If MultiIndex has 'Close' in it
-                        for i in range(last_row.index.nlevels):
-                            if 'Close' in last_row.index.get_level_values(i):
-                                # This level contains 'Close', find the position
-                                for j, idx in enumerate(last_row.index):
-                                    if isinstance(idx, tuple) and 'Close' in idx:
-                                        latest_vix = last_row.iloc[j]
-                                        logger.info(f"Retrieved VIX from MultiIndex rows: {latest_vix}")
-                                        break
-                    # Handle case shown in last request where 'Close' is in the index
-                    elif hasattr(last_row, 'Close'):
-                        latest_vix = last_row.Close
-                        logger.info(f"Retrieved VIX from last_row.Close: {latest_vix}")
-                    elif 'Close' in last_row.index:
-                        latest_vix = last_row['Close']
-                        logger.info(f"Retrieved VIX from last_row['Close']: {latest_vix}")
-                        
-                # Case 4: Using xs() method to access MultiIndex
-                if latest_vix is None and isinstance(last_row.index, pd.MultiIndex):
-                    try:
-                        latest_vix = df.xs('Close', level=1, axis=1).iloc[-1]
-                        logger.info(f"Retrieved VIX using xs() method: {latest_vix}")
-                    except:
-                        pass
+                latest_vix = df['Close'].iloc[-1]
+                logger.info(f"Retrieved VIX from standard DataFrame structure: {latest_vix}")
             
             except Exception as inner_e:
                 logger.error(f"Failed to extract Close price from VIX data: {inner_e}")
@@ -217,10 +171,7 @@ def is_market_in_correction(data_provider=None, force_refresh=False):
                 logger.error(f"Fallback VIX retrieval failed: {fallback_e}")
         
         # If we still don't have VIX data, return error
-        if latest_vix is None:
-            logger.error("Could not retrieve VIX data using any available method")
-            return False, "Error: Could not retrieve market status"
-            
+        if latest_vix is not None:
             if latest_vix >= config.VIX_BLACK_SWAN_THRESHOLD:
                 logger.info(f"Market is in Black Swan territory (VIX: {latest_vix:.2f})")
                 return True, f"Black Swan Event (VIX: {latest_vix:.2f})"
