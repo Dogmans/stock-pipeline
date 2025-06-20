@@ -17,6 +17,7 @@ import os
 import sys
 import pandas as pd
 from datetime import datetime, timedelta
+from dotenv import load_dotenv  # Import dotenv for loading environment variables
 
 # Add parent directory to path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -28,7 +29,6 @@ from data_providers.finnhub_provider import FinnhubProvider
 
 class TestProviders(unittest.TestCase):
     """Tests for individual data providers."""
-    
     def setUp(self):
         """
         Set up test environment.
@@ -38,6 +38,10 @@ class TestProviders(unittest.TestCase):
         
         YFinance provider doesn't require an API key and should always be available.
         """
+        # Load environment variables from .env file
+        from dotenv import load_dotenv
+        load_dotenv()
+        
         # Import config to check for API keys
         import config
         
@@ -73,9 +77,9 @@ class TestProviders(unittest.TestCase):
         except Exception as e:
             self.finnhub_available = False
             print(f"Finnhub provider unavailable: {e}")
-    
-    # YFinance Provider Tests
-    #  - Used primarily for market indexes and VIX data    def test_yfinance_get_market_indexes(self):
+      # YFinance Provider Tests
+    #  - Used primarily for market indexes and VIX data
+    def test_yfinance_get_market_indexes(self):
         """Test YFinance provider for market indexes (primary use case)."""
         if not self.yf_available:
             self.skipTest("YFinance provider not available")
