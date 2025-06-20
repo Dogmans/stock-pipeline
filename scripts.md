@@ -750,7 +750,7 @@ Remember that cache paths are defined in `cache_manager.py`, not directly in con
 #### Cache Implementation
 The caching system now uses `diskcache` instead of file-based or shelve-based storage. Key changes:
 - No more direct file manipulation in `CACHE_DIR`
-- All cache operations are performed through the `cache_store` object from `utils.shared_persistence`
+- All cache operations are performed through the `cache_store` object from `utils/shared_persistence`
 - The `CACHE_DIR` constant has been removed from all modules
 - Cache information is available through `python main.py --cache-info`
 
@@ -879,5 +879,37 @@ Get-Content -Tail 10 stock_pipeline.log
 # Filter logs for errors only
 Get-Content stock_pipeline.log | Where-Object { $_ -like "*ERROR*" }
 ```
+
+## Complete Removal of MultiProvider (June 20, 2025)
+
+After our refactoring efforts to use specific providers for each data type, we've fully removed the MultiProvider approach:
+
+```powershell
+# Removing the multi_provider.py file:
+Remove-Item -Path "data_providers\multi_provider.py"
+
+# Removing the associated test file:
+Remove-Item -Path "tests\test_provider_priority.py"
+```
+
+### Architecture Benefits
+
+1. **Simplified Code**: Direct calls to appropriate providers with no fallback complexity
+2. **Better Error Handling**: Errors are now clearly traceable to a specific provider
+3. **Improved Performance**: No overhead from trying multiple providers in sequence
+4. **Provider Specialization**: Each provider is used for what it does best:
+   - YFinance: Market indexes and VIX data
+   - Financial Modeling Prep: Stock data and fundamentals (our primary provider)
+   - Finnhub: Company profiles/overviews
+
+### Dependencies & References
+
+All dependencies and references to MultiProvider have been removed from:
+- `data_providers/__init__.py`
+- `market_data.py`
+- `stock_data.py`
+- `main.py` command line arguments
+
+The new testing approach focuses on testing individual providers for their specific use cases.
 
 
