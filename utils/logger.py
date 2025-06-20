@@ -8,6 +8,7 @@ retrieved throughout the application.
 
 import logging
 import os
+import config
 
 # Track if logging has been initialized
 _logging_initialized = False
@@ -32,7 +33,7 @@ def setup_logging():
     
     # Configure the root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(config.LOGLEVEL)
     
     # Clear any existing handlers (to prevent duplicates if called multiple times)
     for handler in root_logger.handlers[:]:

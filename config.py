@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+LOGLEVEL = os.getenv('LOGLEVEL', 'DEBUG').upper()  # Default to DEBUG if not set
+
 # API Keys - set these in your environment or .env file
 ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
 FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')

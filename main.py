@@ -33,7 +33,7 @@ from stock_data import get_historical_prices, get_fundamental_data, fetch_52_wee
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances
 from data_processing import process_stock_data, calculate_financial_ratios
 from screeners import run_all_screeners, get_available_screeners
-from visualization import create_dashboard, create_stock_charts, create_market_overview
+from reporting import generate_screening_report, generate_metrics_definitions
 from cache_manager import clear_cache, get_cache_info
 
 # Import data provider abstraction
@@ -289,32 +289,52 @@ def main():
         universe_df,
         strategies=strategies
     )
+      # 7. Generate screening report
+    logger.info("Generating screening report")
     
-    # 7. Create visualizations
-    logger.info("Creating visualizations and reports")
-    
-    # Create dashboard with all results
-    dashboard_path = os.path.join(output_dir, 'dashboard.html')
-    create_dashboard(screening_results, market_data, sector_performance, dashboard_path)
-    
-    # Create stock charts for top candidates
-    charts_dir = os.path.join(output_dir, 'charts')
-    os.makedirs(charts_dir, exist_ok=True)
-    
-    top_candidates = []
+    # Sort screening results by relevant metrics for each strategy
+    sorted_results = {}
     for strategy_name, results in screening_results.items():
         if isinstance(results, pd.DataFrame) and not results.empty:
-            # Tag each stock with the strategy that identified it
-            results['strategy'] = strategy_name
-            top_candidates.append(results.head(5))
+            # Sort based on strategy-specific metrics
+            if strategy_name == 'value' and 'pe_ratio' in results.columns:
+                # For value, lower P/E is better
+                sorted_results[strategy_name] = results.sort_values('pe_ratio')
+            elif strategy_name == 'growth' and 'growth_rate' in results.columns:
+                # For growth, higher growth rate is better
+                sorted_results[strategy_name] = results.sort_values('growth_rate', ascending=False)
+            elif strategy_name == 'income' and 'dividend_yield' in results.columns:
+                # For income, higher yield is better
+                sorted_results[strategy_name] = results.sort_values('dividend_yield', ascending=False)
+            elif 'pct_off_high' in results.columns:
+                # For mean reversion, higher percentage off high might be better
+                sorted_results[strategy_name] = results.sort_values('pct_off_high', ascending=False)
+            else:
+                # Default case, just keep original order
+                sorted_results[strategy_name] = results
+        else:
+            sorted_results[strategy_name] = results
     
-    if top_candidates:
-        top_candidates_df = pd.concat(top_candidates)
-        create_stock_charts(top_candidates_df['symbol'].unique().tolist(), price_data, charts_dir)
+    # Generate comprehensive markdown report
+    report_path = os.path.join(output_dir, 'screening_report.md')
+    generate_screening_report(sorted_results, report_path)
     
-    # Create market overview
-    market_overview_path = os.path.join(output_dir, 'market_overview.html')
-    create_market_overview(market_data, sector_performance, market_overview_path)
+    # Also generate a summary file
+    summary_path = os.path.join(output_dir, 'summary.txt')
+    with open(summary_path, 'w') as f:
+        f.write(f"Stock Screening Results Summary - {datetime.now().strftime('%Y-%m-%d')}\n\n")
+        
+        for strategy_name, results in sorted_results.items():
+            if isinstance(results, pd.DataFrame) and not results.empty:
+                f.write(f"{strategy_name.upper()} STRATEGY: {len(results)} stocks passed\n")
+                if len(results) > 0:
+                    f.write(f"  Top 3: {', '.join(results['symbol'].head(3).tolist())}\n")
+            else:
+                f.write(f"{strategy_name.upper()} STRATEGY: 0 stocks passed\n")
+        
+        f.write("\nSee 'screening_report.md' for detailed results.")
+    
+    logger.info(f"Report generated: {report_path}")
     
     # 8. Output summary
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -334,7 +354,7 @@ def main():
                     f.write(f"  {row['symbol']}: {row.get('score', '')} {row.get('reason', '')}\n")
     
     logger.info(f"Pipeline complete. Results saved to {output_dir}")
-    logger.info(f"Dashboard available at: {dashboard_path}")
+    logger.info(f"Report available at: {report_path}")
     logger.info(f"Summary report: {summary_path}")
 
 
