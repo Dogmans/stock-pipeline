@@ -119,7 +119,8 @@ class FinancialModelingPrepProvider(BaseDataProvider):
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
-                             force_refresh: bool = False) -> Dict[str, pd.DataFrame]:        """
+                             force_refresh: bool = False) -> Dict[str, pd.DataFrame]:
+        """
         Get historical price data using Financial Modeling Prep API.
         
         Args:
