@@ -79,6 +79,7 @@ import pandas as pd
 import requests
 import os
 import logging
+from tqdm import tqdm
 
 from .base import BaseDataProvider
 from cache_config import cache
@@ -141,8 +142,7 @@ class AlphaVantageProvider(BaseDataProvider):
             symbols = [symbols]
         
         result = {}
-        
-        # Map period to Alpha Vantage outputsize param
+          # Map period to Alpha Vantage outputsize param
         outputsize = "full" if period in ("1y", "2y", "5y", "max") else "compact"
         
         # Map interval to Alpha Vantage function and interval params
@@ -159,7 +159,8 @@ class AlphaVantageProvider(BaseDataProvider):
             function = "TIME_SERIES_INTRADAY"
             av_interval = interval
         
-        for symbol in symbols:
+        # Use tqdm to show a progress bar when processing multiple symbols
+        for symbol in tqdm(symbols, desc="Fetching Alpha Vantage prices", disable=len(symbols) <= 1):
             try:
                 params = {
                     "function": function,

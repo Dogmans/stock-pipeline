@@ -75,6 +75,7 @@ import pandas as pd
 import requests
 import logging
 import functools
+from tqdm import tqdm  # For progress bars
 
 from .base import BaseDataProvider
 from cache_config import cache
@@ -148,15 +149,14 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             "3mo": "90",
             "6mo": "180",
             "1y": "365",
-            "2y": "730",
-            "5y": "1825",
+            "2y": "730",            "5y": "1825",
             "max": "5000"  # Using a large number for max
         }
         days = days_map.get(period, "365")  # Default to 1 year
         
-        for symbol in symbols:
+        # Use tqdm to show a progress bar when processing multiple symbols
+        for symbol in tqdm(symbols, desc="Fetching historical prices", disable=len(symbols) <= 1):
             try:
-                
                 url = f"{self.base_url}/historical-price-full/{symbol}"
                 params = {"apikey": self.api_key, "timeseries": days}
                 

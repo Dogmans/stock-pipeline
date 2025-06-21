@@ -85,3 +85,30 @@ The `force_refresh` parameter bypasses the cache in two ways:
 ### Alpha Vantage
 - Very restrictive API limits (5 calls per minute, 500 per day)
 - Cache expiry is typically longer to avoid hitting limits
+
+## User Experience Features
+
+### Progress Bars
+All data providers include progress bars when fetching historical prices for multiple symbols:
+
+```python
+# Example from financial_modeling_prep.py
+from tqdm import tqdm
+
+def get_historical_prices(self, symbols, period="1y", interval="1d", force_refresh=False):
+    # ...
+    for symbol in tqdm(symbols, desc="Fetching historical prices", disable=len(symbols) <= 1):
+        # fetch data for each symbol
+```
+
+Provider-specific implementations:
+1. **Financial Modeling Prep**: "Fetching historical prices"
+2. **Finnhub**: "Fetching Finnhub prices"  
+3. **Alpha Vantage**: "Fetching Alpha Vantage prices"
+
+Progress bars are automatically:
+- Displayed when fetching multiple symbols
+- Hidden when fetching only a single symbol
+- Provide visual feedback on long-running operations
+
+See the daily note from 2025-06-21 for more details on this implementation.

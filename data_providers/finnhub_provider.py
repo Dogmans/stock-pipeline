@@ -76,6 +76,7 @@ import requests
 import finnhub
 import logging
 from datetime import datetime, timedelta
+from tqdm import tqdm
 
 from .base import BaseDataProvider
 from cache_config import cache
@@ -161,8 +162,7 @@ class FinnhubProvider(BaseDataProvider):
         # Convert datetime to Unix timestamps
         start_timestamp = int(start_date.timestamp())
         end_timestamp = int(end_date.timestamp())
-        
-        # Convert interval to Finnhub resolution
+          # Convert interval to Finnhub resolution
         if interval == '1d':
             resolution = 'D'
         elif interval == '1h':
@@ -178,7 +178,8 @@ class FinnhubProvider(BaseDataProvider):
         else:
             resolution = 'D'  # Default to daily
         
-        for symbol in symbols:
+        # Use tqdm to show a progress bar when processing multiple symbols
+        for symbol in tqdm(symbols, desc="Fetching Finnhub prices", disable=len(symbols) <= 1):
             try:
                 candles = self.client.stock_candles(symbol, resolution, start_timestamp, end_timestamp)
                 
