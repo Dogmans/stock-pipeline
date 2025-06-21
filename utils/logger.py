@@ -57,6 +57,8 @@ def get_logger(name=None):
     Get a logger for the specified module.
     
     This should be used instead of calling setup_logging() in each module.
+    Always call with __name__ to ensure proper module identification in logs:
+    `logger = get_logger(__name__)`
     
     Args:
         name (str, optional): Name for the logger, usually __name__. Defaults to None.

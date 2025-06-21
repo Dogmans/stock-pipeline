@@ -15,7 +15,6 @@ Functions:
 
 import pandas as pd
 import numpy as np
-import logging
 from pathlib import Path
 import os
 from sklearn.preprocessing import StandardScaler
@@ -29,7 +28,9 @@ try:
     import talib
     HAS_TALIB = True
 except ImportError:
-    logging.warning("TA-Lib not available. Some technical indicators will be calculated using pandas instead.")
+    # Using the module logger instead of direct logging
+    logger = get_logger(__name__)
+    logger.warning("TA-Lib not available. Some technical indicators will be calculated using pandas instead.")
     HAS_TALIB = False
 
 # Get logger for this module

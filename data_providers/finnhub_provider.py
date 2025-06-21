@@ -74,7 +74,6 @@ from typing import Dict, List, Union, Any
 import pandas as pd
 import requests
 import finnhub
-import logging
 from datetime import datetime, timedelta
 from tqdm import tqdm
 

@@ -15,7 +15,6 @@ Functions:
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import logging
 from datetime import datetime, timedelta
 
 import config

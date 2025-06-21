@@ -73,7 +73,6 @@ get_company_overview:
 from typing import Dict, List, Union, Any
 import pandas as pd
 import requests
-import logging
 import functools
 from tqdm import tqdm  # For progress bars
 

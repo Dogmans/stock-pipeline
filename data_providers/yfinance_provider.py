@@ -69,7 +69,6 @@ get_company_overview:
 from typing import Dict, List, Union, Any
 import pandas as pd
 import yfinance as yf
-import logging
 
 from .base import BaseDataProvider
 from cache_config import cache

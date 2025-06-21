@@ -78,7 +78,6 @@ from typing import Dict, List, Union, Any
 import pandas as pd
 import requests
 import os
-import logging
 from tqdm import tqdm
 
 from .base import BaseDataProvider
