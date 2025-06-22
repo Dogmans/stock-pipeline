@@ -639,11 +639,18 @@ def screen_for_cash_rich_biotech(processed_data=None, financial_ratios=None, mar
     else:
         return pd.DataFrame()
 
-def screen_for_sector_corrections():
+def screen_for_sector_corrections(processed_data=None, financial_ratios=None, market_data=None, universe_df=None, **kwargs):
     """
     Screen for sectors that may be in correction or oversold.
     Based on Strategy #11: "Understanding Potential Catalysts, Headwinds, Tailwinds"
     
+    Args:
+        processed_data (DataFrame, optional): Pre-processed stock data
+        financial_ratios (dict, optional): Financial ratios for each stock
+        market_data (dict, optional): Market-level data
+        universe_df (DataFrame, optional): Stock universe being analyzed
+        **kwargs: Additional keyword arguments
+        
     Returns:
         DataFrame: Sector ETFs sorted by recent performance
     """
