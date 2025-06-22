@@ -18,11 +18,10 @@ Example:
 """
 
 import os
-import sys
-import logging
 import argparse
 from datetime import datetime
 import pandas as pd
+from tqdm import tqdm
 
 # Import pipeline modules
 import config
@@ -251,7 +250,7 @@ def main():
             fundamental_data.update(chunk_data)
     else:
         # Process all symbols at once
-        for symbol in symbols:
+        for symbol in tqdm(symbols, desc="Getting fundamental data", disable=len(symbols) <= 1):
             try:
                 data = data_provider.get_fundamental_data(symbol, force_refresh=args.force_refresh)
                 if data:
