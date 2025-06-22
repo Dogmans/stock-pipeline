@@ -28,22 +28,79 @@ Run pipeline for specific universe with latest data:
 python main.py --universe sp500 --clear-cache
 ```
 
-## Testing With Cache Control
+## Pipeline Commands with Required Universe Parameter
 
-Test a specific module with fresh data:
+Run screeners directly (now all require universe_df):
 
 ```powershell
-# First clear any cached data that might affect the test
-python -c "from cache_config import cache; cache.clear()"
+# Open Python REPL
+python
 
-# Then run the specific test 
-python -m unittest tests.test_market_data
+# In Python:
+import config
+from screeners import screen_for_pe_ratio
+from universe import get_stock_universe
+
+# Get a universe DataFrame (required)
+universe_df = get_stock_universe("sp500")
+
+# Run screener with required universe_df parameter
+results = screen_for_pe_ratio(universe_df)
 ```
 
-Run all tests with clean cache:
+Running the pipeline directly:
 
 ```powershell
-python -c "from cache_config import cache; cache.clear()" && python -m unittest discover -s tests
+python -c "import config; from universe import get_stock_universe; from screeners import screen_for_pe_ratio; results = screen_for_pe_ratio(get_stock_universe('sp500')); print(f'Found {len(results)} stocks with low P/E ratios')"
+```
+
+## Testing Commands
+
+Run all tests:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Run specific test module:
+
+```powershell
+python -m unittest tests.test_new_screeners
+```
+
+Run tests with coverage:
+
+```powershell
+python -m coverage run -m unittest discover -s tests
+python -m coverage report
+```
+
+Generate HTML coverage report:
+
+```powershell
+python -m coverage html
+# The report will be available in htmlcov/index.html
+```
+
+### New Architecture Testing (Nov 2023)
+
+Test the new screener architecture (direct data access pattern):
+
+```powershell
+python -m unittest tests.test_new_screeners
+```
+
+Run tests for a specific screener in the new architecture:
+
+```powershell
+python -m unittest tests.test_new_screeners.TestNewScreeners.test_pe_ratio_screener
+```
+
+Run task for testing all screeners:
+
+```powershell
+# Using the VS Code task
+code --task "Run All Tests"
 ```
 
 ## Cache Diagnostics

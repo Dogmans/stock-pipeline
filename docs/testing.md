@@ -110,6 +110,55 @@ To run the entire test suite with a clean cache, use this command:
 python -c "from cache_config import cache; cache.clear()" && python -m unittest discover -s tests
 ```
 
+## Test Files Organization (Updated June 2025)
+
+The test files are organized to align with our current architecture:
+
+### Core Test Files
+
+1. `test_screeners.py` - Tests the new screener architecture where each screener fetches its own data
+2. `test_providers.py` - Tests data providers with their API-specific methods
+3. `test_data_processing.py` - Tests data processing utilities
+4. `test_cache.py` - Tests the caching system
+
+### Other Test Files
+
+- `test_config.py` - Tests configuration loading
+- `test_market_data.py` - Tests market data retrieval
+- `test_stock_data.py` - Tests stock data functions 
+- `test_universe.py` - Tests universe selection functions
+- `test_visualization.py` - Tests visualization functions
+- `test_utils.py` - Tests utility functions
+- `test_main.py` - Tests the main pipeline orchestration
+
+### Removed Test Files (June 2025)
+
+As part of our refactoring, we removed the following redundant test files:
+
+1. `test_run_pipeline.py` - Empty file that was no longer needed
+2. `test_simple.py` - Contained only trivial placeholder tests
+
+## Running Tests with VS Code Tasks
+
+We have several VS Code tasks to simplify test execution:
+
+```json
+{
+  "label": "Run All Tests",
+  "type": "shell",
+  "command": "python",
+  "args": ["-m", "unittest", "discover", "-s", "tests"],
+  "group": "test"
+},
+{
+  "label": "Run All Tests with Coverage",
+  "type": "shell",
+  "command": "python",
+  "args": ["-m", "coverage", "run", "-m", "unittest", "discover", "-s", "tests", "&&", "python", "-m", "coverage", "report"],
+  "group": "test"
+}
+```
+
 ## Special Considerations
 
 1. **Tests That Modify Cache**: If your test modifies the cache behavior, be sure to restore the original state in the `tearDown` method.

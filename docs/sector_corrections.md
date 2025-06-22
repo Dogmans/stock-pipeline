@@ -18,7 +18,8 @@ If no stocks are found but sectors are in correction, the screener creates a Dat
 ## Using the Screener
 ```python
 # Basic usage
-sector_corrections = screen_for_sector_corrections()
+universe_df = get_stock_universe("sp500")  # Required parameter
+sector_corrections = screen_for_sector_corrections(universe_df)
 
 # Access stocks in correcting sectors
 if not sector_corrections.empty:

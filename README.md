@@ -89,6 +89,18 @@ Edit `config.py` to adjust:
 
 For detailed documentation on all components, see [DOCUMENTATION.md](DOCUMENTATION.md)
 
+## Recent Updates
+
+### June 2025
+- Updated data provider architecture to allow API-specific method naming
+- Removed redundant test files and improved test organization
+- Enhanced documentation for the new architecture
+
+### November 2023
+- Refactored the screeners to fetch their own data directly from providers
+- Removed chunked processing
+- Simplified the overall codebase
+
 ## Modules
 
 - `main.py` - Main entry point and orchestrator

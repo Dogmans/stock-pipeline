@@ -1,169 +1,86 @@
 """
-Base data provider interface for stock data retrieval.
+Base data provider utilities for stock data retrieval.
 
-This module defines the abstract base class that all data providers must implement.
+This module defines a base class with common utilities that data providers can optionally extend.
+Each provider can now use their own method names that match their specific APIs.
 """
-from abc import ABC, abstractmethod
 import pandas as pd
 from typing import Dict, List, Union, Optional, Any
 
-class BaseDataProvider(ABC):
+class BaseDataProvider:
     """
-    Abstract base class for stock data providers.
+    Base class for stock data providers with common utilities.
     
-    All concrete data provider classes should extend this base class
-    and implement its abstract methods to ensure a consistent interface.
+    This class provides common utility methods for data providers
+    but no longer enforces a specific interface. Providers are free
+    to use method names that match their specific APIs.
     """
     
-    @abstractmethod
-    def get_historical_prices(self, symbols: Union[str, List[str]], 
-                             period: str = "1y", 
-                             interval: str = "1d",
-                             force_refresh: bool = False) -> Dict[str, pd.DataFrame]:
+    def get_fundamental_data(self, symbol: str, force_refresh: bool = False) -> Dict[str, Any]:
         """
-        Get historical price data for the specified symbols.
+        Example utility method for retrieving fundamental data.
         
-        Args:
-            symbols: Single symbol or list of stock symbols
-            period: Time period to retrieve (e.g., '1y', '6m', '1d')
-            interval: Data interval (e.g., '1d', '1h', '5m')
-            force_refresh: Whether to bypass cache and fetch fresh data
-            
-        Returns:
-            Dictionary mapping each symbol to its historical price DataFrame
-            Each DataFrame has columns: Open, High, Low, Close, Volume
-        """
-        pass
-    
-    @abstractmethod
-    def get_income_statement(self, symbol: str, 
-                            annual: bool = True,
-                            force_refresh: bool = False) -> pd.DataFrame:
-        """
-        Get income statement data for the specified symbol.
-        
-        Args:
-            symbol: Stock symbol
-            annual: If True, get annual data, otherwise quarterly
-            force_refresh: Whether to bypass cache and fetch fresh data
-            
-        Returns:
-            DataFrame containing income statement data
-        """
-        pass
-    
-    @abstractmethod
-    def get_balance_sheet(self, symbol: str, 
-                         annual: bool = True,
-                         force_refresh: bool = False) -> pd.DataFrame:
-        """
-        Get balance sheet data for the specified symbol.
-        
-        Args:
-            symbol: Stock symbol
-            annual: If True, get annual data, otherwise quarterly
-            force_refresh: Whether to bypass cache and fetch fresh data
-            
-        Returns:
-            DataFrame containing balance sheet data
-        """
-        pass
-    
-    @abstractmethod
-    def get_cash_flow(self, symbol: str, 
-                     annual: bool = True,
-                     force_refresh: bool = False) -> pd.DataFrame:
-        """
-        Get cash flow data for the specified symbol.
-        
-        Args:
-            symbol: Stock symbol
-            annual: If True, get annual data, otherwise quarterly
-            force_refresh: Whether to bypass cache and fetch fresh data
-            
-        Returns:
-            DataFrame containing cash flow data
-        """
-        pass
-    
-    @abstractmethod
-    def get_company_overview(self, symbol: str, 
-                            force_refresh: bool = False) -> Dict[str, Any]:
-        """
-        Get company overview data for the specified symbol.
+        NOTE: This is now just a template/example. Providers should implement
+        their own version according to their specific APIs, and they are free
+        to use different method names that match their API's naming conventions.
         
         Args:
             symbol: Stock symbol
             force_refresh: Whether to bypass cache and fetch fresh data
             
         Returns:
-            Dictionary containing company overview data
+            Dictionary of fundamental data
         """
-        pass
+        raise NotImplementedError("This method should be implemented by provider subclasses using their API-specific methods")
     
-    def get_fundamental_data(self, symbol: str, 
-                            force_refresh: bool = False) -> Dict[str, Any]:
+    def parallel_data_fetcher(self, symbols: List[str],
+                               fetch_method_name: str,
+                               force_refresh: bool = False,
+                               max_workers: int = 5,
+                               rate_limit: Optional[int] = None,
+                               **method_kwargs) -> Dict[str, Any]:
         """
-        Get comprehensive fundamental data for the specified symbol.
+        Utility method for parallel data fetching.
         
-        This method provides a unified interface to retrieve all fundamental
-        data in a single call. The default implementation calls the individual
-        methods, but providers can override this for more efficient retrieval.
-        
-        Args:
-            symbol: Stock symbol
-            force_refresh: Whether to bypass cache and fetch fresh data
-            
-        Returns:
-            Dictionary with keys: 'income_statement', 'balance_sheet', 
-                                  'cash_flow', and 'overview'
-        """
-        return {
-            'income_statement': self.get_income_statement(symbol, force_refresh=force_refresh),
-            'balance_sheet': self.get_balance_sheet(symbol, force_refresh=force_refresh),
-            'cash_flow': self.get_cash_flow(symbol, force_refresh=force_refresh),
-            'overview': self.get_company_overview(symbol, force_refresh=force_refresh)
-        }
-    
-    def get_batch_fundamental_data(self, symbols: List[str], 
-                                  force_refresh: bool = False,
-                                  max_workers: int = 5,
-                                  rate_limit: Optional[int] = None) -> Dict[str, Dict[str, Any]]:
-        """
-        Get comprehensive fundamental data for multiple symbols in batch.
-        
-        This method provides a batched interface for retrieving fundamental data.
-        The default implementation uses a ThreadPoolExecutor to parallelize requests,
-        but providers can override this for more efficient batch operations.
+        This generic method uses a ThreadPoolExecutor to fetch data for multiple symbols
+        in parallel using any method available in the provider.
         
         Args:
             symbols: List of stock symbols
+            fetch_method_name: Name of the method to call for each symbol
             force_refresh: Whether to bypass cache and fetch fresh data
             max_workers: Maximum number of parallel workers
             rate_limit: Maximum requests per minute (None for no limit)
+            **method_kwargs: Additional keyword arguments to pass to the method
             
         Returns:
-            Dictionary mapping each symbol to its fundamental data
+            Dictionary mapping each symbol to its fetched data
         """
         import concurrent.futures
         import time
+        from utils.logger import get_logger
         
+        logger = get_logger(__name__)
         results = {}
         
-        def get_data_for_symbol(index, symbol):
+        if not hasattr(self, fetch_method_name):
+            logger.error(f"Method {fetch_method_name} not found in provider {self.get_provider_name()}")
+            return results
+            
+        fetch_method = getattr(self, fetch_method_name)
+        
+        def fetch_for_symbol(index, symbol):
             if rate_limit and index > 0 and index % rate_limit == 0:
                 time.sleep(60)  # Sleep for 60 seconds to respect rate limit
                 
             try:
-                return symbol, self.get_fundamental_data(symbol, force_refresh=force_refresh)
+                return symbol, fetch_method(symbol, force_refresh=force_refresh, **method_kwargs)
             except Exception as e:
-                import logging
-                logging = logging.getLogger(__name__)
-                logging.error(f"Error getting data for {symbol}: {e}")
+                logger.error(f"Error fetching data for {symbol} using {fetch_method_name}: {e}")
                 return symbol, None
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(get_data_for_symbol, i, symbol) 
+            futures = [executor.submit(fetch_for_symbol, i, symbol) 
                       for i, symbol in enumerate(symbols)]
             
             for future in concurrent.futures.as_completed(futures):
@@ -172,9 +89,7 @@ class BaseDataProvider(ABC):
                     if data is not None:
                         results[symbol] = data
                 except Exception as e:
-                    import logging
-                    logging = logging.getLogger(__name__)
-                    logging.error(f"Error processing future: {e}")
+                    logger.error(f"Error processing future: {e}")
         
         return results
     

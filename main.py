@@ -30,7 +30,7 @@ from utils.filesystem import ensure_directories_exist
 from universe import get_stock_universe
 from stock_data import get_historical_prices, get_fundamental_data, fetch_52_week_lows
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances
-from data_processing import process_stock_data, calculate_financial_ratios
+# Note: direct data processing removed in Nov 2023 architecture update
 from screeners import run_all_screeners, get_available_screeners
 from reporting import generate_screening_report, generate_metrics_definitions
 from cache_config import clear_all_cache, clear_old_cache, get_cache_info
@@ -81,8 +81,7 @@ def parse_arguments():
                         help='Clear cache files older than specified hours')
     
     parser.add_argument('--cache-info', action='store_true',
-                        help='Display information about the current cache and exit')
-      # Data provider options
+                        help='Display information about the current cache and exit')    # Data provider options
     parser.add_argument('--data-provider', type=str, default=None,
                         choices=['alpha_vantage', 'yfinance', 'financial_modeling_prep', 'finnhub'],
                         help='Data provider to use for financial data')
@@ -90,8 +89,8 @@ def parse_arguments():
     parser.add_argument('--provider-stats', action='store_true',
                         help='Display statistics about available data providers and exit')
     
-    parser.add_argument('--chunk-size', type=int, default=None,
-                        help='Process symbols in chunks of this size to stay within API limits')
+    # Note: Chunked processing removed in the Nov 2023 architecture update
+    # Each screener now processes stocks individually
     
     # Rate limiting options
     parser.add_argument('--disable-rate-limiting', action='store_true',
@@ -181,17 +180,12 @@ def main():
     else:
         logger.info(f"Selecting stock universe: {args.universe}")
         universe_df = get_stock_universe(args.universe, force_refresh=args.force_refresh)
-    
-    # If a limit is specified, take only that many stocks
+      # If a limit is specified, take only that many stocks
     if args.limit:
         universe_df = universe_df.head(args.limit)
     
-    # If chunking is specified, warn about it
-    if args.chunk_size and len(universe_df) > args.chunk_size:
-        logger.warning(
-            f"Processing {len(universe_df)} symbols at once may exceed API limits. "
-            f"Consider using create_symbol_chunks.py to split into chunks of {args.chunk_size} symbols."
-        )
+    # Note: Chunking is no longer needed in the new architecture
+    # Each screener processes stocks one by one
     
     symbols = universe_df['symbol'].tolist()
     logger.info(f"Selected {len(symbols)} symbols for analysis")
@@ -201,77 +195,8 @@ def main():
     in_correction, market_status = is_market_in_correction(data_provider=data_provider, force_refresh=args.force_refresh)
     sector_performance = get_sector_performances(data_provider=data_provider, force_refresh=args.force_refresh)
     
-    logger.info(f"Market status: {market_status}")    # 3. Get historical price data using the selected provider
-    logger.info("Fetching historical price data")
-    price_data = {}
-    
-    if args.chunk_size and len(symbols) > args.chunk_size:
-        # Process prices in chunks to respect API limits
-        chunks = [symbols[i:i+args.chunk_size] for i in range(0, len(symbols), args.chunk_size)]
-        logger.info(f"Processing price data in {len(chunks)} chunks of {args.chunk_size} symbols each")
-        
-        for i, chunk in enumerate(chunks):
-            logger.info(f"Processing price chunk {i+1}/{len(chunks)} with {len(chunk)} symbols")
-            chunk_data = data_provider.get_historical_prices(
-                chunk, 
-                period="1y", 
-                interval="1d",
-                force_refresh=args.force_refresh
-            )
-            price_data.update(chunk_data)
-    else:
-        # Process all symbols at once
-        price_data = data_provider.get_historical_prices(
-            symbols, 
-            period="1y", 
-            interval="1d", 
-            force_refresh=args.force_refresh
-        )
-            
-    logger.info(f"Retrieved price data for {len(price_data)} symbols")
-    
-    # 4. Get fundamental data using the selected provider
-    logger.info("Fetching fundamental data")
-    fundamental_data = {}
-    
-    if args.chunk_size and len(symbols) > args.chunk_size:
-        # Process in chunks to respect API limits
-        chunks = [symbols[i:i+args.chunk_size] for i in range(0, len(symbols), args.chunk_size)]
-        logger.info(f"Processing fundamental data in {len(chunks)} chunks of {args.chunk_size} symbols each")
-        
-        for i, chunk in enumerate(chunks):
-            logger.info(f"Processing chunk {i+1}/{len(chunks)} with {len(chunk)} symbols")
-            chunk_data = data_provider.get_batch_fundamental_data(
-                chunk, 
-                force_refresh=args.force_refresh,
-                max_workers=5,
-                rate_limit=data_provider.RATE_LIMIT if hasattr(data_provider, 'RATE_LIMIT') and data_provider.RATE_LIMIT else None
-            )
-            fundamental_data.update(chunk_data)
-    else:
-        # Process all symbols at once
-        for symbol in tqdm(symbols, desc="Getting fundamental data", disable=len(symbols) <= 1):
-            try:
-                data = data_provider.get_fundamental_data(symbol, force_refresh=args.force_refresh)
-                if data:
-                    fundamental_data[symbol] = data
-            except Exception as e:
-                logger.error(f"Error getting fundamental data for {symbol}: {e}")
-    
-    logger.info(f"Retrieved fundamental data for {len(fundamental_data)} symbols")
-    
-    # 3. Process and clean the data
-    logger.info("Processing and cleaning data")
-    processed_data = process_stock_data(price_data, fundamental_data)
-    
-    # 4. Calculate financial ratios
-    logger.info("Calculating financial ratios")
-    financial_ratios = calculate_financial_ratios(processed_data)
-      # We already have market_data and sector_performance from earlier, 
-    # no need to fetch them again - just reuse the existing values
-    
-    # 6. Run the screening strategies
-    logger.info("Running stock screeners")
+    logger.info(f"Market status: {market_status}")    # In the new architecture, we directly run the screeners with just the universe data
+    # Each screener will fetch its own data directly from the data provider
     
     # Determine which strategies to run
     if args.strategies.lower() == 'all':
@@ -282,13 +207,8 @@ def main():
     logger.info(f"Selected strategies: {', '.join(strategies)}")
     
     # Run the screening strategies
-    screening_results = run_all_screeners(
-        processed_data, 
-        financial_ratios,
-        market_data,
-        universe_df,
-        strategies=strategies
-    )
+    logger.info("Running stock screeners")
+    screening_results = run_all_screeners(universe_df, strategies=strategies)
       # 7. Generate screening report
     logger.info("Generating screening report")
     

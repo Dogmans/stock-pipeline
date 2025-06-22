@@ -134,13 +134,13 @@ This module transforms raw data into usable metrics for screening:
 
 Implements various screening strategies based on value investing principles:
 
-- `screen_for_price_to_book()`: Identifies stocks trading near or below book value
-- `screen_for_pe_ratio()`: Finds stocks with low P/E ratios
-- `screen_for_52_week_lows()`: Locates stocks near 52-week lows
-- `screen_for_fallen_ipos()`: Identifies fallen IPOs that may be ready for a rebound
-- `screen_for_cash_rich_biotech()`: Finds biotech stocks with high cash reserves relative to market cap
-- `screen_for_sector_corrections()`: Identifies sectors that may be in correction or oversold
-- `run_all_screeners()`: Runs multiple screening strategies and combines the results
+- `screen_for_price_to_book(universe_df)`: Identifies stocks trading near or below book value
+- `screen_for_pe_ratio(universe_df)`: Finds stocks with low P/E ratios
+- `screen_for_52_week_lows(universe_df)`: Locates stocks near 52-week lows
+- `screen_for_fallen_ipos(universe_df)`: Identifies fallen IPOs that may be ready for a rebound
+- `screen_for_cash_rich_biotech(universe_df)`: Finds biotech stocks with high cash reserves relative to market cap
+- `screen_for_sector_corrections(universe_df)`: Identifies sectors that may be in correction or oversold
+- `run_all_screeners(universe_df, strategies=None)`: Runs multiple screening strategies and combines the results
 
 ### Visualization (`visualization.py`)
 

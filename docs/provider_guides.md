@@ -112,3 +112,259 @@ Progress bars are automatically:
 - Provide visual feedback on long-running operations
 
 See the daily note from 2025-06-21 for more details on this implementation.
+
+# Direct Provider Access in Screeners
+
+## Architecture Overview
+
+As of November 2023, we've adopted a direct access architecture where:
+
+1. Each screener is responsible for fetching its own data directly from the provider
+2. Only the stock universe is passed from main.py to the screeners
+3. No centralized data processing or chunked processing is used
+
+## Standard Screener Pattern
+
+All screeners now follow this pattern:
+
+```python
+def screen_for_example(universe_df=None, config_param=None):
+    """
+    Screen for stocks based on some criteria.
+    
+    Args:
+        universe_df (DataFrame): Stock universe being analyzed
+        config_param: Configuration parameter
+        
+    Returns:
+        DataFrame: Stocks meeting the criteria
+    """
+    # Import the provider
+    from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+    
+    # Get stock universe
+    stocks = get_stock_universe(universe_df)
+    symbols = stocks['symbol'].tolist()
+    
+    # Initialize the provider
+    fmp_provider = FinancialModelingPrepProvider()
+    
+    # Store results
+    results = []
+    
+    # Process each symbol individually
+    for symbol in symbols:
+        try:
+            # Get necessary data from provider
+            data = fmp_provider.get_some_data(symbol)
+            
+            # Apply screening logic
+            if meets_criteria(data):
+                results.append({
+                    'symbol': symbol,
+                    'some_metric': value,
+                    'reason': "Meets criteria because..."
+                })
+                
+        except Exception as e:
+            logger.error(f"Error processing {symbol}: {e}")
+            # Stop execution if provider fails
+            raise Exception(f"Data provider failed for symbol {symbol}: {e}")
+    
+    # Convert to DataFrame
+    if results:
+        return pd.DataFrame(results)
+    else:
+        return pd.DataFrame()
+```
+
+## Error Handling
+
+When a provider fails to return data, the screener should raise an exception to stop execution:
+
+```python
+try:
+    data = fmp_provider.get_some_data(symbol)
+    # Process data
+except Exception as e:
+    logger.error(f"Error fetching data for {symbol}: {e}")
+    # Stop execution if provider fails
+    raise Exception(f"Data provider failed for symbol {symbol}: {e}")
+```
+
+# Financial Modeling Prep API Usage Guide
+
+## API Overview
+Financial Modeling Prep (FMP) is our primary data provider for financial data. This guide documents the key functions and their usage patterns.
+
+## FMP Provider Methods
+
+### Historical Price Data
+```python
+provider = FinancialModelingPrepProvider()
+price_data = provider.get_historical_prices(['AAPL', 'MSFT'], period='1y', interval='1d')
+```
+
+The `get_historical_prices` method returns a dictionary where:
+- Keys are stock symbols
+- Values are DataFrames with columns: `Open`, `High`, `Low`, `Close`, `Volume`
+
+### Company Overview
+```python
+provider = FinancialModelingPrepProvider()
+overview = provider.get_company_overview('AAPL')
+```
+
+Returns a dictionary with company information including:
+- Symbol, Name, Description
+- Market capitalization, PE ratio, EPS 
+- 52-week high/low
+- Price-to-book ratio, price-to-sales ratio
+- Return on equity, return on assets
+- Profit margin, operating margin
+- Debt-to-equity ratio, EV to EBITDA
+
+### Income Statement
+```python
+provider = FinancialModelingPrepProvider()
+income_statement = provider.get_income_statement('AAPL', annual=True)
+```
+
+Returns a DataFrame containing income statement data with columns like:
+- fiscalDateEnding
+- totalRevenue, costOfRevenue, grossProfit
+- operatingExpenses, operatingIncome
+- netIncome, ebitda
+
+### Balance Sheet
+```python
+provider = FinancialModelingPrepProvider()
+balance_sheet = provider.get_balance_sheet('AAPL', annual=True)
+```
+
+Returns a DataFrame containing balance sheet data with columns like:
+- fiscalDateEnding
+- totalAssets, totalCurrentAssets
+- totalLiabilities, totalCurrentLiabilities
+- totalShareholderEquity, cash, shortTermInvestments
+- longTermDebt, commonStock
+
+### Cash Flow
+```python
+provider = FinancialModelingPrepProvider()
+cash_flow = provider.get_cash_flow('AAPL', annual=True)
+```
+
+Returns a DataFrame containing cash flow data with columns like:
+- fiscalDateEnding
+- operatingCashflow, capitalExpenditures
+- freeCashflow, dividendPayout
+- changeInCash, repurchaseOfStock, issuanceOfStock
+
+## Error Handling
+All methods will return an empty DataFrame or dictionary on error, logging the error details.
+
+## Caching
+All methods use the cache system, which persists results to disk for:
+- Company overview (24 hours)
+- Historical prices (24 hours)
+- Financial statements (1 week)
+
+## Rate Limiting
+FMP rate limiting is managed through the `RateLimiter` class which prevents exceeding API rate limits.
+
+## Usage in Screeners
+When implementing a screener:
+1. Initialize the provider
+2. Fetch only the data needed for that specific screener
+3. Handle any errors that occur during data retrieval
+4. Use the returned data for screening logic
+
+Example:
+```python
+def my_screener(universe_df):
+    provider = FinancialModelingPrepProvider()
+    symbols = universe_df['symbol'].tolist()
+    results = []
+    
+    for symbol in symbols:
+        try:
+            overview = provider.get_company_overview(symbol)
+            if not overview:
+                continue
+                
+            # Your screening logic here
+            if overview['PERatio'] < 15:
+                results.append({
+                    'symbol': symbol,
+                    'pe_ratio': overview['PERatio']
+                    # Additional data
+                })
+        except Exception as e:
+            logger.error(f"Error processing {symbol}: {e}")
+            
+    return pd.DataFrame(results) if results else pd.DataFrame()
+```
+
+# API-Specific Method Naming (June 2025 Update)
+
+As of June 2025, we've updated our provider architecture to allow each provider to use method names that match their specific APIs rather than conforming to a common interface. This results in clearer, more maintainable code that better reflects each API's capabilities.
+
+## Example of Provider-Specific Methods
+
+### Financial Modeling Prep Provider
+```python
+# Methods match FMP API endpoints
+provider = FinancialModelingPrepProvider()
+
+# Company profile information
+profile = provider.get_company_profile(symbol)
+
+# Financial statements
+income = provider.get_income_statement_annual(symbol)
+balance = provider.get_balance_sheet_quarterly(symbol)
+
+# Stock quotes
+quote = provider.get_quote(symbol)
+```
+
+### Alpha Vantage Provider
+```python
+# Methods match Alpha Vantage API functions
+provider = AlphaVantageProvider()
+
+# Company overview
+overview = provider.get_company_overview(symbol)
+
+# Time series data
+daily = provider.get_time_series_daily(symbol)
+intraday = provider.get_time_series_intraday(symbol, interval='5min')
+```
+
+## Common Utilities
+
+All providers still extend the `BaseDataProvider` class, which provides these common utilities:
+
+1. `parallel_data_fetcher` - For parallel data fetching using any method
+2. `get_provider_name` - Returns the name of the provider
+3. `get_provider_info` - Returns information about the provider's rate limits
+
+## Provider Selection in Screeners
+
+When writing screeners, you should:
+
+1. Import the specific provider you need
+2. Use the provider's API-specific methods
+3. Refer to the provider's documentation for available methods
+
+Example:
+```python
+from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+
+def screen_for_something(universe_df):
+    # Initialize provider
+    provider = FinancialModelingPrepProvider()
+    
+    # Use API-specific method names
+    data = provider.get_company_profile(symbol)
+```

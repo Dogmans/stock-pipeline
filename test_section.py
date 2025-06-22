@@ -23,9 +23,8 @@ if __name__ == "__main__":
     if not lows_52week_stocks.empty:
         logger.info(f"Found {len(lows_52week_stocks)} stocks near 52-week lows")
         save_screener_results(lows_52week_stocks, "52week_low_stocks.csv")
-    
-    logger.info("Testing sector correction screener...")
-    sector_corrections = screen_for_sector_corrections()
+      logger.info("Testing sector correction screener...")
+    sector_corrections = screen_for_sector_corrections(universe_df=get_stock_universe(config.UNIVERSES["SP500"]))
     if not sector_corrections.empty:
         unique_sectors = len(sector_corrections['sector'].unique()) if 'sector' in sector_corrections.columns else 0
         logger.info(f"Found {len(sector_corrections)} stocks in {unique_sectors} sectors in correction")
