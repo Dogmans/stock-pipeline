@@ -641,7 +641,7 @@ def screen_for_cash_rich_biotech(processed_data=None, financial_ratios=None, mar
 
 def screen_for_sector_corrections(processed_data=None, financial_ratios=None, market_data=None, universe_df=None, **kwargs):
     """
-    Screen for sectors that may be in correction or oversold.
+    Screen for stocks in sectors that are in correction or oversold.
     Based on Strategy #11: "Understanding Potential Catalysts, Headwinds, Tailwinds"
     
     Args:
@@ -652,12 +652,17 @@ def screen_for_sector_corrections(processed_data=None, financial_ratios=None, ma
         **kwargs: Additional keyword arguments
         
     Returns:
-        DataFrame: Sector ETFs sorted by recent performance
+        DataFrame: Stocks in sectors that are in correction, with sector performance data
     """
-    logger.info("Screening for sector corrections...")
+    logger.info("Screening for stocks in sectors experiencing corrections...")
     
-    # Get sector performance data
-    sector_perf = get_sector_performances()
+    # Use market_data if provided, otherwise fetch it
+    if market_data is not None and 'sector_performance' in market_data:
+        sector_perf = market_data['sector_performance']
+        logger.info("Using provided sector performance data")
+    else:
+        # Get sector performance data
+        sector_perf = get_sector_performances()
     
     # Sort by 1-month performance (worst first)
     if not sector_perf.empty:
@@ -665,23 +670,97 @@ def screen_for_sector_corrections(processed_data=None, financial_ratios=None, ma
         
         # Add a column that identifies which sectors are in correction
         sector_perf['is_correction'] = sector_perf['1_month_change'] <= -10
-        
-        # Add a column that identifies which sectors are in bear market
         sector_perf['is_bear_market'] = sector_perf['1_month_change'] <= -20
         
-        logger.info(f"Sectors in correction: {sector_perf[sector_perf['is_correction']]['sector'].tolist()}")
+        # Get sectors in correction
+        correcting_sectors = sector_perf[sector_perf['is_correction']]['sector'].tolist()
+        bear_market_sectors = sector_perf[sector_perf['is_bear_market']]['sector'].tolist()
         
-        return sector_perf
-    else:
-        return pd.DataFrame()
+        if correcting_sectors:
+            logger.info(f"Sectors in correction: {correcting_sectors}")
+            if bear_market_sectors:
+                logger.info(f"Sectors in bear market: {bear_market_sectors}")
+        else:
+            logger.info("No sectors in correction found")
+            return pd.DataFrame()
+        
+        # Find stocks in these sectors from processed_data
+        if isinstance(processed_data, pd.DataFrame) and not processed_data.empty and 'sector' in processed_data.columns:
+            # Filter stocks in correcting sectors
+            stocks_in_correction = processed_data[processed_data['sector'].isin(correcting_sectors)].copy()
+            
+            # Add sector performance data to each stock
+            for sector in correcting_sectors:
+                sector_info = sector_perf[sector_perf['sector'] == sector].iloc[0]
+                mask = stocks_in_correction['sector'] == sector
+                stocks_in_correction.loc[mask, 'sector_1m_change'] = sector_info['1_month_change']
+                stocks_in_correction.loc[mask, 'sector_3m_change'] = sector_info.get('3_month_change', 0)
+                stocks_in_correction.loc[mask, 'sector_status'] = 'Bear Market' if sector_info['is_bear_market'] else 'Correction'
+            
+            # Sort by sector performance (worst first) then by stock metrics
+            stocks_in_correction = stocks_in_correction.sort_values(['sector_1m_change', 'sector'])
+            
+            if not stocks_in_correction.empty:
+                logger.info(f"Found {len(stocks_in_correction)} stocks in {len(stocks_in_correction['sector'].unique())} correcting sectors")
+                return stocks_in_correction
+            
+            logger.warning("No stocks found in correcting sectors despite sectors being in correction")
+        
+        # Try to use universe data if processed_data doesn't have what we need
+        if (not isinstance(processed_data, pd.DataFrame) or processed_data.empty or 'sector' not in processed_data.columns) and universe_df is not None:
+            logger.info("Using universe data to find stocks in correcting sectors")
+            universe = get_stock_universe(universe_df)
+            
+            if 'sector' in universe.columns or 'gics_sector' in universe.columns:
+                sector_col = 'gics_sector' if 'gics_sector' in universe.columns else 'sector'
+                stocks_in_correction = universe[universe[sector_col].isin(correcting_sectors)].copy()
+                
+                # Add sector performance data
+                for sector in correcting_sectors:
+                    sector_info = sector_perf[sector_perf['sector'] == sector].iloc[0]
+                    mask = stocks_in_correction[sector_col] == sector
+                    stocks_in_correction.loc[mask, 'sector_1m_change'] = sector_info['1_month_change']
+                    stocks_in_correction.loc[mask, 'sector_3m_change'] = sector_info.get('3_month_change', 0)
+                    stocks_in_correction.loc[mask, 'sector_status'] = 'Bear Market' if sector_info['is_bear_market'] else 'Correction'
+                
+                if not stocks_in_correction.empty:
+                    logger.info(f"Found {len(stocks_in_correction)} stocks in {len(stocks_in_correction[sector_col].unique())} correcting sectors")
+                    # Ensure symbol column exists
+                    if 'symbol' not in stocks_in_correction.columns and 'Symbol' in stocks_in_correction.columns:
+                        stocks_in_correction['symbol'] = stocks_in_correction['Symbol']
+                    return stocks_in_correction
+                
+                logger.warning(f"No stocks found in correcting sectors using universe data")
+            else:
+                logger.warning("Universe data doesn't contain sector information")
+        
+        # If we reach here, we couldn't find any stocks - create a fallback DataFrame with sector ETFs
+        # So the reporting system can still use the sector data
+        logger.info("Creating fallback DataFrame with sector ETFs")
+        sectors_df = sector_perf[sector_perf['is_correction']].copy()
+        
+        if not sectors_df.empty:
+            etfs = pd.DataFrame()
+            etfs['symbol'] = sectors_df['sector'] + " ETF"
+            etfs['company_name'] = sectors_df['sector'] + " Sector ETF"
+            etfs['sector'] = sectors_df['sector'] 
+            etfs['sector_1m_change'] = sectors_df['1_month_change']
+            etfs['sector_3m_change'] = sectors_df.get('3_month_change', pd.Series([0] * len(sectors_df)))
+            etfs['sector_status'] = ['Bear Market' if x else 'Correction' for x in sectors_df['is_bear_market']]
+            
+            logger.info(f"Created {len(etfs)} sector ETF entries as fallback")
+            return etfs
+    
+    logger.warning("No sector performance data available")
+    return pd.DataFrame()
 
-def combine_screeners(universe=None):
+def combine_screeners(universe_df=None):
     """
     Combine multiple screening strategies and assign scores to stocks.
     This helps identify stocks that meet multiple criteria.
     
     Args:
-        universe (str): Which universe to screen
+        universe_df (DataFrame): Which universe to screen
         
     Returns:
         DataFrame: Stocks with scores based on meeting various criteria
@@ -689,11 +768,11 @@ def combine_screeners(universe=None):
     logger.info("Running combined screener...")
     
     # Run individual screeners
-    book_value_stocks = screen_for_price_to_book(universe)
-    low_pe_stocks = screen_for_pe_ratio(universe)
-    lows_52week_stocks = screen_for_52_week_lows(universe)
+    book_value_stocks = screen_for_price_to_book(universe_df=universe_df)
+    low_pe_stocks = screen_for_pe_ratio(universe_df=universe_df)
+    lows_52week_stocks = screen_for_52_week_lows(universe_df=universe_df)
     fallen_ipos = screen_for_fallen_ipos()
-    cash_rich_biotech = screen_for_cash_rich_biotech(universe)
+    cash_rich_biotech = screen_for_cash_rich_biotech(universe_df=universe_df)
     
     # Create a set of all symbols
     all_symbols = set()
@@ -816,19 +895,18 @@ if __name__ == "__main__":
     
     # Test various screeners
     logger.info("Testing book value screener...")
-    book_value_stocks = screen_for_price_to_book(universe=config.UNIVERSES["SP500"])
+    book_value_stocks = screen_for_price_to_book(universe_df=config.UNIVERSES["SP500"])
     if not book_value_stocks.empty:
         logger.info(f"Found {len(book_value_stocks)} stocks trading near book value")
         save_screener_results(book_value_stocks, "book_value_stocks.csv")
     
     logger.info("Testing PE ratio screener...")
-    low_pe_stocks = screen_for_pe_ratio(universe=config.UNIVERSES["SP500"])
+    low_pe_stocks = screen_for_pe_ratio(universe_df=config.UNIVERSES["SP500"])
     if not low_pe_stocks.empty:
         logger.info(f"Found {len(low_pe_stocks)} stocks with low P/E ratios")
         save_screener_results(low_pe_stocks, "low_pe_stocks.csv")
-    
     logger.info("Testing 52-week low screener...")
-    lows_52week_stocks = screen_for_52_week_lows(universe=config.UNIVERSES["SP500"])
+    lows_52week_stocks = screen_for_52_week_lows(universe_df=config.UNIVERSES["SP500"])
     if not lows_52week_stocks.empty:
         logger.info(f"Found {len(lows_52week_stocks)} stocks near 52-week lows")
         save_screener_results(lows_52week_stocks, "52week_low_stocks.csv")
@@ -836,11 +914,12 @@ if __name__ == "__main__":
     logger.info("Testing sector correction screener...")
     sector_corrections = screen_for_sector_corrections()
     if not sector_corrections.empty:
-        logger.info(f"Found {len(sector_corrections[sector_corrections['is_correction']])} sectors in correction")
+        unique_sectors = len(sector_corrections['sector'].unique()) if 'sector' in sector_corrections.columns else 0
+        logger.info(f"Found {len(sector_corrections)} stocks in {unique_sectors} sectors in correction")
         save_screener_results(sector_corrections, "sector_corrections.csv")
     
     logger.info("Testing combined screener...")
-    combined_results = combine_screeners(universe=config.UNIVERSES["SP500"])
+    combined_results = combine_screeners(universe_df=config.UNIVERSES["SP500"])
     if not combined_results.empty:
         logger.info(f"Found {len(combined_results)} stocks in combined screener")
         logger.info(f"Top 5 stocks by score: {combined_results.head(5)['symbol'].tolist()}")
