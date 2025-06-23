@@ -378,13 +378,21 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
         except Exception as e:
             logger.error(f"Error getting cash flow for {symbol}: {e}")
-            return pd.DataFrame()
-
-    @cache.memoize(expire=24*3600)  # Cache for 24 hours
+            return pd.DataFrame()    @cache.memoize(expire=24*3600)  # Cache for 24 hours
+    
+    @cache.memoize(expire=24*3600)  # Cache for 1 day (24 hours)
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
         """
         Get company overview data from Financial Modeling Prep API.
+        
+        This method aggregates data from multiple FMP endpoints to ensure
+        all required metrics are available:
+        - /profile/{symbol} - Basic company information and some metrics
+        - /quote/{symbol} - Latest market data including price, 52-week high/low
+        - /key-metrics/{symbol} - Additional financial metrics
+        - /market-capitalization/{symbol} - Specific market cap information
+        - /ratios/{symbol} - Financial ratios including P/E, P/B, P/S
         
         Args:
             symbol: Stock symbol
@@ -396,61 +404,148 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         if force_refresh:
             cache.delete(self.get_company_overview, symbol)
         
+        # Initialize the overview dictionary
+        overview = {
+            'Symbol': symbol,
+            'DataCompleteness': 'partial',  # Will update based on data quality
+        }
+        
+        # Base params for all requests
+        params = {"apikey": self.api_key}
+        
+        # Step 1: Get profile data (basic company info)
         try:
             url = f"{self.base_url}/profile/{symbol}"
-            params = {"apikey": self.api_key}
-            
+            fmp_rate_limiter.wait_if_needed()
             response = requests.get(url, params=params)
             data = response.json()
             
             if isinstance(data, list) and len(data) > 0:
                 profile = data[0]
                 
-                # Convert to standardized format similar to Alpha Vantage
-                overview = {}
-                
                 # Symbol and company name
-                overview['Symbol'] = profile.get('symbol', symbol)
                 overview['Name'] = profile.get('companyName', '')
                 overview['Description'] = profile.get('description', '')
                 overview['Exchange'] = profile.get('exchange', '')
                 overview['Sector'] = profile.get('sector', '')
                 overview['Industry'] = profile.get('industry', '')
                 
-                # Financial metrics
+                # Financial metrics - some might be overridden by more specific endpoints later
                 overview['MarketCapitalization'] = profile.get('mktCap', '')
-                overview['PERatio'] = profile.get('pe', '')
-                overview['EPS'] = profile.get('eps', '')
                 overview['Beta'] = profile.get('beta', '')
-                overview['52WeekHigh'] = profile.get('range', '').split('-')[1].strip() if '-' in profile.get('range', '') else ''
-                overview['52WeekLow'] = profile.get('range', '').split('-')[0].strip() if '-' in profile.get('range', '') else ''
+                
+                # Extract 52-week high/low from range if available
+                if '-' in profile.get('range', ''):
+                    range_parts = profile.get('range', '').split('-')
+                    if len(range_parts) == 2:
+                        overview['52WeekLow'] = range_parts[0].strip()
+                        overview['52WeekHigh'] = range_parts[1].strip()
+                
                 overview['LastDividendDate'] = profile.get('lastDiv', '')
-                overview['PriceToBookRatio'] = profile.get('priceToBookRatio', '')
-                overview['PriceToSalesRatio'] = profile.get('priceToSalesRatio', '')
                 overview['SharesOutstanding'] = profile.get('sharesOutstanding', '')
-                
-                # Get additional financial ratios
-                try:
-                    ratios_url = f"{self.base_url}/ratios/{symbol}"
-                    ratios_response = requests.get(ratios_url, params=params)
-                    ratios_data = ratios_response.json()
-                    
-                    if isinstance(ratios_data, list) and len(ratios_data) > 0:
-                        ratio = ratios_data[0]
-                        overview['ReturnOnEquityTTM'] = ratio.get('returnOnEquity', '')
-                        overview['ReturnOnAssetsTTM'] = ratio.get('returnOnAssets', '')
-                        overview['ProfitMargin'] = ratio.get('netProfitMargin', '')
-                        overview['OperatingMarginTTM'] = ratio.get('operatingProfitMargin', '')
-                        overview['DebtToEquityRatio'] = ratio.get('debtToEquity', '')
-                        overview['EVToEBITDA'] = ratio.get('enterpriseValueMultiple', '')
-                except Exception as e:
-                    logger.warning(f"Error getting financial ratios for {symbol}: {e}")
-                
-                return overview
             else:
-                logger.error(f"Error getting company overview for {symbol}: {data}")
-                return {}
+                logger.error(f"Error getting profile for {symbol}: {data}")
+                return {}  # If we can't get basic profile data, return empty
         
         except Exception as e:
-            logger.error(f"Error getting company overview for {symbol}: {e}")
-            return {}
+            logger.error(f"Error getting profile for {symbol}: {e}")
+            return {}  # If we can't get basic profile data, return empty
+        
+        # Step 2: Get quote data for latest market metrics
+        try:
+            url = f"{self.base_url}/quote/{symbol}"
+            fmp_rate_limiter.wait_if_needed()
+            response = requests.get(url, params=params)
+            quote_data = response.json()
+            
+            if isinstance(quote_data, list) and len(quote_data) > 0:
+                quote = quote_data[0]
+                
+                # Override/add market metrics with more precise/recent data
+                overview['MarketCapitalization'] = quote.get('marketCap', overview.get('MarketCapitalization', ''))
+                overview['PERatio'] = quote.get('pe', '')
+                overview['EPS'] = quote.get('eps', '')
+                overview['52WeekHigh'] = quote.get('yearHigh', overview.get('52WeekHigh', ''))
+                overview['52WeekLow'] = quote.get('yearLow', overview.get('52WeekLow', ''))
+                
+                # Update data completeness if we have quote data
+                overview['DataCompleteness'] = 'good'
+            else:
+                logger.warning(f"Could not get quote data for {symbol}")
+        except Exception as e:
+            logger.warning(f"Error getting quote for {symbol}: {e}")
+        
+        # Step 3: Get key metrics for price ratios
+        try:
+            url = f"{self.base_url}/key-metrics/{symbol}"
+            params["period"] = "annual"  # We want annual data
+            fmp_rate_limiter.wait_if_needed()
+            response = requests.get(url, params=params)
+            metrics_data = response.json()
+            
+            if isinstance(metrics_data, list) and len(metrics_data) > 0:
+                metrics = metrics_data[0]
+                
+                # Add price ratios
+                overview['PriceToBookRatio'] = metrics.get('priceToBookRatio', '')
+                overview['PriceToSalesRatio'] = metrics.get('priceToSalesRatio', '')
+                
+                # Update completeness if we have key metrics
+                if overview.get('DataCompleteness') == 'good':
+                    overview['DataCompleteness'] = 'excellent'
+            else:
+                logger.warning(f"Could not get key metrics for {symbol}")
+        except Exception as e:
+            logger.warning(f"Error getting key metrics for {symbol}: {e}")
+        
+        # Step 4: If we're still missing some ratios, try the ratios endpoint
+        if not overview.get('PriceToBookRatio') or not overview.get('PriceToSalesRatio') or not overview.get('PERatio'):
+            try:
+                url = f"{self.base_url}/ratios/{symbol}"
+                params["period"] = "annual"  # We want annual data
+                fmp_rate_limiter.wait_if_needed()
+                response = requests.get(url, params=params)
+                ratios_data = response.json()
+                
+                if isinstance(ratios_data, list) and len(ratios_data) > 0:
+                    ratio = ratios_data[0]
+                    
+                    # Fill in missing ratios
+                    if not overview.get('PERatio'):
+                        overview['PERatio'] = ratio.get('priceEarningsRatio', '')
+                        
+                    if not overview.get('PriceToBookRatio'):
+                        overview['PriceToBookRatio'] = ratio.get('priceToBookRatio', '')
+                        
+                    if not overview.get('PriceToSalesRatio'):
+                        overview['PriceToSalesRatio'] = ratio.get('priceToSalesRatio', '')
+                    
+                    # Add additional useful ratios
+                    overview['ReturnOnEquityTTM'] = ratio.get('returnOnEquity', '')
+                    overview['ReturnOnAssetsTTM'] = ratio.get('returnOnAssets', '')
+                    overview['ProfitMargin'] = ratio.get('netProfitMargin', '')
+                    overview['OperatingMarginTTM'] = ratio.get('operatingProfitMargin', '')
+                    overview['DebtToEquityRatio'] = ratio.get('debtToEquity', '')
+                    overview['EVToEBITDA'] = ratio.get('enterpriseValueMultiple', '')
+                else:
+                    logger.warning(f"Could not get ratio data for {symbol}")
+            except Exception as e:
+                logger.warning(f"Error getting ratios for {symbol}: {e}")
+        
+        # Step 5: For very accurate market cap, try the dedicated endpoint
+        if not overview.get('MarketCapitalization'):
+            try:
+                url = f"{self.base_url}/market-capitalization/{symbol}"
+                fmp_rate_limiter.wait_if_needed()
+                response = requests.get(url, params={"apikey": self.api_key})  # Reset params
+                market_cap_data = response.json()
+                
+                if isinstance(market_cap_data, list) and len(market_cap_data) > 0:
+                    market_cap_entry = market_cap_data[0]
+                    overview['MarketCapitalization'] = market_cap_entry.get('marketCap', '')
+                else:
+                    logger.warning(f"Could not get market cap for {symbol}")
+            except Exception as e:
+                logger.warning(f"Error getting market cap for {symbol}: {e}")
+        
+        return overview

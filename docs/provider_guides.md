@@ -368,3 +368,75 @@ def screen_for_something(universe_df):
     # Use API-specific method names
     data = provider.get_company_profile(symbol)
 ```
+
+# Financial Modeling Prep API Endpoints for Company Metrics
+
+## Overview of Required Metrics and Source Endpoints
+
+The company metrics needed for stock screening should be retrieved from specific endpoints of the Financial Modeling Prep API:
+
+| Metric | Primary Endpoint | Fallback Endpoint | Parameter |
+|--------|------------------|-------------------|-----------|
+| MarketCapitalization | /market-capitalization | /profile | mktCap |
+| PERatio | /quote | /ratios or /profile | pe |
+| EPS | /quote | /key-metrics | eps |
+| Beta | /profile | /company-outlook | beta |
+| 52WeekHigh | /quote | /profile (range field) | yearHigh or range |
+| 52WeekLow | /quote | /profile (range field) | yearLow or range |
+| LastDividendDate | /profile | /historical-price-full/stock_dividend | lastDiv |
+| PriceToBookRatio | /key-metrics | /ratios | priceToBookRatio |
+| PriceToSalesRatio | /key-metrics | /ratios | priceToSalesRatio |
+
+## Implementation Strategy
+
+To ensure we have all required metrics, the `get_company_overview` method should:
+
+1. Start with the `/profile` endpoint as the base information source
+2. Supplement with data from `/quote` for latest market data including price, 52-week high/low
+3. Add additional financial metrics from `/key-metrics` or `/ratios`
+4. Use `/market-capitalization` for more accurate market cap values when needed
+
+## Example Implementation Pattern
+
+```python
+def get_company_overview(self, symbol):
+    """Get comprehensive company data from multiple endpoints"""
+    # Get base profile
+    profile_data = self._fetch_profile(symbol)
+    if not profile_data:
+        return {}
+        
+    # Initialize result with profile data
+    overview = self._convert_profile_to_overview(profile_data)
+    
+    # Supplement with quote data for latest market metrics
+    quote_data = self._fetch_quote(symbol)
+    if quote_data:
+        overview.update(self._extract_quote_metrics(quote_data))
+    
+    # Add additional financial ratios if missing
+    if not overview.get('PERatio') or not overview.get('PriceToBookRatio'):
+        ratio_data = self._fetch_ratios(symbol)
+        if ratio_data:
+            overview.update(self._extract_ratio_metrics(ratio_data))
+    
+    return overview
+```
+
+## Handling Missing Data
+
+If certain endpoints fail or return incomplete data:
+
+1. Log a warning but don't fail the entire operation
+2. Attempt to get the data from fallback endpoints
+3. Set missing metrics to None or empty string rather than failing
+4. Include a "data_completeness" field to indicate completeness level
+
+## Rate Limit Considerations
+
+Different endpoints count against the same rate limits, so optimize calls:
+
+- Batch related requests where possible
+- Cache aggressively to avoid duplicate calls
+- Use the most data-rich endpoints first (e.g., profile contains many fields)
+- Only call additional endpoints when necessary fields are missing

@@ -168,3 +168,19 @@ python -c "import talib, numpy as np; close = np.array([100, 101, 102, 103, 104,
 ```powershell
 python -c "from cache_config import clear_all_cache; clear_all_cache()" && python -c "from data_processing import calculate_technical_indicators; print('Technical indicators module loaded successfully')"
 ```
+
+# Testing Specific Screeners
+
+## Testing the Fallen IPO Screener
+
+Run just the fallen IPO screener with a small universe to test exception handling:
+
+```powershell
+python -c "import pandas as pd; from screeners import screen_for_fallen_ipos; df = pd.DataFrame({'symbol': ['AAPL', 'MSFT', 'NVDA']}); results = screen_for_fallen_ipos(df); print(f'Found {len(results)} results')"
+```
+
+Using a specific list of recent IPOs for more targeted testing:
+
+```powershell
+python -c "import pandas as pd; from screeners import screen_for_fallen_ipos; df = pd.DataFrame({'symbol': ['RIVN', 'UBER', 'LYFT', 'DASH', 'ABNB']}); results = screen_for_fallen_ipos(df, max_years_since_ipo=5); print(results)"
+```
