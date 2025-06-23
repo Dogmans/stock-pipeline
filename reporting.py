@@ -41,13 +41,13 @@ def generate_screening_report(screening_results, output_path):
         for strategy, results in screening_results.items():
             if isinstance(results, pd.DataFrame) and not results.empty:
                 top_stock = results.iloc[0]['symbol']
-                
-                # Identify key metric based on strategy
-                key_metric = ""
+                  # Identify key metric based on strategy                key_metric = ""
                 if 'pe_ratio' in results.columns:
                     key_metric = f"P/E: {results.iloc[0]['pe_ratio']:.2f}"
                 elif 'pct_off_high' in results.columns:
                     key_metric = f"{results.iloc[0]['pct_off_high']:.1f}% off high"
+                elif 'price_to_book' in results.columns:
+                    key_metric = f"P/B: {results.iloc[0]['price_to_book']:.3f}"
                 elif 'dividend_yield' in results.columns:
                     key_metric = f"Yield: {results.iloc[0]['dividend_yield']:.2%}"
                 elif 'growth_rate' in results.columns:
@@ -66,13 +66,14 @@ def generate_screening_report(screening_results, output_path):
             if not isinstance(results, pd.DataFrame) or results.empty:
                 f.write("No stocks passed this screener.\n\n")
                 continue
-                
             # Determine key metrics based on strategy type
             key_metrics = []
             if 'pe_ratio' in results.columns:
                 key_metrics.append('pe_ratio')
             if 'pb_ratio' in results.columns:
                 key_metrics.append('pb_ratio')
+            if 'price_to_book' in results.columns:
+                key_metrics.append('price_to_book')
             if 'dividend_yield' in results.columns:
                 key_metrics.append('dividend_yield')
             if 'pct_off_high' in results.columns:
@@ -92,13 +93,14 @@ def generate_screening_report(screening_results, output_path):
             for _ in key_metrics:
                 f.write("----------|")
             f.write("\n")
-            
-            # Write table rows
+              # Write table rows
             for _, row in results.iterrows():
                 f.write(f"| {row['symbol']} | {row['company_name']} | {row.get('sector', 'N/A')} |")
                 for metric in key_metrics:
                     if metric in row:
-                        if 'ratio' in metric:
+                        if metric == 'price_to_book':
+                            f.write(f" {row[metric]:.3f} |")
+                        elif 'ratio' in metric:
                             f.write(f" {row[metric]:.2f} |")
                         elif 'yield' in metric:
                             f.write(f" {row[metric]:.2%} |")
