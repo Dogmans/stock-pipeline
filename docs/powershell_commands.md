@@ -184,3 +184,68 @@ Using a specific list of recent IPOs for more targeted testing:
 ```powershell
 python -c "import pandas as pd; from screeners import screen_for_fallen_ipos; df = pd.DataFrame({'symbol': ['RIVN', 'UBER', 'LYFT', 'DASH', 'ABNB']}); results = screen_for_fallen_ipos(df, max_years_since_ipo=5); print(results)"
 ```
+
+## Special Screeners
+
+Run turnaround companies screener:
+
+```powershell
+python -c "
+import pandas as pd
+from universe import get_stock_universe
+from screeners import screen_for_turnaround_candidates
+
+# Get stock universe
+universe = get_stock_universe('sp500')
+
+# Run the turnaround screener
+results = screen_for_turnaround_candidates(universe)
+
+# Display top results
+if not results.empty:
+    print(f'Found {len(results)} potential turnaround candidates')
+    print('\nTop 10 turnaround candidates:')
+    columns = ['symbol', 'company_name', 'sector', 'turnaround_score', 
+               'eps_trend', 'revenue_trend', 'latest_eps', 'eps_change']
+    print(results[columns].head(10).to_string(index=False))
+else:
+    print('No turnaround candidates found')
+"
+```
+
+Generate detailed turnaround analysis report:
+
+```powershell
+python -c "
+import pandas as pd
+from universe import get_stock_universe
+from screeners import screen_for_turnaround_candidates
+import matplotlib.pyplot as plt
+import os
+
+# Create output directory if it doesn't exist
+os.makedirs('output/turnaround_analysis', exist_ok=True)
+
+# Get stock universe
+universe = get_stock_universe('sp500')
+
+# Run the turnaround screener
+results = screen_for_turnaround_candidates(universe)
+
+if not results.empty:
+    # Save results to CSV
+    results.to_csv('output/turnaround_analysis/turnaround_candidates.csv', index=False)
+    
+    # Create a simple visualization of scores
+    plt.figure(figsize=(10, 8))
+    top_10 = results.head(10)
+    plt.barh(top_10['symbol'], top_10['turnaround_score'], color='green')
+    plt.xlabel('Turnaround Score')
+    plt.ylabel('Company Symbol')
+    plt.title('Top 10 Companies Showing Signs of Turning the Corner')
+    plt.tight_layout()
+    plt.savefig('output/turnaround_analysis/top_turnaround_scores.png')
+    
+    print(f'Saved detailed results to output/turnaround_analysis/')
+"
+```

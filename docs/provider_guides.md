@@ -273,6 +273,22 @@ All methods use the cache system, which persists results to disk for:
 ## Rate Limiting
 FMP rate limiting is managed through the `RateLimiter` class which prevents exceeding API rate limits.
 
+## Annual vs Quarterly Data
+To get quarterly financial data (income statement, balance sheet, cash flow) instead of annual data:
+
+```python
+# Get quarterly income statement
+quarterly_income_statement = provider.get_income_statement('AAPL', annual=False)
+
+# Get quarterly balance sheet
+quarterly_balance_sheet = provider.get_balance_sheet('AAPL', annual=False)
+
+# Get quarterly cash flow statement
+quarterly_cash_flow = provider.get_cash_flow('AAPL', annual=False)
+```
+
+**Important:** Always use the `annual=False` parameter to get quarterly data. Do not use `period="quarter"` as this is not supported by the API methods. The methods handle the period parameter internally.
+
 ## Usage in Screeners
 When implementing a screener:
 1. Initialize the provider

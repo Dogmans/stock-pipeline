@@ -211,8 +211,7 @@ def main():
     screening_results = run_all_screeners(universe_df, strategies=strategies)
       # 7. Generate screening report
     logger.info("Generating screening report")
-    
-    # Sort screening results by relevant metrics for each strategy
+      # Sort screening results by relevant metrics for each strategy
     sorted_results = {}
     for strategy_name, results in screening_results.items():
         if isinstance(results, pd.DataFrame) and not results.empty:
@@ -226,6 +225,9 @@ def main():
             elif strategy_name == 'income' and 'dividend_yield' in results.columns:
                 # For income, higher yield is better
                 sorted_results[strategy_name] = results.sort_values('dividend_yield', ascending=False)
+            elif strategy_name == 'turnaround' and 'turnaround_score' in results.columns:
+                # For turnaround, higher score is better
+                sorted_results[strategy_name] = results.sort_values('turnaround_score', ascending=False)
             elif 'pct_off_high' in results.columns:
                 # For mean reversion, higher percentage off high might be better
                 sorted_results[strategy_name] = results.sort_values('pct_off_high', ascending=False)

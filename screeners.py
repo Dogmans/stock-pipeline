@@ -516,3 +516,155 @@ def screen_for_fallen_ipos(universe_df, max_years_since_ipo=3, min_pct_off_high=
     else:
         logger.info("No fallen IPOs found meeting the criteria")
         return pd.DataFrame()
+
+def screen_for_turnaround_candidates(universe_df, force_refresh=False):
+    """
+    Screen for companies showing signs of financial turnaround or improvement.
+    
+    This screener looks for companies that have "turned the corner" or show signs of financial recovery,
+    such as:
+    1. EPS trend changing from negative to positive
+    2. Revenue growth reacceleration
+    3. Improving margins
+    4. Strengthening cash position
+    5. Debt reduction
+    
+    Args:
+        universe_df (DataFrame): Stock universe being analyzed
+        
+    Returns:
+        DataFrame: Stocks meeting the turnaround criteria
+    """
+    logger.info(f"Screening for companies that may have 'turned the corner'...")
+    
+    # Import the FMP provider
+    from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+    
+    # Use universe_df directly
+    symbols = universe_df['symbol'].tolist()
+    
+    # Initialize the FMP provider
+    fmp_provider = FinancialModelingPrepProvider()
+    
+    # Store results
+    results = []
+    
+    # Process each symbol individually
+    for symbol in tqdm(symbols, desc="Screening for turnaround candidates", unit="symbol"):
+        try:
+            # Get company overview data
+            company_data = fmp_provider.get_company_overview(symbol)
+            
+            # Skip if we couldn't get company data
+            if not company_data:
+                continue
+                  # Get quarterly financial statements (last 8 quarters)
+            income_statements = fmp_provider.get_income_statement(
+                symbol, annual=False, force_refresh=force_refresh
+            )
+            
+            if income_statements.empty:
+                continue
+                
+            # Check for turnaround signals
+            
+            # 1. EPS trend reversal (negative to positive)
+            eps_values = income_statements['eps'].tolist()
+            if len(eps_values) >= 4:  # Need at least 4 quarters
+                # Last quarter was positive
+                latest_eps_positive = eps_values[0] > 0
+                # Previous quarters were negative
+                prior_eps_negative = any(eps < 0 for eps in eps_values[1:4])
+                eps_improving = eps_values[0] > eps_values[1] > eps_values[2]
+                
+                eps_turnaround = (latest_eps_positive and prior_eps_negative) or eps_improving
+            else:
+                eps_turnaround = False
+                
+            # 2. Revenue growth reacceleration
+            revenue_values = income_statements['totalRevenue'].tolist()
+            if len(revenue_values) >= 5:  # Need at least 5 quarters
+                # Calculate quarterly YoY growth rates
+                yoy_growth = [
+                    (revenue_values[i] / revenue_values[i+4] - 1) * 100 
+                    for i in range(len(revenue_values) - 4)
+                ]
+                
+                # Check if growth rate is accelerating
+                if len(yoy_growth) >= 2:
+                    revenue_reaccelerating = yoy_growth[0] > yoy_growth[1]
+                else:
+                    revenue_reaccelerating = False
+            else:
+                revenue_reaccelerating = False
+                
+            # 3. Margin improvement
+            if len(income_statements) >= 4:  # Need at least 4 quarters
+                # Gross margin trend
+                gross_margins = income_statements['grossProfit'] / income_statements['totalRevenue']
+                margins_improving = gross_margins.iloc[0] > gross_margins.iloc[1] > gross_margins.iloc[2]
+            else:
+                margins_improving = False
+                  # 4. Cash position improvement
+            balance_sheets = fmp_provider.get_balance_sheet(
+                symbol, annual=False, force_refresh=force_refresh
+            )
+            
+            if not balance_sheets.empty and len(balance_sheets) >= 2:
+                latest_cash = balance_sheets['cash'].iloc[0]
+                previous_cash = balance_sheets['cash'].iloc[1]
+                cash_improving = latest_cash > previous_cash
+                
+                # Debt reduction
+                latest_debt = balance_sheets['totalDebt'].iloc[0]
+                previous_debt = balance_sheets['totalDebt'].iloc[1]
+                debt_reducing = latest_debt < previous_debt
+            else:
+                cash_improving = False
+                debt_reducing = False
+                
+            # Score the turnaround potential (simple scoring system)
+            turnaround_score = 0
+            if eps_turnaround:
+                turnaround_score += 3  # Highest weight
+            if revenue_reaccelerating:
+                turnaround_score += 2
+            if margins_improving:
+                turnaround_score += 2
+            if cash_improving:
+                turnaround_score += 1
+            if debt_reducing:
+                turnaround_score += 1
+                
+            # Only consider stocks with substantial turnaround signals
+            if turnaround_score >= 3:
+                results.append({
+                    'symbol': symbol,
+                    'company_name': company_data.get('Name', symbol),
+                    'sector': company_data.get('Sector', 'Unknown'),
+                    'eps_trend': 'Improving' if eps_turnaround else 'Stable/Declining',
+                    'revenue_trend': 'Reaccelerating' if revenue_reaccelerating else 'Stable/Declining',
+                    'margins': 'Improving' if margins_improving else 'Stable/Declining',
+                    'cash_position': 'Strengthening' if cash_improving else 'Stable/Declining',
+                    'debt_trend': 'Reducing' if debt_reducing else 'Stable/Increasing',
+                    'turnaround_score': turnaround_score,
+                    'latest_eps': eps_values[0] if len(eps_values) > 0 else None,
+                    'eps_change': f"{((eps_values[0]/eps_values[1])-1)*100:.1f}%" if len(eps_values) > 1 and eps_values[1] != 0 else "N/A"
+                })
+                
+        except Exception as e:
+            logger.error(f"Error screening {symbol} for turnaround: {e}")
+            continue
+    
+    # Convert results to DataFrame
+    if not results:
+        return pd.DataFrame()
+        
+    result_df = pd.DataFrame(results)
+    
+    # Sort by turnaround score (descending)
+    if 'turnaround_score' in result_df.columns:
+        result_df = result_df.sort_values('turnaround_score', ascending=False)
+    
+    logger.info(f"Found {len(result_df)} potential turnaround candidates")
+    return result_df
