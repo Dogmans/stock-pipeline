@@ -15,11 +15,7 @@ import config
 from universe import get_stock_universe
 from stock_data import get_historical_prices, fetch_52_week_lows
 from market_data import is_market_in_correction, get_sector_performances
-from data_processing import (
-    calculate_technical_indicators, 
-    calculate_price_statistics,
-    analyze_debt_and_cash
-)
+from technical_indicators import calculate_technical_indicators
 from utils.logger import get_logger
 
 # Get logger for this module

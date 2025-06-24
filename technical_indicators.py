@@ -1,27 +1,19 @@
 """
-Data processing module for stock screening pipeline.
-Processes raw stock data and prepares it for screening and analysis.
+Technical indicators module for stock screening pipeline.
+Contains functions for calculating technical indicators, price statistics, and market analysis.
 
 Functions:
-    process_stock_data(): Main function to process stock data, combining technical indicators and fundamentals
-    calculate_financial_ratios(): Calculate financial ratios for all stocks based on fundamental data
     calculate_technical_indicators(): Calculate technical indicators from price data
     calculate_price_statistics(): Calculate price statistics from historical data
     calculate_fundamental_ratios(): Calculate fundamental ratios for a single stock
     analyze_debt_and_cash(): Analyze debt and cash metrics for a single stock
     normalize_sector_metrics(): Calculate sector-relative metrics
-    save_processed_data(): Save processed data to CSV
 """
 
 import pandas as pd
 import numpy as np
-from pathlib import Path
-import os
-from sklearn.preprocessing import StandardScaler
-
-import config
 from utils.logger import get_logger
-from stock_data import get_historical_prices
+from sklearn.preprocessing import StandardScaler
 
 # Try to import TA-Lib, but provide fallback if not available
 try:
@@ -35,9 +27,6 @@ except ImportError:
 
 # Get logger for this module
 logger = get_logger(__name__)
-
-# Ensure results directory exists
-Path(config.RESULTS_DIR).mkdir(parents=True, exist_ok=True)
 
 def calculate_technical_indicators(df):
     """
@@ -96,6 +85,19 @@ def calculate_technical_indicators(df):
             
             # Average Directional Index
             df['adx'] = talib.ADX(df['high'].values, df['low'].values, df['close'].values, timeperiod=14)
+            
+            # ATR - Average True Range (volatility indicator)
+            df['atr'] = talib.ATR(df['high'].values, df['low'].values, 
+                                  df['close'].values, timeperiod=14)
+            
+            # OBV - On Balance Volume
+            close_values = df['close'].values.astype(float)
+            volume_values = df['volume'].values.astype(float)
+            df['obv'] = talib.OBV(close_values, volume_values)
+            
+            # CCI - Commodity Channel Index
+            df['cci'] = talib.CCI(df['high'].values, df['low'].values,
+                                  df['close'].values, timeperiod=20)
         except Exception as e:
             logger.error(f"Error calculating TA-Lib indicators: {e}")
     else:
@@ -114,73 +116,142 @@ def calculate_technical_indicators(df):
     
     # Volume indicators
     df['volume_ma'] = df['volume'].rolling(window=20).mean()
-    df['volume_ratio'] = df['volume'] / df['volume_ma']    # Add more indicators if talib is available
-    if HAS_TALIB:
-        try:
-            # ATR - Average True Range (volatility indicator)
-            try:
-                df['atr'] = talib.ATR(df['high'].values, df['low'].values, 
-                                      df['close'].values, timeperiod=14)
-            except Exception as e:
-                logger.warning(f"Error calculating ATR: {e}")
-              # OBV - On Balance Volume
-            try:
-                # For OBV, both arrays need to be strictly numeric
-                close_values = df['close'].values.astype(float)
-                volume_values = df['volume'].values.astype(float)
-                df['obv'] = talib.OBV(close_values, volume_values)
-            except Exception as e:
-                logger.warning(f"Error calculating OBV: {e}")
-            
-            # CCI - Commodity Channel Index
-            try:
-                df['cci'] = talib.CCI(df['high'].values, df['low'].values,
-                                      df['close'].values, timeperiod=20)
-            except Exception as e:
-                logger.warning(f"Error calculating CCI: {e}")
-            
-            # Note: We already calculated Stochastic Oscillator and ADX above
-            # Avoid duplicate calculations
-        except Exception as e:
-            logger.warning(f"Error calculating additional TA-Lib indicators: {e}")
+    df['volume_ratio'] = df['volume'] / df['volume_ma']
     
     return df
 
-def calculate_price_statistics(df):
+def calculate_rsi(prices, period=14):
     """
-    Calculate price statistics like volatility, distance from 52-week high/low, etc.
+    Calculate Relative Strength Index for price series
     
     Args:
-        df (DataFrame): DataFrame with price data
+        prices: Series or array of prices
+        period: RSI period (default 14)
         
     Returns:
-        DataFrame: Original DataFrame with additional statistical columns
+        Series or array of RSI values
+    """
+    if HAS_TALIB:
+        return talib.RSI(prices, timeperiod=period)
+    else:
+        prices_series = pd.Series(prices)
+        delta = prices_series.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
+
+def calculate_macd(prices, fast_period=12, slow_period=26, signal_period=9):
+    """
+    Calculate MACD (Moving Average Convergence/Divergence) for price series
+    
+    Args:
+        prices: Series or array of prices
+        fast_period: Fast EMA period (default 12)
+        slow_period: Slow EMA period (default 26)
+        signal_period: Signal line period (default 9)
+        
+    Returns:
+        Tuple of (macd, signal, histogram)
+    """
+    if HAS_TALIB:
+        return talib.MACD(prices, fastperiod=fast_period, 
+                         slowperiod=slow_period, signalperiod=signal_period)
+    else:
+        prices_series = pd.Series(prices)
+        fast_ema = prices_series.ewm(span=fast_period, adjust=False).mean()
+        slow_ema = prices_series.ewm(span=slow_period, adjust=False).mean()
+        macd = fast_ema - slow_ema
+        signal = macd.ewm(span=signal_period, adjust=False).mean()
+        hist = macd - signal
+        return macd, signal, hist
+
+def calculate_bollinger_bands(prices, period=20, num_std=2):
+    """
+    Calculate Bollinger Bands for price series
+    
+    Args:
+        prices: Series or array of prices
+        period: SMA period (default 20)
+        num_std: Number of standard deviations (default 2)
+        
+    Returns:
+        Tuple of (upper_band, middle_band, lower_band)
+    """
+    if HAS_TALIB:
+        return talib.BBANDS(prices, timeperiod=period, nbdevup=num_std, nbdevdn=num_std, matype=0)
+    else:
+        prices_series = pd.Series(prices)
+        middle_band = prices_series.rolling(window=period).mean()
+        std_dev = prices_series.rolling(window=period).std()
+        upper_band = middle_band + (std_dev * num_std)
+        lower_band = middle_band - (std_dev * num_std)
+        return upper_band, middle_band, lower_band
+
+def calculate_price_statistics(df):
+    """
+    Calculate price statistics from historical data
+    
+    Args:
+        df (DataFrame): DataFrame with historical price data
+        
+    Returns:
+        DataFrame: Original DataFrame with additional statistic columns
     """
     if df.empty:
         return df
     
-    # Make sure column names are standardized
-    df.columns = [col.lower() for col in df.columns]
+    # Daily returns
+    df['daily_return'] = df['close'].pct_change()
     
-    # Calculate daily returns
-    df['daily_return'] = df['close'].pct_change() * 100
+    # Cumulative returns
+    df['cumulative_return'] = (1 + df['daily_return']).cumprod() - 1
     
-    # Calculate volatility (standard deviation of returns)
-    df['volatility_10d'] = df['daily_return'].rolling(window=10).std()
-    df['volatility_30d'] = df['daily_return'].rolling(window=30).std()
-    df['volatility_90d'] = df['daily_return'].rolling(window=90).std()
+    # Volatility (rolling window)
+    df['volatility'] = df['close'].rolling(window=21).std() * np.sqrt(252)
     
-    # Calculate distance from 52-week high/low
-    df['rolling_52w_high'] = df['close'].rolling(window=252).max()
-    df['rolling_52w_low'] = df['close'].rolling(window=252).min()
-    df['pct_off_52w_high'] = (df['rolling_52w_high'] - df['close']) / df['rolling_52w_high'] * 100
-    df['pct_off_52w_low'] = (df['close'] - df['rolling_52w_low']) / df['rolling_52w_low'] * 100
-    
-    # Calculate max drawdown over rolling window
-    df['rolling_max'] = df['close'].rolling(window=252).max()
-    df['drawdown'] = (df['rolling_max'] - df['close']) / df['rolling_max'] * 100
+    # Sharpe ratio (assuming risk-free rate of 0)
+    df['sharpe_ratio'] = df['daily_return'].rolling(window=252).mean() / df['daily_return'].rolling(window=252).std()
     
     return df
+
+def calculate_fundamental_ratios(df):
+    """
+    Calculate fundamental ratios for a single stock
+    
+    Args:
+        df (DataFrame): DataFrame with historical price and volume data
+        
+    Returns:
+        Series: A series with calculated fundamental ratios
+    """
+    if df.empty:
+        return pd.Series()
+    
+    # Price/Earnings ratio
+    pe_ratio = df['close'][-1] / df['eps'][-1] if df['eps'][-1] != 0 else np.nan
+    
+    # Price/Book ratio
+    pb_ratio = df['close'][-1] / df['book_value'][-1] if df['book_value'][-1] != 0 else np.nan
+    
+    # Dividend Yield
+    dividend_yield = df['dividend'][-1] / df['close'][-1] if df['close'][-1] != 0 else np.nan
+    
+    # Return on Equity
+    roe = df['net_income'][-1] / df['shareholder_equity'][-1] if df['shareholder_equity'][-1] != 0 else np.nan
+    
+    # Debt/Equity ratio
+    debt_equity_ratio = df['total_debt'][-1] / df['shareholder_equity'][-1] if df['shareholder_equity'][-1] != 0 else np.nan
+    
+    ratios = pd.Series({
+        'pe_ratio': pe_ratio,
+        'pb_ratio': pb_ratio,
+        'dividend_yield': dividend_yield,
+        'roe': roe,
+        'debt_equity_ratio': debt_equity_ratio
+    })
+    
+    return ratios
 
 def calculate_fundamental_ratios(ticker_data, fundamental_data):
     """
@@ -247,6 +318,44 @@ def calculate_fundamental_ratios(ticker_data, fundamental_data):
     
     return ratios
 
+def analyze_debt_and_cash(df):
+    """
+    Analyze debt and cash metrics for a single stock
+    
+    Args:
+        df (DataFrame): DataFrame with historical balance sheet data
+        
+    Returns:
+        Series: A series with calculated debt and cash metrics
+    """
+    if df.empty:
+        return pd.Series()
+    
+    # Current Ratio
+    current_ratio = df['current_assets'][-1] / df['current_liabilities'][-1] if df['current_liabilities'][-1] != 0 else np.nan
+    
+    # Quick Ratio
+    quick_ratio = (df['current_assets'][-1] - df['inventory'][-1]) / df['current_liabilities'][-1] if df['current_liabilities'][-1] != 0 else np.nan
+    
+    # Cash Ratio
+    cash_ratio = df['cash_and_cash_equivalents'][-1] / df['current_liabilities'][-1] if df['current_liabilities'][-1] != 0 else np.nan
+    
+    # Debt Ratio
+    debt_ratio = df['total_debt'][-1] / df['total_assets'][-1] if df['total_assets'][-1] != 0 else np.nan
+    
+    # Equity Ratio
+    equity_ratio = df['shareholder_equity'][-1] / df['total_assets'][-1] if df['total_assets'][-1] != 0 else np.nan
+    
+    metrics = pd.Series({
+        'current_ratio': current_ratio,
+        'quick_ratio': quick_ratio,
+        'cash_ratio': cash_ratio,
+        'debt_ratio': debt_ratio,
+        'equity_ratio': equity_ratio
+    })
+    
+    return metrics
+
 def normalize_sector_metrics(stocks_df, sector_col='sector'):
     """
     Normalize metrics within sectors to find outperformers/underperformers
@@ -291,7 +400,8 @@ def normalize_sector_metrics(stocks_df, sector_col='sector'):
             
             # Replace NaNs with median for scaling purposes
             temp_values = df.loc[sector_mask, metric].fillna(df.loc[sector_mask, metric].median())
-              # Scale and create new column for normalized values
+            
+            # Scale and create new column for normalized values
             normalized_values = scaler.fit_transform(temp_values.values.reshape(-1, 1))
             df.loc[sector_mask, f'{metric}_normalized'] = normalized_values
             
@@ -374,22 +484,6 @@ def analyze_debt_and_cash(ticker_data, fundamental_data=None):
     
     return results
 
-def save_processed_data(df, filename):
-    """
-    Save processed data to CSV file in the results directory
-    
-    Args:
-        df (DataFrame): DataFrame to save
-        filename (str): Filename to save data to
-    """
-    if df is None or df.empty:
-        logger.warning(f"No data to save for {filename}")
-        return
-        
-    filepath = os.path.join(config.RESULTS_DIR, filename)
-    df.to_csv(filepath, index=True)
-    logger.info(f"Saved processed data to {filepath}")
-
 def process_stock_data(price_data, fundamental_data):
     """
     Process stock data by calculating technical indicators, price statistics, and combining with fundamentals
@@ -450,7 +544,6 @@ def process_stock_data(price_data, fundamental_data):
         logger.warning("No stocks could be processed")
         return pd.DataFrame()
 
-
 def calculate_financial_ratios(fundamental_data):
     """
     Calculate financial ratios for all stocks based on fundamental data
@@ -487,19 +580,23 @@ def calculate_financial_ratios(fundamental_data):
         return pd.DataFrame()
 
 if __name__ == "__main__":
-    logger.info("Testing data processing module...")
+    # Simple test for the module
+    import numpy as np
     
-    # Test calculating technical indicators
-    test_symbol = "AAPL"
-    price_data = get_historical_prices([test_symbol], period="1y")[test_symbol]
+    # Create test data
+    np.random.seed(42)
+    test_prices = np.cumsum(np.random.normal(0, 1, 100)) + 100
     
-    if not price_data.empty:
-        # Test technical indicator calculation
-        technical_df = calculate_technical_indicators(price_data)
-        logger.info(f"Calculated technical indicators for {test_symbol}")
-        print(f"Technical indicators: {list(technical_df.columns)}")
-        
-        # Test price statistics
-        stats_df = calculate_price_statistics(price_data)
-        logger.info(f"Calculated price statistics for {test_symbol}")
-        print(f"Price statistics: {list(stats_df.columns)}")
+    # Test RSI calculation
+    rsi = calculate_rsi(test_prices)
+    print(f"RSI (last 5 values): {rsi[-5:]}")
+    
+    # Test MACD calculation
+    macd, signal, hist = calculate_macd(test_prices)
+    print(f"MACD (last value): {macd[-1]:.4f}")
+    print(f"Signal (last value): {signal[-1]:.4f}")
+    print(f"Histogram (last value): {hist[-1]:.4f}")
+    
+    # Test Bollinger Bands calculation
+    upper, middle, lower = calculate_bollinger_bands(test_prices)
+    print(f"Bollinger Bands (last values): Upper={upper[-1]:.4f}, Middle={middle[-1]:.4f}, Lower={lower[-1]:.4f}")
