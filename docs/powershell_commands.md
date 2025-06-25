@@ -249,3 +249,41 @@ if not results.empty:
     print(f'Saved detailed results to output/turnaround_analysis/')
 "
 ```
+
+## Using the Turnaround Screener Scripts
+
+Run the complete turnaround screener test suite:
+
+```powershell
+.\scripts\powershell\test_turnaround_screener.ps1
+```
+
+This script:
+1. Tests the turnaround screener on S&P 500 and Russell 2000 universes
+2. Saves results to CSV files in the output/turnaround_analysis directory
+3. Captures all output to a timestamped log file
+4. Displays summary statistics by sector, score, and primary factor
+
+Run the turnaround screener unit tests:
+
+```powershell
+python -m unittest tests/test_turnaround_screener_logic.py
+```
+
+Force refresh financial data when running the screener:
+
+```powershell
+python -c "
+from screeners import screen_for_turnaround_candidates
+import universe
+
+# Get stock universe
+sp500 = universe.get_sp500_universe()
+
+# Run screener with force_refresh=True to bypass cache
+results = screen_for_turnaround_candidates(sp500, force_refresh=True)
+print(f'Found {len(results)} potential turnaround candidates')
+if not results.empty:
+    print(results[['symbol', 'name', 'primary_factor', 'turnaround_score']])
+"
+```

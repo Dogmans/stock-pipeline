@@ -240,21 +240,66 @@ def main():
     # Generate comprehensive markdown report
     report_path = os.path.join(output_dir, 'screening_report.md')
     generate_screening_report(sorted_results, report_path)
-    
-    # Also generate a summary file
+      # Also generate a summary file
     summary_path = os.path.join(output_dir, 'summary.txt')
     with open(summary_path, 'w') as f:
-        f.write(f"Stock Screening Results Summary - {datetime.now().strftime('%Y-%m-%d')}\n\n")
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        f.write(f"Stock Screening Pipeline - Summary Report\n")
+        f.write(f"Generated: {current_time}\n\n")
         
+        # Add universe and market info
+        universe_size = len(universe_df) if universe_df is not None else 0
+        f.write(f"Universe: {args.universe} ({universe_size} stocks)\n")
+          # Add market conditions if available
+        try:
+            import market_data
+            market_conditions = market_data.get_market_conditions()
+            vix = market_conditions.get('vix', 'N/A')
+            f.write(f"Market Status: {market_conditions.get('status', 'Unknown')} (VIX: {vix})\n")
+        except:
+            pass
+        
+        f.write("\nTop Candidates by Strategy:\n\n")
+        
+        # Write each strategy's results
         for strategy_name, results in sorted_results.items():
-            if isinstance(results, pd.DataFrame) and not results.empty:
-                f.write(f"{strategy_name.upper()} STRATEGY: {len(results)} stocks passed\n")
-                if len(results) > 0:
-                    f.write(f"  Top 3: {', '.join(results['symbol'].head(3).tolist())}\n")
-            else:
-                f.write(f"{strategy_name.upper()} STRATEGY: 0 stocks passed\n")
+            if not isinstance(results, pd.DataFrame) or results.empty:
+                continue
+                
+            readable_name = strategy_name.lower()
+            f.write(f"{readable_name}:\n")
+            
+            # Get the top 10 results or all if fewer
+            top_n = min(10, len(results))
+            
+            for idx in range(top_n):
+                row = results.iloc[idx]
+                symbol = row['symbol']
+                
+                # Format based on the strategy type
+                if strategy_name == 'pe_ratio' and 'pe_ratio' in row:
+                    f.write(f"  {symbol}:  Low P/E ratio (P/E = {row['pe_ratio']:.2f})\n")
+                    
+                elif strategy_name == 'price_to_book' and 'price_to_book' in row:
+                    f.write(f"  {symbol}:  Low price to book ratio (P/B = {row['price_to_book']:.2f})\n")
+                    
+                elif '52_week_low' in strategy_name and 'pct_above_low' in row:
+                    f.write(f"  {symbol}:  Near 52-week low ({row['pct_above_low']:.2f}% above low)\n")
+                    
+                elif 'fallen_ipo' in strategy_name and 'pct_off_high' in row:
+                    f.write(f"  {symbol}:  Fallen IPO ({row['pct_off_high']:.2f}% off high)\n")
+                    
+                elif strategy_name == 'turnaround_candidates' and 'reason' in row:
+                    # Enhanced turnaround display with reason
+                    f.write(f"  {symbol}:  {row['primary_factor']} ({row['reason']})\n")
+                    
+                else:
+                    # Generic format for other strategies
+                    f.write(f"  {symbol}\n")
+            
+            f.write("\n")
         
-        f.write("\nSee 'screening_report.md' for detailed results.")
+        f.write("\nRun 'python main.py --help' for more options.")
     
     logger.info(f"Report generated: {report_path}")
     
