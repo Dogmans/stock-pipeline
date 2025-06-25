@@ -229,3 +229,60 @@ def calculate_technical_indicators(df):
     
     return df
 ```
+
+## Text Encoding and Unicode Handling
+
+### Unicode Issues in Output Files
+
+When generating output files (especially on Windows systems), be aware that certain Unicode characters may cause encoding errors. This is particularly true for console output and text files written without explicitly specifying an encoding.
+
+#### Common Issues
+
+- Unicode arrows (→, ↑, ↓) may cause UnicodeEncodeError on Windows
+- Special characters in company names or descriptions from external APIs
+- Currency symbols (€, £, ¥) in financial data
+
+#### Best Practices
+
+1. **Use ASCII Alternatives When Possible**:
+   ```python
+   # Instead of:
+   text = "Price movement: ↑ 5.2%"
+   
+   # Use:
+   text = "Price movement: UP 5.2%"  # or
+   text = "Price movement: ^^ 5.2%"  # or 
+   text = "Price movement: (+5.2%)"
+   ```
+
+2. **Replace Unicode Characters in Output**:
+   ```python
+   # Example from main.py turnaround candidates
+   primary_factor = row['primary_factor'].replace('→', '->')
+   ```
+
+3. **Specify Encoding When Opening Files**:
+   ```python
+   with open('output.txt', 'w', encoding='utf-8') as f:
+       f.write("Contains Unicode: →")
+   ```
+
+4. **Handle Potential Encoding Issues in Data Processing**:
+   ```python
+   def sanitize_for_output(text):
+       """Replace Unicode characters with ASCII equivalents for output compatibility."""
+       replacements = {
+           '→': '->',
+           '↑': 'UP',
+           '↓': 'DOWN',
+           '✓': 'PASS',
+           '✗': 'FAIL',
+       }
+       
+       for unicode_char, ascii_replacement in replacements.items():
+           text = text.replace(unicode_char, ascii_replacement)
+       
+       return text
+   ```
+
+Using these practices ensures maximum compatibility across different operating systems and console environments.

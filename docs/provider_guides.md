@@ -1,4 +1,10 @@
-# Provider API Caching Guide
+# Data Provider Guides
+
+## Provider-Specific Documentation
+
+- [Financial Modeling Prep API Guide](provider_guides/financial_modeling_prep.md) - Complete guide to our FMP API integration
+
+## Provider API Caching Guide
 
 ## Overview
 

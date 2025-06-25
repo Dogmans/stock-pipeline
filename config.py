@@ -46,6 +46,8 @@ class ScreeningThresholds:
     MIN_MARKET_CAP = 100  # Small caps and up (no micro caps)
     MAX_MARKET_CAP = None  # No upper limit
 
+    QUARTERS_RETURNED = 6
+
 # Market Indexes to Track
 MARKET_INDEXES = [
     '^GSPC',  # S&P 500

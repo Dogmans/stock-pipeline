@@ -53,7 +53,7 @@ class TestTurnaroundScreener(unittest.TestCase):
         # Verify results
         self.assertFalse(results.empty, "Should detect the turnaround")
         self.assertEqual(results.iloc[0]['symbol'], 'TEST')
-        self.assertTrue('Negative→Positive EPS' in results.iloc[0]['eps_trend'])
+        self.assertTrue('Negative-to-Positive EPS' in results.iloc[0]['eps_trend'])
         self.assertGreaterEqual(results.iloc[0]['turnaround_score'], 5)
         
     @patch('screeners.FinancialModelingPrepProvider')

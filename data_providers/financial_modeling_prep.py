@@ -115,6 +115,91 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         # Base URL for FMP API
         self.base_url = "https://financialmodelingprep.com/api/v3"
     
+    def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True):
+        """
+        Make an API request to Financial Modeling Prep.
+        
+        Args:
+            endpoint (str): API endpoint path (without base URL)
+            symbol (str): Stock symbol to query
+            params (dict, optional): Additional query parameters
+            rate_limit (bool): Whether to apply rate limiting
+            
+        Returns:
+            tuple: (success (bool), data (dict/list), error_msg (str or None))
+        """
+        url = f"{self.base_url}/{endpoint}/{symbol}"
+        
+        # Initialize params dictionary if None
+        if params is None:
+            params = {}
+        
+        # Always include API key
+        params["apikey"] = self.api_key
+        
+        try:
+            # Apply rate limiting if requested
+            if rate_limit:
+                fmp_rate_limiter.wait_if_needed()
+                
+            # Make the request
+            response = requests.get(url, params=params)
+            
+            # Check if response is successful
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if data is valid (list with content for most endpoints)
+                if isinstance(data, list) and len(data) > 0:
+                    return True, data, None
+                elif not isinstance(data, list) and isinstance(data, dict):
+                    # Some endpoints return direct dictionaries
+                    return True, data, None
+                else:
+                    error_msg = f"Empty or invalid response: {data}"
+                    logger.error(f"API error for {url}: {error_msg}")
+                    return False, None, error_msg
+            else:
+                error_msg = f"HTTP {response.status_code}: {response.text}"
+                logger.error(f"API error for {url}: {error_msg}")
+                return False, None, error_msg
+                
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Exception during API call to {url}: {error_msg}")
+            return False, None, error_msg
+    
+    def _process_financial_statement(self, data, column_mapping=None):
+        """
+        Process financial statement data into standardized DataFrame.
+        
+        Args:
+            data (list): Raw financial statement data from API
+            column_mapping (dict, optional): Column name mapping
+            
+        Returns:
+            pd.DataFrame: Processed financial statement data
+        """
+        if not data:
+            return pd.DataFrame()
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+        
+        # Rename date column to match our standard format
+        df = df.rename(columns={"date": "fiscalDateEnding"})
+        
+        # Convert date to datetime
+        df["fiscalDateEnding"] = pd.to_datetime(df["fiscalDateEnding"])
+        
+        # Sort by date
+        df = df.sort_values("fiscalDateEnding", ascending=False)
+        
+        # Rename columns if mapping provided
+        if column_mapping:
+            df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+        
+        return df
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
@@ -148,55 +233,58 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             "3mo": "90",
             "6mo": "180",
             "1y": "365",
-            "2y": "730",            "5y": "1825",
+            "2y": "730",
+            "5y": "1825",
             "max": "5000"  # Using a large number for max
         }
         days = days_map.get(period, "365")  # Default to 1 year
         
         # Use tqdm to show a progress bar when processing multiple symbols
         for symbol in tqdm(symbols, desc="Fetching historical prices", disable=len(symbols) <= 1):
-            try:
-                url = f"{self.base_url}/historical-price-full/{symbol}"
-                params = {"apikey": self.api_key, "timeseries": days}
-                
-                # Apply rate limiting before API call
-                fmp_rate_limiter.wait_if_needed()
-                response = requests.get(url, params=params)
-                data = response.json()
-                
-                if "historical" in data:
-                    historical = data["historical"]
-                    df = pd.DataFrame(historical)
-                    
-                    # Rename columns to match our standard format
-                    df = df.rename(columns={
-                        "date": "Date",
-                        "open": "Open",
-                        "high": "High",
-                        "low": "Low",
-                        "close": "Close",
-                        "volume": "Volume"
-                    })
-                    
-                    # Convert date to datetime and set as index
-                    df["Date"] = pd.to_datetime(df["Date"])
-                    df = df.set_index("Date")
-                    
-                    # Sort by date
-                    df = df.sort_index()
-                    
-                    # Select only the standard columns
-                    df = df[["Open", "High", "Low", "Close", "Volume"]]
-                    
-                    result[symbol] = df
-                else:
-                    logger.error(f"Error getting price data for {symbol}: {data.get('Error Message', 'Unknown error')}")
+            # Set up parameters for this symbol
+            params = {"timeseries": days}
             
-            except Exception as e:
-                logger.error(f"Error getting price data for {symbol}: {e}")
+            # Make API request
+            success, data, error = self._make_api_request(
+                endpoint="historical-price-full",
+                symbol=symbol,
+                params=params
+            )
+            
+            if not success:
+                logger.error(f"Error getting price data for {symbol}: {error}")
+                continue
+                
+            # Process the results
+            if "historical" in data:
+                historical = data["historical"]
+                df = pd.DataFrame(historical)
+                
+                # Rename columns to match our standard format
+                df = df.rename(columns={
+                    "date": "Date",
+                    "open": "Open",
+                    "high": "High",
+                    "low": "Low",
+                    "close": "Close",
+                    "volume": "Volume"
+                })
+                
+                # Convert date to datetime and set as index
+                df["Date"] = pd.to_datetime(df["Date"])
+                df = df.set_index("Date")
+                
+                # Sort by date
+                df = df.sort_index()
+                
+                # Select only the standard columns
+                df = df[["Open", "High", "Low", "Close", "Volume"]]
+                
+                result[symbol] = df
+            else:
+                logger.error(f"Error getting price data for {symbol}: Missing 'historical' data")
         
         return result
-    
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
@@ -215,49 +303,36 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         if force_refresh:
             cache.delete(self.get_income_statement, symbol, annual)
         
-        try:
-            period = "annual" if annual else "quarter"
-            url = f"{self.base_url}/income-statement/{symbol}"
-            params = {"apikey": self.api_key, "period": period, "limit": 5}
-            
-            response = requests.get(url, params=params)
-            data = response.json()
-            
-            if isinstance(data, list) and len(data) > 0:
-                df = pd.DataFrame(data)
-                
-                # Rename date column to match our standard format
-                df = df.rename(columns={"date": "fiscalDateEnding"})
-                
-                # Convert date to datetime
-                df["fiscalDateEnding"] = pd.to_datetime(df["fiscalDateEnding"])
-                
-                # Sort by date
-                df = df.sort_values("fiscalDateEnding", ascending=False)
-                
-                # Rename some columns to match Alpha Vantage format
-                column_mapping = {
-                    "revenue": "totalRevenue",
-                    "costOfRevenue": "costOfRevenue",
-                    "grossProfit": "grossProfit",
-                    "grossProfitRatio": "grossProfitMargin",
-                    "operatingExpenses": "operatingExpenses",
-                    "operatingIncome": "operatingIncome",
-                    "netIncome": "netIncome",
-                    "ebitda": "ebitda"
-                }
-                
-                df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-                
-                return df
-            else:
-                logger.error(f"Error getting income statement for {symbol}: {data}")
-                return pd.DataFrame()
+        # Set up parameters
+        period = "annual" if annual else "quarter"
+        limit = 5 if annual else config.ScreeningThresholds.QUARTERS_RETURNED
+        params = {"period": period, "limit": limit}
         
-        except Exception as e:
-            logger.error(f"Error getting income statement for {symbol}: {e}")
+        # Make API request
+        success, data, error = self._make_api_request(
+            endpoint="income-statement",
+            symbol=symbol,
+            params=params
+        )
+        
+        if not success:
+            logger.error(f"Error getting income statement for {symbol}: {error}")
             return pd.DataFrame()
-    
+        
+        # Column mapping for income statement
+        column_mapping = {
+            "revenue": "totalRevenue",
+            "costOfRevenue": "costOfRevenue",
+            "grossProfit": "grossProfit",
+            "grossProfitRatio": "grossProfitMargin",
+            "operatingExpenses": "operatingExpenses",
+            "operatingIncome": "operatingIncome",
+            "netIncome": "netIncome",
+            "ebitda": "ebitda"
+        }
+        
+        # Process the data
+        return self._process_financial_statement(data, column_mapping)
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
@@ -276,50 +351,37 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         if force_refresh:
             cache.delete(self.get_balance_sheet, symbol, annual)
         
-        try:
-            period = "annual" if annual else "quarter"
-            url = f"{self.base_url}/balance-sheet-statement/{symbol}"
-            params = {"apikey": self.api_key, "period": period, "limit": 5}
-            
-            response = requests.get(url, params=params)
-            data = response.json()
-            
-            if isinstance(data, list) and len(data) > 0:
-                df = pd.DataFrame(data)
-                
-                # Rename date column to match our standard format
-                df = df.rename(columns={"date": "fiscalDateEnding"})
-                
-                # Convert date to datetime
-                df["fiscalDateEnding"] = pd.to_datetime(df["fiscalDateEnding"])
-                
-                # Sort by date
-                df = df.sort_values("fiscalDateEnding", ascending=False)
-                
-                # Rename some columns to match Alpha Vantage format
-                column_mapping = {
-                    "totalAssets": "totalAssets",
-                    "totalCurrentAssets": "totalCurrentAssets",
-                    "totalLiabilities": "totalLiabilities",
-                    "totalCurrentLiabilities": "totalCurrentLiabilities",
-                    "totalStockholdersEquity": "totalShareholderEquity",
-                    "cashAndCashEquivalents": "cash",
-                    "shortTermInvestments": "shortTermInvestments",
-                    "longTermDebt": "longTermDebt",
-                    "commonStock": "commonStock"
-                }
-                
-                df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-                
-                return df
-            else:
-                logger.error(f"Error getting balance sheet for {symbol}: {data}")
-                return pd.DataFrame()
+        # Set up parameters
+        period = "annual" if annual else "quarter"
+        limit = 5 if annual else config.ScreeningThresholds.QUARTERS_RETURNED
+        params = {"period": period, "limit": limit}
         
-        except Exception as e:
-            logger.error(f"Error getting balance sheet for {symbol}: {e}")
-            return pd.DataFrame()
+        # Make API request
+        success, data, error = self._make_api_request(
+            endpoint="balance-sheet-statement",
+            symbol=symbol,
+            params=params
+        )
     
+        if not success:
+            logger.error(f"Error getting balance sheet for {symbol}: {error}")
+            return pd.DataFrame()
+        
+        # Column mapping for balance sheet
+        column_mapping = {
+            "totalAssets": "totalAssets",
+            "totalCurrentAssets": "totalCurrentAssets",
+            "totalLiabilities": "totalLiabilities",
+            "totalCurrentLiabilities": "totalCurrentLiabilities",
+            "totalStockholdersEquity": "totalShareholderEquity",
+            "cashAndCashEquivalents": "cash",
+            "shortTermInvestments": "shortTermInvestments",
+            "longTermDebt": "longTermDebt",
+            "commonStock": "commonStock"
+        }
+        
+        # Process the data
+        return self._process_financial_statement(data, column_mapping)
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
@@ -338,48 +400,37 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         if force_refresh:
             cache.delete(self.get_cash_flow, symbol, annual)
         
-        try:
-            period = "annual" if annual else "quarter"
-            url = f"{self.base_url}/cash-flow-statement/{symbol}"
-            params = {"apikey": self.api_key, "period": period, "limit": 5}
-            
-            response = requests.get(url, params=params)
-            data = response.json()
-            
-            if isinstance(data, list) and len(data) > 0:
-                df = pd.DataFrame(data)
-                
-                # Rename date column to match our standard format
-                df = df.rename(columns={"date": "fiscalDateEnding"})
-                
-                # Convert date to datetime
-                df["fiscalDateEnding"] = pd.to_datetime(df["fiscalDateEnding"])
-                
-                # Sort by date
-                df = df.sort_values("fiscalDateEnding", ascending=False)
-                
-                # Rename some columns to match Alpha Vantage format
-                column_mapping = {
-                    "netCashProvidedByOperatingActivities": "operatingCashflow",
-                    "capitalExpenditure": "capitalExpenditures",
-                    "freeCashFlow": "freeCashflow",
-                    "dividendsPaid": "dividendPayout",
-                    "netChangeInCash": "changeInCash",
-                    "stockRepurchased": "repurchaseOfStock",
-                    "commonStockIssued": "issuanceOfStock"
-                }
-                
-                df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-                
-                return df
-            else:
-                logger.error(f"Error getting cash flow for {symbol}: {data}")
-                return pd.DataFrame()
+        # Set up parameters
+        period = "annual" if annual else "quarter"
+        limit = 5 if annual else config.ScreeningThresholds.QUARTERS_RETURNED
+        params = {"period": period, "limit": limit}
         
-        except Exception as e:
-            logger.error(f"Error getting cash flow for {symbol}: {e}")
-            return pd.DataFrame()    @cache.memoize(expire=24*3600)  # Cache for 24 hours
-    
+        # Make API request
+        success, data, error = self._make_api_request(
+            endpoint="cash-flow-statement",
+            symbol=symbol,
+            params=params
+        )
+        
+        if not success:
+            logger.error(f"Error getting cash flow for {symbol}: {error}")
+            return pd.DataFrame()
+        
+        # Column mapping for cash flow
+        column_mapping = {
+            "netCashProvidedByOperatingActivities": "operatingCashflow",
+            "capitalExpenditure": "capitalExpenditures",
+            "freeCashFlow": "freeCashflow",
+            "dividendsPaid": "dividendPayout",
+            "netChangeInCash": "changeInCash",
+            "stockRepurchased": "repurchaseOfStock",
+            "commonStockIssued": "issuanceOfStock"
+        }
+        
+        # Process the data
+        return self._process_financial_statement(data, column_mapping)
+        
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
     @cache.memoize(expire=24*3600)  # Cache for 1 day (24 hours)
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
@@ -407,145 +458,95 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         # Initialize the overview dictionary
         overview = {
             'Symbol': symbol,
-            'DataCompleteness': 'partial',  # Will update based on data quality
+            'DataCompleteness': 'partial',
         }
         
-        # Base params for all requests
-        params = {"apikey": self.api_key}
-        
         # Step 1: Get profile data (basic company info)
-        try:
-            url = f"{self.base_url}/profile/{symbol}"
-            fmp_rate_limiter.wait_if_needed()
-            response = requests.get(url, params=params)
-            data = response.json()
+        success, profile_data, _ = self._make_api_request("profile", symbol)
+        if not success or not profile_data:
+            logger.error(f"Could not get profile data for {symbol}")
+            return {}
+        
+        # Process profile data
+        profile = profile_data[0]
+        overview['Name'] = profile.get('companyName', '')
+        overview['Description'] = profile.get('description', '')
+        overview['Exchange'] = profile.get('exchange', '')
+        overview['Sector'] = profile.get('sector', '')
+        overview['Industry'] = profile.get('industry', '')
+        overview['MarketCapitalization'] = profile.get('mktCap', '')
+        overview['Beta'] = profile.get('beta', '')
+        
+        # Extract 52-week high/low from range if available
+        if '-' in profile.get('range', ''):
+            range_parts = profile.get('range', '').split('-')
+            if len(range_parts) == 2:
+                overview['52WeekLow'] = range_parts[0].strip()
+                overview['52WeekHigh'] = range_parts[1].strip()
+        
+        overview['LastDividendDate'] = profile.get('lastDiv', '')
+        overview['SharesOutstanding'] = profile.get('sharesOutstanding', '')
+        
+        # Step 2: Get quote data
+        success, quote_data, _ = self._make_api_request("quote", symbol)
+        if success and quote_data:
+            quote = quote_data[0]
+            overview['MarketCapitalization'] = quote.get('marketCap', overview.get('MarketCapitalization', ''))
+            overview['PERatio'] = quote.get('pe', '')
+            overview['EPS'] = quote.get('eps', '')
+            overview['52WeekHigh'] = quote.get('yearHigh', overview.get('52WeekHigh', ''))
+            overview['52WeekLow'] = quote.get('yearLow', overview.get('52WeekLow', ''))
+            overview['DataCompleteness'] = 'good'
+        
+        # Step 3: Get key metrics
+        success, metrics_data, _ = self._make_api_request(
+            "key-metrics", 
+            symbol, 
+            params={"period": "annual"}
+        )
+        
+        if success and metrics_data:
+            metrics = metrics_data[0]
+            overview['PriceToBookRatio'] = metrics.get('priceToBookRatio', '')
+            overview['PriceToSalesRatio'] = metrics.get('priceToSalesRatio', '')
             
-            if isinstance(data, list) and len(data) > 0:
-                profile = data[0]
-                
-                # Symbol and company name
-                overview['Name'] = profile.get('companyName', '')
-                overview['Description'] = profile.get('description', '')
-                overview['Exchange'] = profile.get('exchange', '')
-                overview['Sector'] = profile.get('sector', '')
-                overview['Industry'] = profile.get('industry', '')
-                
-                # Financial metrics - some might be overridden by more specific endpoints later
-                overview['MarketCapitalization'] = profile.get('mktCap', '')
-                overview['Beta'] = profile.get('beta', '')
-                
-                # Extract 52-week high/low from range if available
-                if '-' in profile.get('range', ''):
-                    range_parts = profile.get('range', '').split('-')
-                    if len(range_parts) == 2:
-                        overview['52WeekLow'] = range_parts[0].strip()
-                        overview['52WeekHigh'] = range_parts[1].strip()
-                
-                overview['LastDividendDate'] = profile.get('lastDiv', '')
-                overview['SharesOutstanding'] = profile.get('sharesOutstanding', '')
-            else:
-                logger.error(f"Error getting profile for {symbol}: {data}")
-                return {}  # If we can't get basic profile data, return empty
+            if overview.get('DataCompleteness') == 'good':
+                overview['DataCompleteness'] = 'excellent'
         
-        except Exception as e:
-            logger.error(f"Error getting profile for {symbol}: {e}")
-            return {}  # If we can't get basic profile data, return empty
-        
-        # Step 2: Get quote data for latest market metrics
-        try:
-            url = f"{self.base_url}/quote/{symbol}"
-            fmp_rate_limiter.wait_if_needed()
-            response = requests.get(url, params=params)
-            quote_data = response.json()
-            
-            if isinstance(quote_data, list) and len(quote_data) > 0:
-                quote = quote_data[0]
-                
-                # Override/add market metrics with more precise/recent data
-                overview['MarketCapitalization'] = quote.get('marketCap', overview.get('MarketCapitalization', ''))
-                overview['PERatio'] = quote.get('pe', '')
-                overview['EPS'] = quote.get('eps', '')
-                overview['52WeekHigh'] = quote.get('yearHigh', overview.get('52WeekHigh', ''))
-                overview['52WeekLow'] = quote.get('yearLow', overview.get('52WeekLow', ''))
-                
-                # Update data completeness if we have quote data
-                overview['DataCompleteness'] = 'good'
-            else:
-                logger.warning(f"Could not get quote data for {symbol}")
-        except Exception as e:
-            logger.warning(f"Error getting quote for {symbol}: {e}")
-        
-        # Step 3: Get key metrics for price ratios
-        try:
-            url = f"{self.base_url}/key-metrics/{symbol}"
-            params["period"] = "annual"  # We want annual data
-            fmp_rate_limiter.wait_if_needed()
-            response = requests.get(url, params=params)
-            metrics_data = response.json()
-            
-            if isinstance(metrics_data, list) and len(metrics_data) > 0:
-                metrics = metrics_data[0]
-                
-                # Add price ratios
-                overview['PriceToBookRatio'] = metrics.get('priceToBookRatio', '')
-                overview['PriceToSalesRatio'] = metrics.get('priceToSalesRatio', '')
-                
-                # Update completeness if we have key metrics
-                if overview.get('DataCompleteness') == 'good':
-                    overview['DataCompleteness'] = 'excellent'
-            else:
-                logger.warning(f"Could not get key metrics for {symbol}")
-        except Exception as e:
-            logger.warning(f"Error getting key metrics for {symbol}: {e}")
-        
-        # Step 4: If we're still missing some ratios, try the ratios endpoint
+        # Step 4: Try ratios endpoint for missing data
         if not overview.get('PriceToBookRatio') or not overview.get('PriceToSalesRatio') or not overview.get('PERatio'):
-            try:
-                url = f"{self.base_url}/ratios/{symbol}"
-                params["period"] = "annual"  # We want annual data
-                fmp_rate_limiter.wait_if_needed()
-                response = requests.get(url, params=params)
-                ratios_data = response.json()
+            success, ratios_data, _ = self._make_api_request(
+                "ratios", 
+                symbol, 
+                params={"period": "annual"}
+            )
+            
+            if success and ratios_data:
+                ratio = ratios_data[0]
                 
-                if isinstance(ratios_data, list) and len(ratios_data) > 0:
-                    ratio = ratios_data[0]
+                # Fill in missing ratios
+                if not overview.get('PERatio'):
+                    overview['PERatio'] = ratio.get('priceEarningsRatio', '')
                     
-                    # Fill in missing ratios
-                    if not overview.get('PERatio'):
-                        overview['PERatio'] = ratio.get('priceEarningsRatio', '')
-                        
-                    if not overview.get('PriceToBookRatio'):
-                        overview['PriceToBookRatio'] = ratio.get('priceToBookRatio', '')
-                        
-                    if not overview.get('PriceToSalesRatio'):
-                        overview['PriceToSalesRatio'] = ratio.get('priceToSalesRatio', '')
+                if not overview.get('PriceToBookRatio'):
+                    overview['PriceToBookRatio'] = ratio.get('priceToBookRatio', '')
                     
-                    # Add additional useful ratios
-                    overview['ReturnOnEquityTTM'] = ratio.get('returnOnEquity', '')
-                    overview['ReturnOnAssetsTTM'] = ratio.get('returnOnAssets', '')
-                    overview['ProfitMargin'] = ratio.get('netProfitMargin', '')
-                    overview['OperatingMarginTTM'] = ratio.get('operatingProfitMargin', '')
-                    overview['DebtToEquityRatio'] = ratio.get('debtToEquity', '')
-                    overview['EVToEBITDA'] = ratio.get('enterpriseValueMultiple', '')
-                else:
-                    logger.warning(f"Could not get ratio data for {symbol}")
-            except Exception as e:
-                logger.warning(f"Error getting ratios for {symbol}: {e}")
+                if not overview.get('PriceToSalesRatio'):
+                    overview['PriceToSalesRatio'] = ratio.get('priceToSalesRatio', '')
+                
+                # Add additional useful ratios
+                overview['ReturnOnEquityTTM'] = ratio.get('returnOnEquity', '')
+                overview['ReturnOnAssetsTTM'] = ratio.get('returnOnAssets', '')
+                overview['ProfitMargin'] = ratio.get('netProfitMargin', '')
+                overview['OperatingMarginTTM'] = ratio.get('operatingProfitMargin', '')
+                overview['DebtToEquityRatio'] = ratio.get('debtToEquity', '')
+                overview['EVToEBITDA'] = ratio.get('enterpriseValueMultiple', '')
         
         # Step 5: For very accurate market cap, try the dedicated endpoint
         if not overview.get('MarketCapitalization'):
-            try:
-                url = f"{self.base_url}/market-capitalization/{symbol}"
-                fmp_rate_limiter.wait_if_needed()
-                response = requests.get(url, params={"apikey": self.api_key})  # Reset params
-                market_cap_data = response.json()
-                
-                if isinstance(market_cap_data, list) and len(market_cap_data) > 0:
-                    market_cap_entry = market_cap_data[0]
-                    overview['MarketCapitalization'] = market_cap_entry.get('marketCap', '')
-                else:
-                    logger.warning(f"Could not get market cap for {symbol}")
-            except Exception as e:
-                logger.warning(f"Error getting market cap for {symbol}: {e}")
+            success, market_cap_data, _ = self._make_api_request("market-capitalization", symbol)
+            if success and market_cap_data:
+                market_cap_entry = market_cap_data[0]
+                overview['MarketCapitalization'] = market_cap_entry.get('marketCap', '')
         
         return overview

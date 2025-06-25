@@ -571,7 +571,7 @@ def screen_for_turnaround_candidates(universe_df, force_refresh=False):
                 symbol, annual=False
             )
             
-            if income_statements.empty or len(income_statements) < 6:  # Need minimum 6 quarters
+            if income_statements.empty or len(income_statements) < config.ScreeningThresholds.QUARTERS_RETURNED:  # Need minimum X quarters
                 continue
                 
             # Check for turnaround signals
@@ -722,11 +722,10 @@ def screen_for_turnaround_candidates(universe_df, force_refresh=False):
             # ENHANCED SCORING SYSTEM - More weight for true turnarounds
             turnaround_score = 0
             factors = []  # Track which factors contributed to score
-            
-            # Primary turnaround signals
+              # Primary turnaround signals
             if true_eps_turnaround:
                 turnaround_score += 5  # Major signal - transition from negative to positive
-                factors.append("negative→positive EPS")
+                factors.append("negative-to-positive EPS")
             elif strong_eps_improvement:
                 turnaround_score += 2  # Minor signal - continuous improvement
                 factors.append("strong EPS growth")
@@ -756,10 +755,9 @@ def screen_for_turnaround_candidates(universe_df, force_refresh=False):
                 has_true_turnaround = true_eps_turnaround or revenue_turnaround
                 primary_factor = factors[0] if factors else "multiple factors"
                 score_text = f"Score: {turnaround_score} - {', '.join(factors)}"
-                
-                # Add EPS transition text
+                  # Add EPS transition text
                 if true_eps_turnaround:
-                    eps_trend_text = "Negative→Positive EPS"
+                    eps_trend_text = "Negative-to-Positive EPS"
                 elif strong_eps_improvement:
                     eps_trend_text = f"Strong EPS growth: {eps_yoy_change:.1f}%" if eps_yoy_change else "Strong EPS growth"
                 else:
