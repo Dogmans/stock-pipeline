@@ -219,6 +219,9 @@ def main():
             if strategy_name == 'value' and 'pe_ratio' in results.columns:
                 # For value, lower P/E is better
                 sorted_results[strategy_name] = results.sort_values('pe_ratio')
+            elif strategy_name == 'peg_ratio' and 'peg_ratio' in results.columns:
+                # For PEG, lower ratio is better
+                sorted_results[strategy_name] = results.sort_values('peg_ratio')
             elif strategy_name == 'growth' and 'growth_rate' in results.columns:
                 # For growth, higher growth rate is better
                 sorted_results[strategy_name] = results.sort_values('growth_rate', ascending=False)
@@ -280,7 +283,8 @@ def main():
                     f.write(f"  {symbol}:  Low P/E ratio (P/E = {row['pe_ratio']:.2f})\n")
                 elif strategy_name == 'price_to_book' and 'price_to_book' in row:
                     f.write(f"  {symbol}:  Low price to book ratio (P/B = {row['price_to_book']:.2f})\n")
-                    
+                elif strategy_name == 'peg_ratio' and 'peg_ratio' in row:
+                    f.write(f"  {symbol}:  Low PEG ratio ({row['peg_ratio']:.2f}) - P/E: {row['pe_ratio']:.2f}, Growth: {row['growth_rate']:.1f}%\n")
                 elif '52_week_low' in strategy_name and 'pct_above_low' in row:
                     f.write(f"  {symbol}:  Near 52-week low ({row['pct_above_low']:.2f}% above low)\n")
                     
