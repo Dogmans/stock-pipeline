@@ -933,3 +933,158 @@ def screen_for_peg_ratio(universe_df=None, max_peg_ratio=1.0, min_growth=5.0, fo
     
     logger.info(f"Found {len(result_df)} stocks with favorable PEG ratios")
     return result_df
+
+def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
+    """
+    Run multiple screeners and combine their results based on average ranking.
+    This identifies stocks that perform well across multiple screening criteria.
+    
+    Args:
+        universe_df (pd.DataFrame): DataFrame containing the stock universe.
+        strategies (list): List of screener strategies to combine. Defaults to ['pe_ratio', 'price_to_book', 'peg_ratio'].
+        force_refresh (bool): Whether to force refresh data from API.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing combined screening results with columns for symbol,
+                     average rank, individual ranks, and other metrics.
+    """
+    logger.info("Running combined screener")
+    
+    # Use either provided universe or get the sp500 by default
+    if universe_df is None:
+        universe_df = get_stock_universe()
+    
+    # Default strategies if none provided
+    if strategies is None:
+        strategies = ['pe_ratio', 'price_to_book', 'peg_ratio']
+    
+    # Store individual screener results
+    screener_results = {}
+    
+    # Run each individual screener
+    for strategy in strategies:
+        try:
+            # Construct the function name from the strategy name
+            func_name = f"screen_for_{strategy}"
+            
+            # Check if the function exists
+            if func_name in globals() and callable(globals()[func_name]):
+                logger.info(f"Running {strategy} screener for combination...")
+                
+                # Call the screener function with the universe data
+                screener_func = globals()[func_name]
+                
+                # Some strategies may need force_refresh parameter
+                if 'force_refresh' in screener_func.__code__.co_varnames:
+                    result = screener_func(universe_df=universe_df, force_refresh=force_refresh)
+                else:
+                    result = screener_func(universe_df=universe_df)
+                
+                # Store all results, not just top 10
+                screener_results[strategy] = result
+                
+                # Log the number of stocks that passed the screen
+                if isinstance(result, pd.DataFrame):
+                    logger.info(f"Found {len(result)} stocks matching {strategy} criteria")
+            else:
+                logger.warning(f"Strategy '{strategy}' not found or not callable")
+                
+        except Exception as e:
+            logger.error(f"Error running {strategy} screener: {e}")
+            screener_results[strategy] = pd.DataFrame()  # Empty DataFrame on error
+    
+    # Check if we have any results
+    if not any(len(df) > 0 for df in screener_results.values()):
+        logger.warning("No results from any of the individual screeners")
+        return pd.DataFrame()
+    
+    # Create a dictionary to store ranks for each symbol
+    symbol_ranks = {}
+    
+    # Process each screener's results to assign ranks
+    for strategy, result_df in screener_results.items():
+        if len(result_df) > 0:
+            # Add rank column (1-based ranking)
+            result_df['rank'] = range(1, len(result_df) + 1)
+            
+            # Update the symbol_ranks dictionary
+            for _, row in result_df.iterrows():
+                symbol = row['symbol']
+                rank = row['rank']
+                
+                if symbol not in symbol_ranks:
+                    symbol_ranks[symbol] = {'ranks': [], 'screeners': [], 'details': {}}
+                
+                symbol_ranks[symbol]['ranks'].append(rank)
+                symbol_ranks[symbol]['screeners'].append(strategy)
+                
+                # Store details from this screener for this symbol
+                for col in result_df.columns:
+                    if col not in ['rank']:  # Skip the rank column
+                        if col not in symbol_ranks[symbol]['details']:
+                            symbol_ranks[symbol]['details'][col] = {}
+                        symbol_ranks[symbol]['details'][col][strategy] = row[col]
+    
+    # Calculate average ranks and create combined results
+    combined_results = []
+    for symbol, data in symbol_ranks.items():
+        # Only include symbols that appeared in at least 2 screeners for better significance
+        if len(data['ranks']) >= 2:
+            avg_rank = sum(data['ranks']) / len(data['ranks'])
+            screener_count = len(data['ranks'])
+            
+            # Get common fields from the first screener where this symbol appeared
+            first_screener = data['screeners'][0]
+            first_screener_df = screener_results[first_screener]
+            
+            # Find the row for this symbol
+            symbol_row = first_screener_df[first_screener_df['symbol'] == symbol]
+            if not symbol_row.empty:
+                company_name = symbol_row['company_name'].values[0] if 'company_name' in symbol_row else symbol
+                sector = symbol_row['sector'].values[0] if 'sector' in symbol_row else 'Unknown'
+                
+                # Build rank details string
+                rank_details = []
+                for i, screener in enumerate(data['screeners']):
+                    rank_details.append(f"{screener}: #{data['ranks'][i]}")
+                
+                # Format metrics for each screener
+                metrics = []
+                for screener in data['screeners']:
+                    if screener == 'pe_ratio' and 'pe_ratio' in data['details'] and screener in data['details']['pe_ratio']:
+                        metrics.append(f"P/E: {data['details']['pe_ratio'][screener]:.2f}")
+                    elif screener == 'price_to_book' and 'price_to_book' in data['details'] and screener in data['details']['price_to_book']:
+                        metrics.append(f"P/B: {data['details']['price_to_book'][screener]:.2f}")
+                    elif screener == 'peg_ratio' and 'peg_ratio' in data['details'] and screener in data['details']['peg_ratio']:
+                        metrics.append(f"PEG: {data['details']['peg_ratio'][screener]:.2f}")
+                    elif screener == '52_week_lows' and 'pct_above_low' in data['details'] and screener in data['details']['pct_above_low']:
+                        metrics.append(f"{data['details']['pct_above_low'][screener]:.2f}% above low")
+                    elif screener == 'turnaround_candidates' and 'turnaround_score' in data['details'] and screener in data['details']['turnaround_score']:
+                        metrics.append(f"Turnaround: {data['details']['turnaround_score'][screener]}")
+                
+                # Create a reason string
+                reason = f"Average rank: {avg_rank:.2f} across {screener_count} screeners ({', '.join(metrics)})"
+                
+                combined_results.append({
+                    'symbol': symbol,
+                    'company_name': company_name,
+                    'sector': sector,
+                    'avg_rank': avg_rank,
+                    'screener_count': screener_count,
+                    'rank_details': ', '.join(rank_details),
+                    'metrics_summary': ', '.join(metrics),
+                    'reason': reason
+                })
+    
+    # Convert to DataFrame
+    if not combined_results:
+        logger.warning("No stocks found in multiple screeners")
+        return pd.DataFrame()
+    
+    result_df = pd.DataFrame(combined_results)
+    
+    # Sort by average rank (ascending)
+    result_df = result_df.sort_values('avg_rank')
+    
+    logger.info(f"Found {len(result_df)} stocks that ranked well across multiple screeners")
+    return result_df

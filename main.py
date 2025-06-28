@@ -222,6 +222,9 @@ def main():
             elif strategy_name == 'peg_ratio' and 'peg_ratio' in results.columns:
                 # For PEG, lower ratio is better
                 sorted_results[strategy_name] = results.sort_values('peg_ratio')
+            elif strategy_name == 'combined' and 'avg_rank' in results.columns:
+                # For combined screener, lower average rank is better
+                sorted_results[strategy_name] = results.sort_values('avg_rank')
             elif strategy_name == 'growth' and 'growth_rate' in results.columns:
                 # For growth, higher growth rate is better
                 sorted_results[strategy_name] = results.sort_values('growth_rate', ascending=False)
@@ -293,7 +296,9 @@ def main():
                 elif strategy_name == 'turnaround_candidates' and 'reason' in row:
                     # Enhanced turnaround display with reason
                     f.write(f"  {symbol}:  {row['primary_factor']} ({row['reason']})\n")
-                    
+                elif strategy_name == 'combined' and 'avg_rank' in row:
+                    # Special format for combined screener results
+                    f.write(f"  {symbol}:  Avg rank: {row['avg_rank']:.2f} across {row['screener_count']} screeners ({row['metrics_summary']})\n")
                 else:
                     # Generic format for other strategies
                     f.write(f"  {symbol}\n")
