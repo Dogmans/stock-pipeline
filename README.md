@@ -101,6 +101,25 @@ For detailed documentation on all components, see [DOCUMENTATION.md](DOCUMENTATI
 - Removed chunked processing
 - Simplified the overall codebase
 
+## Recent Enhancements
+
+1. **Enhanced Screener Behavior** (June 2025):
+   - All screeners now return complete stock sets ranked by relevant metrics
+   - Each result includes a `meets_threshold` flag to filter for traditional threshold-based screening
+   - Results can be used individually or by the combined screener for comprehensive scoring
+   - See `docs/screener_methods/enhanced_behavior.md` for details
+
+2. **Combined Screener** (June 2025):
+   - New screener that ranks stocks based on their performance across multiple strategies
+   - Calculates average position across different metrics (P/E, P/B, PEG, etc.)
+   - Gives slight bonus to stocks appearing in multiple screeners
+   - See `docs/screener_methods/combined.md` for details
+
+3. **PEG Ratio Screener** (June 2025):
+   - Calculates Price/Earnings to Growth ratio to find stocks undervalued relative to growth
+   - Uses either latest quarterly data or annual growth rates as available
+   - See `docs/screener_methods/peg_ratio.md` for details
+
 ## Modules
 
 - `main.py` - Main entry point and orchestrator

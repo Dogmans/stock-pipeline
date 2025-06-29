@@ -68,7 +68,7 @@ def parse_arguments():
                         help='Directory for output reports and visualizations')
     
     parser.add_argument('--limit', type=int, default=None,
-                        help='Limit the number of stocks processed (for testing)')
+                        help='Limit the number of stocks displayed in results (default: show all)')
     
     # Cache options
     parser.add_argument('--clear-cache', action='store_true',
@@ -180,15 +180,13 @@ def main():
     else:
         logger.info(f"Selecting stock universe: {args.universe}")
         universe_df = get_stock_universe(args.universe, force_refresh=args.force_refresh)
-      # If a limit is specified, take only that many stocks
-    if args.limit:
-        universe_df = universe_df.head(args.limit)
-    
-    # Note: Chunking is no longer needed in the new architecture
-    # Each screener processes stocks one by one
-    
+    # Always process the full universe
     symbols = universe_df['symbol'].tolist()
-    logger.info(f"Selected {len(symbols)} symbols for analysis")
+    universe_size = len(symbols)
+    logger.info(f"Selected {universe_size} symbols for analysis")
+    
+    # Track the original universe size for reporting
+    display_limit = args.limit  # Store the display limit for later use
       # 2. Check market conditions
     logger.info("Checking market conditions")
     market_data = get_market_conditions(data_provider=data_provider, force_refresh=args.force_refresh)
@@ -255,7 +253,11 @@ def main():
         
         # Add universe and market info
         universe_size = len(universe_df) if universe_df is not None else 0
-        f.write(f"Universe: {args.universe} ({universe_size} stocks)\n")
+        # Include display limit info if specified
+        if display_limit:
+            f.write(f"Universe: {args.universe} ({universe_size} stocks, displaying top {display_limit} for each strategy)\n")
+        else:
+            f.write(f"Universe: {args.universe} ({universe_size} stocks)\n")
           # Add market conditions if available
         try:
             import market_data
@@ -265,9 +267,7 @@ def main():
         except:
             pass
         
-        f.write("\nTop Candidates by Strategy:\n\n")
-        
-        # Write each strategy's results
+        f.write("\nTop Candidates by Strategy:\n\n")            # Write each strategy's results
         for strategy_name, results in sorted_results.items():
             if not isinstance(results, pd.DataFrame) or results.empty:
                 continue
@@ -275,12 +275,27 @@ def main():
             readable_name = strategy_name.lower()
             f.write(f"{readable_name}:\n")
             
-            # Get the top 10 results or all if fewer
-            top_n = min(10, len(results))
-            
-            for idx in range(top_n):
-                row = results.iloc[idx]
-                symbol = row['symbol']
+            # For individual screeners (not combined), use meets_threshold if available, otherwise top N
+            if strategy_name != 'combined' and 'meets_threshold' in results.columns:
+                # Get only stocks meeting the threshold
+                filtered_results = results[results['meets_threshold'] == True]
+                
+                # If fewer than N stocks meet the threshold or it's a combined screener, show top N instead
+                if len(filtered_results) < 5:
+                    # For display, take top 10 from full results
+                    display_results = results.head(10)
+                else:
+                    # Otherwise show all that meet threshold (up to 10)
+                    display_results = filtered_results.head(10)
+            else:
+                # For combined screener or screeners without meets_threshold, just show top 10
+                display_results = results.head(10)                # Apply display limit if specified, otherwise show all results up to 10
+                display_count = min(display_limit if display_limit else 10, len(display_results))
+                
+                for idx in range(display_count):
+                    if idx < len(display_results):
+                        row = display_results.iloc[idx]
+                        symbol = row['symbol']
                   # Format based on the strategy type
                 if strategy_name == 'pe_ratio' and 'pe_ratio' in row:
                     f.write(f"  {symbol}:  Low P/E ratio (P/E = {row['pe_ratio']:.2f})\n")
@@ -323,7 +338,28 @@ def main():
         for strategy_name, results in screening_results.items():
             if isinstance(results, pd.DataFrame) and not results.empty:
                 f.write(f"\n{strategy_name}:\n")
-                for i, row in results.head(10).iterrows():
+                
+                # For individual screeners (not combined), filter by meets_threshold if available
+                if strategy_name != 'combined' and 'meets_threshold' in results.columns:
+                    # Get only stocks meeting the threshold
+                    filtered_results = results[results['meets_threshold'] == True]
+                    
+                    # If fewer than N stocks meet the threshold or it's a combined screener, show top N instead
+                    if len(filtered_results) < 5:
+                        # For display, apply the display limit to full results
+                        max_display = display_limit if display_limit else 10
+                        display_results = results.head(max_display)
+                    else:
+                        # Otherwise show all that meet threshold (up to the display limit)
+                        max_display = display_limit if display_limit else 10
+                        display_results = filtered_results.head(max_display)
+                else:
+                    # For combined screener or screeners without meets_threshold, respect the display limit
+                    max_display = display_limit if display_limit else 10
+                    display_results = results.head(max_display)
+                
+                # Write out the results
+                for i, row in display_results.iterrows():
                     f.write(f"  {row['symbol']}: {row.get('score', '')} {row.get('reason', '')}\n")
     
     logger.info(f"Pipeline complete. Results saved to {output_dir}")

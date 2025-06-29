@@ -54,7 +54,7 @@ def get_available_screeners():
     return sorted(screener_functions)
 
 
-def run_all_screeners(universe_df, strategies=None, auto_run_combined=True):
+def run_all_screeners(universe_df, strategies=None):
     """
     Run all the specified screeners on the given stock universe.
     Each screener function will fetch its own data directly from the data provider.
@@ -62,8 +62,6 @@ def run_all_screeners(universe_df, strategies=None, auto_run_combined=True):
     Args:
         universe_df (DataFrame): The stock universe being analyzed
         strategies (list, optional): List of strategy names to run, or None for all
-        auto_run_combined (bool): If True, automatically run the combined screener if more 
-                                than one regular screener is specified
     
     Returns:
         dict: Dictionary mapping strategy names to DataFrames with screening results
@@ -72,12 +70,9 @@ def run_all_screeners(universe_df, strategies=None, auto_run_combined=True):
     if strategies is None:
         strategies = get_available_screeners()
     
-    # Filter out 'combined' from the input strategies to avoid duplication
-    regular_strategies = [s for s in strategies if s != 'combined']
-    
     results = {}
     
-    for strategy in regular_strategies:
+    for strategy in strategies:
         try:
             # Construct the function name from the strategy name
             func_name = f"screen_for_{strategy}"
@@ -103,31 +98,6 @@ def run_all_screeners(universe_df, strategies=None, auto_run_combined=True):
         except Exception as e:
             logger.error(f"Error running {strategy} screener: {e}")
             results[strategy] = pd.DataFrame()  # Empty DataFrame on error
-    
-    # Automatically run the combined screener if more than one strategy is running
-    # and if it wasn't explicitly specified (to avoid running it twice)
-    if auto_run_combined and len(regular_strategies) > 1 and 'combined' not in strategies:
-        logger.info("Automatically running combined screener...")
-        
-        try:
-            # Run combined screener with the results from individual screeners
-            combined_results = screen_for_combined(universe_df=universe_df, strategies=regular_strategies)
-            results['combined'] = combined_results
-        except Exception as e:
-            logger.error(f"Error running combined screener: {e}")
-            results['combined'] = pd.DataFrame()
-    
-    # If 'combined' was explicitly requested, run it with all other strategies
-    elif 'combined' in strategies:
-        logger.info("Running explicitly requested combined screener...")
-        
-        try:
-            # Run combined screener with the results from individual screeners
-            combined_results = screen_for_combined(universe_df=universe_df, strategies=regular_strategies)
-            results['combined'] = combined_results
-        except Exception as e:
-            logger.error(f"Error running combined screener: {e}")
-            results['combined'] = pd.DataFrame()
     
     return results
 
@@ -1001,11 +971,10 @@ def screen_for_peg_ratio(universe_df=None, max_peg_ratio=1.0, min_growth=5.0, fo
 def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
     """
     Run multiple screeners and combine their results based on average ranking.
+    This identifies stocks that appear in ALL selected screening strategies.
     
-    This screener only includes stocks that appear in ALL selected screening strategies.
-    If no stocks are found in all screeners, the combined screener will return an empty result.
-    
-    The combined screener ranks stocks by their average position across all screeners.
+    The combined screener filters for stocks that appear in ALL individual
+    screener results, then ranks them by their average position across those screeners.
     This identifies stocks that perform consistently well across multiple criteria.
     
     Args:
@@ -1094,44 +1063,13 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
                             symbol_ranks[symbol]['details'][col] = {}
                         symbol_ranks[symbol]['details'][col][strategy] = row[col]
     
-    # Debug: Count symbols by the number of screeners they appear in
-    screener_counts = {}
-    for symbol, data in symbol_ranks.items():
-        count = len(data['screeners'])
-        if count not in screener_counts:
-            screener_counts[count] = 0
-        screener_counts[count] += 1
-    
-    # Log the distribution
-    logger.info(f"Symbol distribution across screeners: {screener_counts}")
-    
-    # Debug: Find symbols that appear in all screeners
-    all_screeners_symbols = [symbol for symbol, data in symbol_ranks.items() 
-                          if len(data['screeners']) == len(strategies)]
-    
-    if all_screeners_symbols:
-        logger.info(f"Symbols in ALL screeners: {', '.join(all_screeners_symbols)}")
-    else:
-        logger.info(f"No symbols found in ALL {len(strategies)} screeners")
-    
     # Calculate average ranks and create combined results
     combined_results = []
-    
-    # Configure threshold for screener inclusion - require ALL screeners
-    min_screeners_required = len(strategies)
-    # Check if we have any stocks in ALL screeners
-    all_screeners_symbols = [symbol for symbol, data in symbol_ranks.items() if len(data['screeners']) == len(strategies)]
-    
-    if not all_screeners_symbols and len(strategies) > 1:
-        logger.warning(f"No stocks found in ALL {len(strategies)} screeners. Combined screener will be empty.")
-    
     for symbol, data in symbol_ranks.items():
-        # Include symbols that appear in at least min_screeners_required
-        if len(data['ranks']) >= min_screeners_required:
+        # Only include symbols that appear in ALL screeners
+        if len(data['ranks']) == len(strategies):
             avg_rank = sum(data['ranks']) / len(data['ranks'])
-            # Apply a slight bonus for appearing in more screeners
-            if len(data['ranks']) > min_screeners_required:
-                avg_rank = avg_rank - (0.1 * (len(data['ranks']) - min_screeners_required))
+            # No need for bonus since we're only including stocks in all screeners
             screener_count = len(data['ranks'])
             
             # Get common fields from the first screener where this symbol appeared
@@ -1179,25 +1117,7 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
     
     # Convert to DataFrame
     if not combined_results:
-        all_screeners_count = len(strategies)
-        if all_screeners_count > 1:
-            logger.warning(f"No stocks found in ALL {all_screeners_count} screeners")
-            
-            # Debug info about stocks in multiple but not all screeners
-            all_symbols = set(symbol_ranks.keys())
-            logger.info(f"Total unique symbols across all screeners: {len(all_symbols)}")
-            
-            # Try with less strict requirements
-            for required_count in range(all_screeners_count-1, 0, -1):
-                matches = [symbol for symbol, data in symbol_ranks.items() 
-                          if len(data['screeners']) == required_count]
-                if matches:
-                    logger.info(f"Found {len(matches)} stocks in exactly {required_count} of {all_screeners_count} screeners")
-                    if required_count >= all_screeners_count-1:  # Show symbols if just missing one screener
-                        logger.info(f"Symbols in {required_count}/{all_screeners_count} screeners: {', '.join(sorted(matches)[:20])}" + 
-                                   ("..." if len(matches) > 20 else ""))
-                    break
-            
+        logger.warning(f"No stocks found in ALL {len(strategies)} screeners")
         return pd.DataFrame()
     
     result_df = pd.DataFrame(combined_results)
@@ -1205,8 +1125,5 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
     # Sort by average rank (ascending)
     result_df = result_df.sort_values('avg_rank')
     
-    if min_screeners_required == len(strategies):
-        logger.info(f"Found {len(result_df)} stocks that appeared in ALL {len(strategies)} screeners")
-    else:
-        logger.info(f"Found {len(result_df)} stocks that appeared in at least {min_screeners_required} of {len(strategies)} screeners")
+    logger.info(f"Found {len(result_df)} stocks that appeared in ALL {len(strategies)} screeners")
     return result_df
