@@ -30,8 +30,8 @@ from utils.filesystem import ensure_directories_exist
 from universe import get_stock_universe
 from stock_data import get_historical_prices, get_fundamental_data, fetch_52_week_lows
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances
-# Note: direct data processing removed in Nov 2023 architecture update
-from screeners import run_all_screeners, get_available_screeners
+# Updated import to use new screeners package
+from screeners.utils import run_all_screeners, get_available_screeners
 from reporting import generate_screening_report, generate_metrics_definitions
 from cache_config import clear_all_cache, clear_old_cache, get_cache_info
 

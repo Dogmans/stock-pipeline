@@ -5,7 +5,8 @@ import unittest
 import pandas as pd
 import numpy as np
 from unittest.mock import patch, MagicMock
-from screeners import screen_for_turnaround_candidates
+# Updated import to use new screeners package structure
+from screeners.turnaround_candidates import screen_for_turnaround_candidates
 
 class TestTurnaroundScreener(unittest.TestCase):
     

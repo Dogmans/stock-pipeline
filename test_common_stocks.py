@@ -1,5 +1,6 @@
 ﻿import pandas as pd
-from screeners import run_all_screeners, get_available_screeners
+# Updated imports to use new screeners package structure
+from screeners.utils import run_all_screeners, get_available_screeners
 from universe import get_stock_universe
 
 universe_df = get_stock_universe('sp500')

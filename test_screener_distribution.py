@@ -3,7 +3,10 @@ A diagnostic script to analyze why stocks don't appear in all screeners
 """
 
 import pandas as pd
-from screeners import screen_for_pe_ratio, screen_for_price_to_book, screen_for_peg_ratio
+# Updated imports to use new screeners package structure
+from screeners.pe_ratio import screen_for_pe_ratio
+from screeners.price_to_book import screen_for_price_to_book
+from screeners.peg_ratio import screen_for_peg_ratio
 from universe import get_stock_universe
 import logging
 

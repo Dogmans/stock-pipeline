@@ -28,6 +28,22 @@ Run pipeline for specific universe with latest data:
 python main.py --universe sp500 --clear-cache
 ```
 
+Run pipeline with specific screeners:
+
+```powershell
+# Run the pipeline with PE ratio screener
+python main.py --universe sp500 --strategies pe_ratio
+
+# Run with multiple screeners
+python main.py --universe sp500 --strategies pe_ratio,price_to_book,peg_ratio
+
+# Run all available screeners
+python main.py --strategies all
+
+# Limit the number of stocks displayed in results
+python main.py --strategies pe_ratio --limit 20
+```
+
 ## Pipeline Commands with Required Universe Parameter
 
 Run screeners directly (now all require universe_df):

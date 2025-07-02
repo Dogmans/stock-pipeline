@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Import project modules
-from screeners import screen_for_sector_corrections
+from screeners.sector_corrections import screen_for_sector_corrections
 from utils.logger import get_logger
 
 # Setup logger
