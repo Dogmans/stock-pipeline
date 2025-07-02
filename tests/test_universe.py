@@ -44,18 +44,18 @@ class TestUniverse(unittest.TestCase):
         self.assertTrue(any(symbol in all_symbols for symbol in expected_symbols))
     
     def test_get_russell2000_symbols(self):
-        """Test retrieving Russell 2000 symbols."""
-        # Skip this test if no API key is available
-        if not config.FINNHUB_API_KEY:
-            self.skipTest("No Finnhub API key available")
-        
+        """Test retrieving Russell 2000 symbols from iShares ETF holdings."""
         # Use force_refresh=True to ensure we get fresh data
         result = get_russell2000_symbols(force_refresh=True)
         
         # Basic validation of the result
         self.assertIsInstance(result, pd.DataFrame)
         self.assertGreater(len(result), 0, "Should return Russell 2000 stocks")
-        self.assertTrue('symbol' in result.columns)
+        
+        # Verify the required columns exist
+        required_columns = ['symbol', 'security', 'gics_sector', 'gics_sub-industry']
+        for column in required_columns:
+            self.assertTrue(column in result.columns, f"Column {column} should be present")
 
     def test_get_nasdaq100_symbols(self):
         """Test retrieving NASDAQ 100 symbols."""

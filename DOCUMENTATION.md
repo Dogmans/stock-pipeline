@@ -101,7 +101,7 @@ See `scripts.md` for examples of combining these options with other commands.
 The universe module provides functions for defining and retrieving various stock universes:
 
 - `get_sp500_symbols()`: Retrieves current S&P 500 constituents from Wikipedia
-- `get_russell2000_symbols()`: Retrieves Russell 2000 constituents (from cache or Finnhub API)
+- `get_russell2000_symbols()`: Retrieves Russell 2000 constituents from iShares ETF holdings
 - `get_nasdaq100_symbols()`: Retrieves NASDAQ 100 constituents from Wikipedia
 - `get_stock_universe()`: Main function that returns the specified universe based on configuration
 

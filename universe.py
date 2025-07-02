@@ -7,8 +7,8 @@ as the basis for stock screening. All functions use caching to minimize
 redundant network requests.
 
 Functions:
-    get_sp500_symbols(): Get cached list of S&P 500 companies
-    get_russell2000_symbols(): Get cached list of Russell 2000 companies
+    get_sp500_symbols(): Get cached list of S&P 500 companies from Wikipedia
+    get_russell2000_symbols(): Get cached list of Russell 2000 companies from iShares ETF holdings
     get_nasdaq100_symbols(): Get cached list of NASDAQ 100 companies
     get_stock_universe(): Get the specified universe of stocks with caching
 """
@@ -64,54 +64,64 @@ def get_sp500_symbols(force_refresh=False):
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_russell2000_symbols(force_refresh=False):
     """
-    Get a list of Russell 2000 tickers.
+    Get a list of Russell 2000 tickers from iShares ETF holdings.
     
-    Attempts to load symbols from cache first. If not available,
-    tries to fetch from Finnhub API if an API key is provided.
+    Fetches the current Russell 2000 component list from the iShares Russell 2000 ETF (IWM)
+    holdings data and returns a DataFrame with symbols and company names.
     
     Args:
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
     
     Returns:
-        DataFrame: DataFrame with ticker symbols and metadata
+        DataFrame: DataFrame with ticker symbols and company information
+                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
         cache.delete(get_russell2000_symbols)
+    
+    # iShares Russell 2000 ETF (IWM) holdings CSV URL
+    url = "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund"
+    
+    try:
+        # Download the CSV file from iShares
+        tables = pd.read_html(url, skiprows=9)
+        if not tables:
+            raise ValueError("No tables found in the iShares holdings page")
+            
+        df = tables[0]
         
-    # Try to load from cached file first
-    russell_file = os.path.join(config.DATA_DIR, 'russell2000.csv')
-    
-    if os.path.exists(russell_file):
-        try:
-            df = pd.read_csv(russell_file)
-            logger.info(f"Loaded {len(df)} Russell 2000 symbols from cache")
-            return df
-        except Exception as e:
-            logger.error(f"Error loading Russell 2000 symbols from cache: {e}")
-    
-    # If we can't load from cache, use a finnhub API if available
-    if config.FINNHUB_API_KEY:
-        try:
-            finnhub_client = finnhub.Client(api_key=config.FINNHUB_API_KEY)
-            russell_stocks = finnhub_client.indices_const(symbol="^RUT")
-            if russell_stocks and 'constituents' in russell_stocks:
-                symbols = russell_stocks['constituents']
-                df = pd.DataFrame(symbols, columns=['symbol'])
-                
-                # Add placeholders for other columns to match S&P 500 format
-                df['security'] = ''
-                df['gics_sector'] = ''
-                df['gics_sub-industry'] = ''
-                
-                # Cache the results
-                df.to_csv(russell_file, index=False)
-                logger.info(f"Fetched and saved {len(df)} Russell 2000 symbols")
-                return df
-        except Exception as e:
-            logger.error(f"Error fetching Russell 2000 symbols from Finnhub: {e}")
-    
-    logger.warning("Could not fetch Russell 2000 symbols. Returning empty DataFrame.")
-    return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+        # Remove any rows after the holdings (iShares CSVs often have footer information)
+        # Look for the first empty row or rows with NaN values
+        first_empty_row = df[df.iloc[:,0].isna()].index
+        if len(first_empty_row) > 0:
+            df = df.iloc[:first_empty_row[0]]
+        
+        # Keep only the ticker symbol and company name
+        df = df[['Ticker', 'Name']]
+        
+        # Rename columns to match S&P 500 format
+        df = df.rename(columns={
+            'Ticker': 'symbol',
+            'Name': 'security'
+        })
+        
+        # Add empty columns for sector information to match S&P 500 format
+        df['gics_sector'] = ''
+        df['gics_sub-industry'] = ''
+        
+        # Remove any NaN values or empty strings in symbol
+        df = df[df['symbol'].notna() & (df['symbol'] != '')]
+        
+        # Remove duplicates
+        df = df.drop_duplicates(subset='symbol')
+        
+        logger.info(f"Successfully retrieved {len(df)} Russell 2000 symbols")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error fetching Russell 2000 symbols: {e}")
+        # Return empty DataFrame with the expected columns
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_nasdaq100_symbols(force_refresh=False):
