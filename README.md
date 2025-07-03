@@ -22,14 +22,25 @@ This pipeline implements a comprehensive stock screening system based on the val
 ## Pipeline Components
 
 - Data Collection:
-  - `universe.py`: Stock universe selection (S&P 500, NASDAQ 100, Russell 2000)
+  - `universe.py`: Stock universe selection (S&P 500, Russell 2000, custom lists)
   - `market_data.py`: Market-level data collection (indices, VIX, sectors)
   - `stock_data.py`: Individual stock data collection (prices, fundamentals)
-  - `cache_manager.py`: Caching system to reduce redundant API calls
+  - `cache_config.py`: Caching system to reduce redundant API calls
 
 - Core Processing:
   - `data_processing.py`: Tools to process and clean the collected data, calculate indicators and financial ratios
-  - `screeners.py`: Implementation of various stock screening strategies
+  - `screeners/`: Package containing modular stock screening strategies
+    - `__init__.py`: Package exports
+    - `common.py`: Common screening utilities
+    - `utils.py`: Helper functions for running screeners
+    - `pe_ratio.py`: P/E ratio screener
+    - `price_to_book.py`: Book value screener
+    - `fifty_two_week_lows.py`: 52-week low detection
+    - `fallen_ipos.py`: IPO analysis
+    - `peg_ratio.py`: PEG ratio screener
+    - `sector_corrections.py`: Sector correction detection
+    - `combined.py`: Combined screening approach
+    - `turnaround_candidates.py`: Turnaround candidate detection
   - `visualization.py`: Functions to visualize screening results
 
 - Orchestration:
@@ -38,7 +49,6 @@ This pipeline implements a comprehensive stock screening system based on the val
     - `logger.py`: Logging setup
     - `filesystem.py`: Directory and file operations
     - `rate_limiter.py`: API rate limiting
-    - `shared_persistence.py`: Shared persistence layer
 
 ## Running the Pipeline
 

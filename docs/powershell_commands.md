@@ -44,6 +44,31 @@ python main.py --strategies all
 python main.py --strategies pe_ratio --limit 20
 ```
 
+## VS Code Tasks
+
+The following tasks can be run using the VS Code Command Palette (Ctrl+Shift+P) with "Tasks: Run Task":
+
+### Pipeline Tasks
+
+| Task Name | Description | Command |
+|-----------|-------------|---------|
+| Run Full Pipeline | Runs all strategies on all universes | `python main.py --universe all --strategies all` |
+| Run Full Pipeline with Cache Clear | Runs all strategies on all universes with fresh data | `python main.py --universe all --strategies all --clear-cache` |
+| Run Quick Pipeline | Runs value and growth strategies on SP500 | `python main.py --universe sp500 --strategies value,growth` |
+| Run Value Pipeline | Runs value strategy on SP500 | `python main.py --universe sp500 --strategies value` |
+| Clear Cache & Run Pipeline | Clears cache and runs full pipeline | `python main.py --clear-cache --full` |
+| Run Russell 2000 Pipeline | Runs all strategies on Russell 2000 stocks | `python main.py --universe russell2000 --strategies all` |
+
+### Testing Tasks
+
+| Task Name | Description | Command |
+|-----------|-------------|---------|
+| Run All Tests | Runs all unit tests | `python -m unittest discover -s tests` |
+| Run All Tests with Coverage | Runs all unit tests and generates coverage report | `python -m coverage run -m unittest discover -s tests && python -m coverage report` |
+| Run Test Module | Prompts for test module path and runs it | `python -m unittest ${input:testModulePath}` |
+| Run Pipeline with Sequential Tests | Runs the pipeline with sequential tests | `./run_sequential_tests.ps1` |
+| Generate HTML Coverage Report | Creates HTML coverage report | `python -m coverage html` |
+
 ## Pipeline Commands with Required Universe Parameter
 
 Run screeners directly (now all require universe_df):

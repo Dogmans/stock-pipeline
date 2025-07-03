@@ -83,12 +83,19 @@ def get_russell2000_symbols(force_refresh=False):
     url = "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund"
     
     try:
-        # Download the CSV file from iShares
-        tables = pd.read_html(url, skiprows=9)
-        if not tables:
-            raise ValueError("No tables found in the iShares holdings page")
-            
-        df = tables[0]
+        # Download the CSV file directly from iShares
+        import requests
+        import io
+        
+        logger.info("Fetching Russell 2000 symbols from iShares ETF holdings...")
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise ValueError(f"Failed to fetch Russell 2000 data: HTTP {response.status_code}")
+        
+        # Read the CSV content (skip header rows)
+        df = pd.read_csv(io.StringIO(response.text), skiprows=9)
+        
+        logger.info(f"Successfully retrieved {len(df)} rows of Russell 2000 data")
         
         # Remove any rows after the holdings (iShares CSVs often have footer information)
         # Look for the first empty row or rows with NaN values
@@ -115,7 +122,7 @@ def get_russell2000_symbols(force_refresh=False):
         # Remove duplicates
         df = df.drop_duplicates(subset='symbol')
         
-        logger.info(f"Successfully retrieved {len(df)} Russell 2000 symbols")
+        logger.info(f"Successfully processed {len(df)} Russell 2000 symbols")
         return df
         
     except Exception as e:

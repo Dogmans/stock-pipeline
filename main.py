@@ -201,6 +201,7 @@ def main():
     else:
         logger.info(f"Selecting stock universe: {args.universe}")
         universe_df = get_stock_universe(args.universe, force_refresh=args.force_refresh)
+    
     # Always process the full universe
     symbols = universe_df['symbol'].tolist()
     universe_size = len(symbols)

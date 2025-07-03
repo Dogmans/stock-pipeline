@@ -89,6 +89,64 @@ from cache_config import get_cache_info
 print(get_cache_info())
 ```
 
+## Universe Data Sources
+
+The pipeline supports multiple stock universes that are fetched from different sources.
+
+### S&P 500 Universe
+
+S&P 500 constituents are retrieved from Wikipedia:
+
+```python
+def get_sp500_symbols():
+    """Get list of S&P 500 stocks from Wikipedia"""
+    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    tables = pd.read_html(url)
+    df = tables[0]
+    return df[['Symbol', 'Security', 'GICS Sector', 'GICS Sub-Industry']]
+```
+
+### Russell 2000 Universe
+
+Russell 2000 constituents are retrieved directly from iShares ETF holdings as a CSV download:
+
+```python
+def get_russell2000_symbols():
+    """Get list of Russell 2000 stocks from iShares ETF holdings"""
+    url = "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund"
+    
+    # Download the CSV file directly from iShares
+    import requests
+    import io
+
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch Russell 2000 data: HTTP {response.status_code}")
+
+    # Read the CSV content (skip header rows)
+    df = pd.read_csv(io.StringIO(response.text), skiprows=9)
+    
+    # Extract and clean the relevant columns
+    symbols_df = df[['Ticker', 'Name', 'Sector', 'Asset Class']]
+    symbols_df = symbols_df.rename(columns={
+        'Ticker': 'Symbol',
+        'Name': 'Security',
+        'Sector': 'GICS Sector'
+    })
+    
+    # Filter for only equity securities
+    symbols_df = symbols_df[symbols_df['Asset Class'] == 'Equity']
+    
+    return symbols_df
+```
+
+Important notes about Russell 2000 fetching:
+- Downloads directly from iShares ETF holdings via CSV
+- Uses `requests.get()` and `pd.read_csv()` with `io.StringIO()`
+- No fallback to static CSV files or API data
+- Typically returns around 2,000-2,100 symbols
+- Properly handles column mapping to match S&P 500 format
+
 ## TA-Lib Technical Indicators
 
 When using the TA-Lib library for technical indicators, always convert pandas Series to NumPy arrays using `.values`:
