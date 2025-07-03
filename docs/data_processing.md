@@ -286,3 +286,52 @@ When generating output files (especially on Windows systems), be aware that cert
    ```
 
 Using these practices ensures maximum compatibility across different operating systems and console environments.
+
+## Universe-Based Output Filenames
+
+Output files are now named based on the universe parameter used when running the pipeline:
+
+### File Naming Convention
+
+When running the pipeline with a specific universe (e.g., `--universe sp500`), the output files will include the universe name in their filename:
+
+```
+# Original naming pattern
+output/screening_report.md
+output/summary.txt
+
+# New naming pattern
+output/screening_report_<universe>.md
+output/summary_<universe>.txt
+```
+
+### Examples
+
+Running with `--universe sp500`:
+```
+output/screening_report_sp500.md
+output/summary_sp500.txt
+```
+
+Running with `--universe russell2000`:
+```
+output/screening_report_russell2000.md
+output/summary_russell2000.txt
+```
+
+This makes it easier to maintain and compare results from multiple universes without overwriting files.
+
+### Implementation
+
+The filename transformation happens automatically when running the pipeline, using the `get_universe_filename()` function in `main.py`. No changes to command-line usage are required.
+
+```python
+def get_universe_filename(base_filename, universe):
+    """Create a filename that incorporates the universe name."""
+    name_parts = base_filename.rsplit('.', 1)
+    if len(name_parts) == 2:
+        base_name, extension = name_parts
+        return f"{base_name}_{universe}.{extension}"
+    else:
+        return f"{base_filename}_{universe}"
+```

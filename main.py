@@ -102,6 +102,27 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def get_universe_filename(base_filename, universe):
+    """
+    Create a filename that incorporates the universe name.
+    
+    Args:
+        base_filename (str): The original filename without universe (e.g., 'screening_report.md')
+        universe (str): The universe name (e.g., 'sp500', 'all', 'russell2000')
+        
+    Returns:
+        str: Filename with universe incorporated (e.g., 'screening_report_sp500.md')
+    """
+    # Split the filename and extension
+    name_parts = base_filename.rsplit('.', 1)
+    if len(name_parts) == 2:
+        base_name, extension = name_parts
+        return f"{base_name}_{universe}.{extension}"
+    else:
+        # No extension found
+        return f"{base_filename}_{universe}"
+
+
 def main():
     """
     Main function to run the stock screening pipeline.
@@ -242,10 +263,13 @@ def main():
             sorted_results[strategy_name] = results
     
     # Generate comprehensive markdown report
-    report_path = os.path.join(output_dir, 'screening_report.md')
+    report_filename = get_universe_filename('screening_report.md', args.universe)
+    report_path = os.path.join(output_dir, report_filename)
     generate_screening_report(sorted_results, report_path)
-      # Also generate a summary file
-    summary_path = os.path.join(output_dir, 'summary.txt')
+      
+    # Also generate a summary file
+    summary_filename = get_universe_filename('summary.txt', args.universe)
+    summary_path = os.path.join(output_dir, summary_filename)
     with open(summary_path, 'w') as f:
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         f.write(f"Stock Screening Pipeline - Summary Report\n")
@@ -326,7 +350,8 @@ def main():
     
     # 8. Output summary
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    summary_path = os.path.join(output_dir, 'summary.txt')
+    summary_filename = get_universe_filename('summary.txt', args.universe)
+    summary_path = os.path.join(output_dir, summary_filename)
     
     with open(summary_path, 'w') as f:
         f.write(f"Stock Screening Pipeline - Summary Report\n")
@@ -362,7 +387,7 @@ def main():
                 for i, row in display_results.iterrows():
                     f.write(f"  {row['symbol']}: {row.get('score', '')} {row.get('reason', '')}\n")
     
-    logger.info(f"Pipeline complete. Results saved to {output_dir}")
+    logger.info(f"Pipeline complete. Results saved to {output_dir} with {args.universe} universe")
     logger.info(f"Report available at: {report_path}")
     logger.info(f"Summary report: {summary_path}")
 
