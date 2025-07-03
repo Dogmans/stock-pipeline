@@ -40,8 +40,28 @@ python main.py --universe sp500 --strategies pe_ratio,price_to_book,peg_ratio
 # Run all available screeners
 python main.py --strategies all
 
-# Limit the number of stocks displayed in results
-python main.py --strategies pe_ratio --limit 20
+# Customize the display limit (default is 20 for non-combined screeners)
+python main.py --strategies pe_ratio --limit 30
+python main.py --strategies pe_ratio --limit 10
+
+# For combined screeners, the default limit is 10
+python main.py --strategies combined --limit 5
+```
+
+## Display Limits
+
+As of July 3, 2025, the pipeline has the following default display limits:
+
+- Non-combined screeners: 20 stocks (previously unlimited)
+- Combined screener: 10 stocks
+
+This helps manage the large number of results from Russell 2000 screeners. You can override these defaults with the `--limit` parameter.
+
+To show all results (no limit), use `--limit 0`:
+
+```powershell
+# Display all matching stocks (potentially hundreds for Russell 2000)
+python main.py --universe russell2000 --strategies pe_ratio --limit 0
 ```
 
 ## VS Code Tasks
@@ -350,38 +370,4 @@ Debug the metrics that went into combined score calculation:
 ```powershell
 # See detailed ranks from each screener
 python -c "from screeners import screen_for_combined; from universe import get_stock_universe; results = screen_for_combined(get_stock_universe()); print(results[['symbol', 'rank_details']].head(5))"
-```
-
-## Display Limit Options (Updated 2025-06-29)
-
-Control the number of results displayed without limiting analysis:
-
-```powershell
-# Run full analysis but only display top 5 results per screener
-python main.py --universe sp500 --limit 5 --strategies pe_ratio,price_to_book,combined
-
-# Run full analysis but only display top 3 results per screener
-python main.py --universe sp500 --limit 3 --strategies value,growth
-
-# Run full analysis with default display (10 per screener)
-python main.py --universe sp500 --strategies combined
-```
-
-Note: The `--limit` parameter only affects display output, not the stocks analyzed. The full universe is always analyzed to ensure accurate rankings.
-
-## Combined Screener Intersection (Updated 2025-06-29)
-
-Test the combined screener's intersection behavior (only shows stocks in ALL screeners):
-
-```powershell
-# Run combined screener with multiple strategies to see intersection
-python main.py --universe sp500 --strategies pe_ratio,price_to_book,peg_ratio
-
-# Run with different strategy combinations to check intersection results
-python main.py --universe sp500 --strategies pe_ratio,price_to_book
-python main.py --universe sp500 --strategies pe_ratio,peg_ratio
-python main.py --universe sp500 --strategies price_to_book,peg_ratio
-
-# Run the diagnostic script to see distribution across screeners
-python test_screener_distribution.py
 ```

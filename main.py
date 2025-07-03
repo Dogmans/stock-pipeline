@@ -67,8 +67,8 @@ def parse_arguments():
     parser.add_argument('--output', type=str, default=config.OUTPUT_DIR,
                         help='Directory for output reports and visualizations')
     
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Limit the number of stocks displayed in results (default: show all)')
+    parser.add_argument('--limit', type=int, default=20,
+                        help='Limit the number of stocks displayed in results (default: 20 for non-combined screeners)')
     
     # Cache options
     parser.add_argument('--clear-cache', action='store_true',
@@ -313,9 +313,18 @@ def main():
                     # Otherwise show all that meet threshold (up to 10)
                     display_results = filtered_results.head(10)
             else:
-                # For combined screener or screeners without meets_threshold, just show top 10
-                display_results = results.head(10)                # Apply display limit if specified, otherwise show all results up to 10
-                display_count = min(display_limit if display_limit else 10, len(display_results))
+                # For combined screener or screeners without meets_threshold, just show top results
+                # Apply a lower limit for the combined screener (10) than other screeners (use the display_limit, default 20)
+                # Special case: If limit is 0, show all results
+                if display_limit == 0:
+                    display_count = len(results)
+                    display_results = results
+                elif strategy_name == 'combined':
+                    display_count = min(display_limit if display_limit else 10, len(results))
+                    display_results = results.head(display_count)
+                else:
+                    display_count = min(display_limit, len(results))
+                    display_results = results.head(display_count)
                 
                 for idx in range(display_count):
                     if idx < len(display_results):
@@ -370,19 +379,25 @@ def main():
                     # Get only stocks meeting the threshold
                     filtered_results = results[results['meets_threshold'] == True]
                     
-                    # If fewer than N stocks meet the threshold or it's a combined screener, show top N instead
+                    # If fewer than N stocks meet the threshold, show top N instead
                     if len(filtered_results) < 5:
-                        # For display, apply the display limit to full results
-                        max_display = display_limit if display_limit else 10
-                        display_results = results.head(max_display)
+                        # For display, apply the display limit to full results (default 20)
+                        display_results = results.head(display_limit)
                     else:
                         # Otherwise show all that meet threshold (up to the display limit)
-                        max_display = display_limit if display_limit else 10
-                        display_results = filtered_results.head(max_display)
+                        display_results = filtered_results.head(display_limit)
                 else:
-                    # For combined screener or screeners without meets_threshold, respect the display limit
-                    max_display = display_limit if display_limit else 10
-                    display_results = results.head(max_display)
+                    # Special case: If limit is 0, show all results
+                    if display_limit == 0:
+                        display_results = results
+                    else:
+                        # For combined screener, use a smaller default limit
+                        if strategy_name == 'combined':
+                            max_display = min(display_limit if display_limit else 10, len(results))
+                        else:
+                            # For non-combined screeners without meets_threshold, use the normal display limit
+                            max_display = display_limit
+                        display_results = results.head(max_display)
                 
                 # Write out the results
                 for i, row in display_results.iterrows():
