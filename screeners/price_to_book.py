@@ -53,6 +53,11 @@ def screen_for_price_to_book(universe_df, max_pb_ratio=None):
             if isinstance(pb_ratio, str):
                 pb_ratio = float(pb_ratio)
             
+            # Filter out extremely small P/B ratios that are likely data errors
+            # These would display as 0.00 when formatted to 2 decimal places
+            if pb_ratio < 0.01:  # Less than 1 cent per dollar of book value
+                continue
+            
             # Get price data to get current price
             price_data = fmp_provider.get_historical_prices(symbol, period="5d")
             if symbol not in price_data or price_data[symbol] is None or price_data[symbol].empty:
