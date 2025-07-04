@@ -4,6 +4,36 @@
 
 - [Financial Modeling Prep API Guide](provider_guides/financial_modeling_prep.md) - Complete guide to our FMP API integration
 
+## Known Data Quality Issues
+
+### Financial Modeling Prep (FMP)
+
+#### Price-to-Book Ratio Returns Zero for Missing Data
+
+**Issue**: FMP API returns `0` (integer) instead of `null` for missing price-to-book ratios.
+
+**Affected Endpoints**: 
+- `/key-metrics/{symbol}`
+- `/ratios/{symbol}`
+
+**Affected Fields**:
+- `priceToBookRatio`
+- `priceToSalesRatio` (also affected)
+
+**Symptoms**: Stocks appear in price-to-book screening with P/B = 0.00 when they should be filtered out.
+
+**Workaround**: Filter out ratios where `value <= 0` instead of just `value < 0`.
+
+**Example Response**:
+```json
+{
+  "symbol": "BATRA",
+  "priceToBookRatio": 0,  // Should be null or omitted
+  "priceToSalesRatio": 0,
+  "priceEarningsRatio": -150.15  // This one is valid (negative P/E)
+}
+```
+
 ## Provider API Caching Guide
 
 ## Overview

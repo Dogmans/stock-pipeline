@@ -46,7 +46,7 @@ def screen_for_price_to_book(universe_df, max_pb_ratio=None):
             
             # Check if P/B ratio is available and below threshold
             pb_ratio = company_data.get('PriceToBookRatio')
-            if pb_ratio is None or pb_ratio < 0 or np.isnan(float(pb_ratio)):
+            if pb_ratio is None or pb_ratio <= 0 or np.isnan(float(pb_ratio)):
                 continue
             
             # Convert to float if it's a string

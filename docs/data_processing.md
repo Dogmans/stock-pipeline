@@ -393,3 +393,34 @@ def get_universe_filename(base_filename, universe):
     else:
         return f"{base_filename}_{universe}"
 ```
+
+## Data Quality Issues
+
+### Financial Modeling Prep (FMP) Price-to-Book Ratio Issue
+
+**Issue**: Financial Modeling Prep API returns `0` (integer) for `PriceToBookRatio` when the data is not available or cannot be calculated, rather than returning `null` or omitting the field.
+
+**Impact**: This caused stocks with missing P/B ratio data to appear in price-to-book screening results with P/B = 0.00, creating false positives.
+
+**Root Cause**: The API endpoints used by FMP (`key-metrics` and `ratios`) may return `0` for financial ratios when:
+- The company doesn't have sufficient book value data
+- The calculation results in an undefined or invalid ratio
+- The data is temporarily unavailable
+
+**Solution**: Updated the price-to-book screener to filter out stocks where `pb_ratio <= 0` instead of just `pb_ratio < 0`.
+
+**Example Affected Stocks** (as of July 2025):
+- BATRA (Atlanta Braves Holdings)
+- SMID (Smith-Midland Corporation) 
+- SENEA (Seneca Foods Corporation)
+- MLAB (Mesa Laboratories)
+- KG (Maiden Holdings)
+
+**Fix Applied**: In `screeners/price_to_book.py`, changed the validation from:
+```python
+if pb_ratio is None or pb_ratio < 0 or np.isnan(float(pb_ratio)):
+```
+to:
+```python
+if pb_ratio is None or pb_ratio <= 0 or np.isnan(float(pb_ratio)):
+```
