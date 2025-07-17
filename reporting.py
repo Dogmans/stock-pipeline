@@ -41,7 +41,8 @@ def generate_screening_report(screening_results, output_path):
         for strategy, results in screening_results.items():
             if isinstance(results, pd.DataFrame) and not results.empty:
                 top_stock = results.iloc[0]['symbol']
-                  # Identify key metric based on strategy                key_metric = ""
+                  # Identify key metric based on strategy
+                key_metric = ""
                 if 'pe_ratio' in results.columns:
                     key_metric = f"P/E: {results.iloc[0]['pe_ratio']:.2f}"
                 elif 'pct_off_high' in results.columns:
@@ -52,6 +53,8 @@ def generate_screening_report(screening_results, output_path):
                     key_metric = f"Yield: {results.iloc[0]['dividend_yield']:.2%}"
                 elif 'growth_rate' in results.columns:
                     key_metric = f"Growth: {results.iloc[0]['growth_rate']:.2%}"
+                elif 'sharpe_ratio' in results.columns:
+                    key_metric = f"Sharpe: {results.iloc[0]['sharpe_ratio']:.2f}"
                 
                 f.write(f"| {strategy} | {len(results)} | {top_stock} | {key_metric} |\n")
             else:

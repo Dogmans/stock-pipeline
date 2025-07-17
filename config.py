@@ -24,6 +24,9 @@ class ScreeningThresholds:
     MAX_PE_RATIO = 10  # As recommended by Graham/Buffett
     MAX_FORWARD_PE_RATIO = 15  # Slightly higher for growth stocks
     
+    # Sharpe Ratio Parameters
+    MIN_SHARPE_RATIO = 1.0  # Minimum Sharpe ratio for risk-adjusted returns
+    
     # 52-Week Low Parameters
     MIN_PERCENT_OFF_52_WEEK_LOW = 0  # Currently at 52-week low
     MAX_PERCENT_OFF_52_WEEK_LOW = 15  # Within 15% of 52-week low

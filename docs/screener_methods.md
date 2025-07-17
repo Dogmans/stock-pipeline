@@ -198,6 +198,77 @@ The ideal turnaround candidate shows these patterns:
    - Processes one stock at a time to avoid memory issues with large universes
    - Uses vectorized operations where possible for efficiency
 
+## Sharpe Ratio Screener
+
+The Sharpe ratio screener identifies stocks with superior risk-adjusted returns by calculating the Sharpe ratio for each stock based on historical price performance.
+
+### Sharpe Ratio Calculation
+
+The Sharpe ratio measures risk-adjusted return and is calculated as:
+```
+Sharpe Ratio = (Portfolio Return - Risk-Free Rate) / Portfolio Volatility
+```
+
+### Implementation Details
+
+1. **Historical Data Requirements**:
+   - Minimum 252 trading days of price data (1 year)
+   - Uses daily closing prices for return calculations
+
+2. **Key Components**:
+   ```python
+   # Calculate daily returns
+   daily_returns = historical_prices.pct_change().dropna()
+   
+   # Annualized portfolio return
+   portfolio_return = (historical_prices.iloc[-1] / historical_prices.iloc[0] - 1) * 100
+   
+   # Annualized volatility
+   portfolio_volatility = daily_returns.std() * np.sqrt(252)
+   
+   # Sharpe ratio calculation
+   sharpe_ratio = (portfolio_return - risk_free_rate) / (portfolio_volatility * 100)
+   ```
+
+3. **Risk-Free Rate**:
+   - Uses 10-year Treasury rate (currently ~4.5%)
+   - Configurable via `RISK_FREE_RATE` in config
+
+4. **Configuration**:
+   - Threshold: `SHARPE_RATIO_THRESHOLD = 1.0` (configurable)
+   - Higher threshold = more selective screening
+   - Typical good Sharpe ratios: > 1.0, excellent: > 2.0
+
+### Screening Criteria
+
+- **Minimum Sharpe Ratio**: 1.0 (default)
+- **Data Quality**: Must have sufficient trading history
+- **Volatility Floor**: Prevents division by zero with extremely stable stocks
+
+### Usage Example
+
+```python
+# Run Sharpe ratio screener
+python main.py --universe sp500 --strategies sharpe_ratio
+
+# Combine with other strategies
+python main.py --universe sp500 --strategies value,sharpe_ratio
+```
+
+### Interpretation
+
+- **Sharpe Ratio > 1.0**: Good risk-adjusted performance
+- **Sharpe Ratio > 1.5**: Very good risk-adjusted performance  
+- **Sharpe Ratio > 2.0**: Excellent risk-adjusted performance
+- **High Sharpe + Low Volatility**: Consistent performers
+- **High Sharpe + High Volatility**: High-risk, high-reward stocks
+
+### Performance Considerations
+
+- **API Intensive**: Requires historical price data for each stock
+- **Cache Friendly**: Reuses existing price data when available
+- **Rate Limited**: Execution time depends on API rate limits
+
 ## Future Enhancements
 
 Potential improvements to the turnaround detection:
@@ -216,3 +287,20 @@ Potential improvements to the turnaround detection:
    - Implement machine learning to identify successful historical turnarounds
    - Weight factors based on sector-specific importance
    - Add time-based decay to give more weight to recent improvements
+
+### Sharpe Ratio Enhancements
+
+1. **Advanced Risk Metrics**:
+   - Implement Beta calculation for market-relative risk
+   - Add Alpha calculation for excess returns
+   - Include Maximum Drawdown analysis
+
+2. **Portfolio-Level Analysis**:
+   - Calculate portfolio Sharpe ratio for combined positions
+   - Implement correlation analysis between selected stocks
+   - Add sector-relative Sharpe ratio comparisons
+
+3. **Time-Series Analysis**:
+   - Rolling Sharpe ratio calculations for trend analysis
+   - Seasonal adjustment for cyclical stocks
+   - Volatility clustering detection

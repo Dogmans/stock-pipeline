@@ -12,6 +12,7 @@ from . import turnaround_candidates
 from . import peg_ratio
 from . import combined
 from . import sector_corrections
+from . import sharpe_ratio
 
 # Import utility functions
 from .utils import get_available_screeners, run_all_screeners
@@ -26,6 +27,7 @@ screen_for_turnaround_candidates = turnaround_candidates.screen_for_turnaround_c
 screen_for_peg_ratio = peg_ratio.screen_for_peg_ratio
 screen_for_combined = combined.screen_for_combined
 screen_for_sector_corrections = sector_corrections.screen_for_sector_corrections
+screen_for_sharpe_ratio = sharpe_ratio.screen_for_sharpe_ratio
 
 # Add aliases for backward compatibility with older tests
 pe_ratio_screener = pe_ratio.screen_for_pe_ratio
@@ -36,7 +38,7 @@ fifty_two_week_low_screener = fifty_two_week_lows.screen_for_52_week_lows
 __all__ = [
     'screen_for_pe_ratio', 'screen_for_price_to_book', 'screen_for_52_week_lows',
     'screen_for_fallen_ipos', 'screen_for_turnaround_candidates', 'screen_for_peg_ratio',
-    'screen_for_combined', 'screen_for_sector_corrections', 'pe_ratio_screener', 
-    'price_to_book_screener', 'fifty_two_week_low_screener', 'get_available_screeners', 
+    'screen_for_combined', 'screen_for_sector_corrections', 'screen_for_sharpe_ratio',
+    'pe_ratio_screener', 'price_to_book_screener', 'fifty_two_week_low_screener', 'get_available_screeners', 
     'run_all_screeners'
 ]

@@ -29,7 +29,7 @@ def get_available_screeners():
     modules = [
         'pe_ratio', 'price_to_book', 'fifty_two_week_lows', 
         'fallen_ipos', 'turnaround_candidates', 'peg_ratio', 
-        'sector_corrections', 'combined'
+        'sector_corrections', 'combined', 'sharpe_ratio'
     ]
     
     for module_name in modules:
