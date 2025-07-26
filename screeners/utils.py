@@ -29,7 +29,14 @@ def get_available_screeners():
     modules = [
         'pe_ratio', 'price_to_book', 'fifty_two_week_lows', 
         'fallen_ipos', 'turnaround_candidates', 'peg_ratio', 
-        'sector_corrections', 'combined', 'sharpe_ratio'
+        'sector_corrections', 'combined', 'sharpe_ratio',
+        'momentum', 'quality', 'free_cash_flow_yield'
+    ]
+    
+    # Special handling for combined screeners
+    combined_screeners = [
+        'combined', 'traditional_value', 'high_performance', 
+        'comprehensive', 'distressed_value'
     ]
     
     for module_name in modules:
@@ -37,17 +44,17 @@ def get_available_screeners():
             module = importlib.import_module(f'screeners.{module_name}')
             for name, obj in inspect.getmembers(module):
                 if (name.startswith('screen_for_') and 
-                    inspect.isfunction(obj) and 
-                    name != 'screen_for_combined'):  # Skip combined to avoid duplication
+                    inspect.isfunction(obj)):
                     screener_name = name.replace('screen_for_', '')
                     if screener_name not in screener_functions:
                         screener_functions.append(screener_name)
         except ImportError as e:
             logger.error(f"Error importing module {module_name}: {e}")
     
-    # Add 'combined' separately since it's special
-    if 'combined' not in screener_functions:
-        screener_functions.append('combined')
+    # Add combined screeners that aren't automatically discovered
+    for combined_name in combined_screeners:
+        if combined_name not in screener_functions:
+            screener_functions.append(combined_name)
         
     return sorted(screener_functions)
 

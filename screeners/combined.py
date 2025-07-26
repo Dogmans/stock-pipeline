@@ -1,11 +1,12 @@
 """
 Combined Screener module.
 Combines results from multiple screeners based on average ranking.
+Supports multiple predefined combinations and custom combinations.
 """
 
 from .common import *
 
-def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
+def screen_for_combined(universe_df=None, strategies=None, force_refresh=False, combination_name=None):
     """
     Run multiple screeners and combine their results based on average ranking.
     
@@ -17,23 +18,39 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
     
     Args:
         universe_df (pd.DataFrame): DataFrame containing the stock universe.
-        strategies (list): List of screener strategies to combine. Defaults to ['pe_ratio', 'price_to_book', 'peg_ratio'].
+        strategies (list): List of screener strategies to combine. 
         force_refresh (bool): Whether to force refresh data from API.
+        combination_name (str): Name of predefined combination ('traditional_value', 'high_performance', etc.)
         
     Returns:
         pd.DataFrame: DataFrame containing combined screening results with columns for symbol,
                      average rank, individual ranks, and other metrics.
     """
-    logger.info("Running combined screener")
+    
+    # Determine which combination to use
+    if combination_name:
+        combination_config = config.CombinedScreeners.get_combination(combination_name)
+        if combination_config:
+            strategies = combination_config['strategies']
+            combination_description = combination_config['description']
+            logger.info(f"Running {combination_config['name']} combined screener: {combination_description}")
+        else:
+            logger.error(f"Unknown combination name: {combination_name}")
+            return pd.DataFrame()
+    elif strategies is None:
+        # Default to traditional value combination
+        combination_config = config.CombinedScreeners.TRADITIONAL_VALUE
+        strategies = combination_config['strategies']
+        combination_description = combination_config['description']
+        logger.info(f"Running {combination_config['name']} combined screener: {combination_description}")
+    else:
+        logger.info(f"Running custom combined screener with strategies: {strategies}")
+        combination_description = f"Custom combination: {', '.join(strategies)}"
     
     # Use either provided universe or get the sp500 by default
     if universe_df is None:
         from universe import get_stock_universe
         universe_df = get_stock_universe()
-    
-    # Default strategies if none provided
-    if strategies is None:
-        strategies = ['pe_ratio', 'price_to_book', 'peg_ratio']
     
     # Store individual screener results
     screener_results = {}
@@ -234,3 +251,80 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False):
         logger.info(f"Found {len(result_df)} stocks that appeared in at least {min_screeners_required} of {len(strategies)} screeners")
     
     return result_df
+
+
+def screen_for_traditional_value(universe_df=None, force_refresh=False):
+    """
+    Traditional Value Combined Screener.
+    Combines P/E ratio, Price-to-Book, and PEG ratio screeners.
+    
+    Args:
+        universe_df (pd.DataFrame): DataFrame containing the stock universe.
+        force_refresh (bool): Whether to force refresh data from API.
+        
+    Returns:
+        pd.DataFrame: Combined screening results for traditional value metrics.
+    """
+    return screen_for_combined(
+        universe_df=universe_df, 
+        force_refresh=force_refresh, 
+        combination_name='traditional_value'
+    )
+
+
+def screen_for_high_performance(universe_df=None, force_refresh=False):
+    """
+    High Performance Combined Screener.
+    Combines Momentum, Quality, and Free Cash Flow Yield screeners.
+    Based on academic research showing strong predictive power.
+    
+    Args:
+        universe_df (pd.DataFrame): DataFrame containing the stock universe.
+        force_refresh (bool): Whether to force refresh data from API.
+        
+    Returns:
+        pd.DataFrame: Combined screening results for high-performance metrics.
+    """
+    return screen_for_combined(
+        universe_df=universe_df, 
+        force_refresh=force_refresh, 
+        combination_name='high_performance'
+    )
+
+
+def screen_for_comprehensive(universe_df=None, force_refresh=False):
+    """
+    Comprehensive Combined Screener.
+    Combines all available screening strategies.
+    
+    Args:
+        universe_df (pd.DataFrame): DataFrame containing the stock universe.
+        force_refresh (bool): Whether to force refresh data from API.
+        
+    Returns:
+        pd.DataFrame: Combined screening results for all metrics.
+    """
+    return screen_for_combined(
+        universe_df=universe_df, 
+        force_refresh=force_refresh, 
+        combination_name='comprehensive'
+    )
+
+
+def screen_for_distressed_value(universe_df=None, force_refresh=False):
+    """
+    Distressed Value Combined Screener.
+    Combines 52-week lows, fallen IPOs, and turnaround candidates.
+    
+    Args:
+        universe_df (pd.DataFrame): DataFrame containing the stock universe.
+        force_refresh (bool): Whether to force refresh data from API.
+        
+    Returns:
+        pd.DataFrame: Combined screening results for distressed value opportunities.
+    """
+    return screen_for_combined(
+        universe_df=universe_df, 
+        force_refresh=force_refresh, 
+        combination_name='distressed_value'
+    )

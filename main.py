@@ -263,10 +263,10 @@ def main():
         else:
             sorted_results[strategy_name] = results
     
-    # Generate comprehensive markdown report
+    # Generate comprehensive markdown report with display limit
     report_filename = get_universe_filename('screening_report.md', args.universe)
     report_path = os.path.join(output_dir, report_filename)
-    generate_screening_report(sorted_results, report_path)
+    generate_screening_report(sorted_results, report_path, display_limit)
       
     # Also generate a summary file
     summary_filename = get_universe_filename('summary.txt', args.universe)

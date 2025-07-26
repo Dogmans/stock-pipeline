@@ -27,6 +27,15 @@ class ScreeningThresholds:
     # Sharpe Ratio Parameters
     MIN_SHARPE_RATIO = 1.0  # Minimum Sharpe ratio for risk-adjusted returns
     
+    # Momentum Parameters
+    MIN_MOMENTUM_SCORE = 15.0  # Minimum momentum score (%) for 6-month/3-month weighted average
+    
+    # Quality Parameters
+    MIN_QUALITY_SCORE = 6.0  # Minimum quality score (out of 10) based on financial strength
+    
+    # Free Cash Flow Yield Parameters
+    MIN_FCF_YIELD = 8.0  # Minimum free cash flow yield (%) relative to market cap
+    
     # 52-Week Low Parameters
     MIN_PERCENT_OFF_52_WEEK_LOW = 0  # Currently at 52-week low
     MAX_PERCENT_OFF_52_WEEK_LOW = 15  # Within 15% of 52-week low
@@ -48,8 +57,59 @@ class ScreeningThresholds:
     # Market Cap Requirements (in millions)
     MIN_MARKET_CAP = 100  # Small caps and up (no micro caps)
     MAX_MARKET_CAP = None  # No upper limit
-
+    
+    # Quarters for analysis
     QUARTERS_RETURNED = 6
+
+class CombinedScreeners:
+    """
+    Configuration for multiple combined screeners.
+    Each combined screener can have its own set of strategies.
+    """
+    
+    # Traditional Value Investing Combined Screener
+    TRADITIONAL_VALUE = {
+        'name': 'Traditional Value',
+        'description': 'Classic value investing metrics (P/E, P/B, PEG)',
+        'strategies': ['pe_ratio', 'price_to_book', 'peg_ratio']
+    }
+    
+    # High Performance Combined Screener (Research-Based)
+    HIGH_PERFORMANCE = {
+        'name': 'High Performance',
+        'description': 'Research-backed high-performance metrics (Momentum, Quality, FCF Yield)',
+        'strategies': ['momentum', 'quality', 'free_cash_flow_yield']
+    }
+    
+    # Comprehensive Combined Screener
+    COMPREHENSIVE = {
+        'name': 'Comprehensive',
+        'description': 'All available screening strategies combined',
+        'strategies': ['pe_ratio', 'price_to_book', 'peg_ratio', 'momentum', 'quality', 'free_cash_flow_yield', 'sharpe_ratio']
+    }
+    
+    # Distressed/Turnaround Combined Screener
+    DISTRESSED_VALUE = {
+        'name': 'Distressed Value',
+        'description': 'Stocks near lows with turnaround potential',
+        'strategies': ['52_week_lows', 'fallen_ipos', 'turnaround_candidates']
+    }
+    
+    @classmethod
+    def get_all_combinations(cls):
+        """Get all available combined screener configurations."""
+        return {
+            'traditional_value': cls.TRADITIONAL_VALUE,
+            'high_performance': cls.HIGH_PERFORMANCE,
+            'comprehensive': cls.COMPREHENSIVE,
+            'distressed_value': cls.DISTRESSED_VALUE
+        }
+    
+    @classmethod
+    def get_combination(cls, name):
+        """Get a specific combined screener configuration by name."""
+        combinations = cls.get_all_combinations()
+        return combinations.get(name)
 
 # Market Indexes to Track
 MARKET_INDEXES = [
