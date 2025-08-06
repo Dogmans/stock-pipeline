@@ -15,6 +15,7 @@ from . import sector_corrections
 from . import sharpe_ratio
 from . import momentum
 from . import quality
+from . import enhanced_quality
 from . import free_cash_flow_yield
 
 # Import utility functions
@@ -37,6 +38,7 @@ screen_for_sector_corrections = sector_corrections.screen_for_sector_corrections
 screen_for_sharpe_ratio = sharpe_ratio.screen_for_sharpe_ratio
 screen_for_momentum = momentum.screen_for_momentum
 screen_for_quality = quality.screen_for_quality
+screen_for_enhanced_quality = enhanced_quality.screen_for_enhanced_quality
 screen_for_free_cash_flow_yield = free_cash_flow_yield.screen_for_free_cash_flow_yield
 
 # Add aliases for backward compatibility with older tests
@@ -50,7 +52,7 @@ __all__ = [
     'screen_for_fallen_ipos', 'screen_for_turnaround_candidates', 'screen_for_peg_ratio',
     'screen_for_combined', 'screen_for_traditional_value', 'screen_for_high_performance',
     'screen_for_comprehensive', 'screen_for_distressed_value', 'screen_for_sector_corrections', 
-    'screen_for_sharpe_ratio', 'screen_for_momentum', 'screen_for_quality', 'screen_for_free_cash_flow_yield',
-    'pe_ratio_screener', 'price_to_book_screener', 'fifty_two_week_low_screener', 'get_available_screeners', 
-    'run_all_screeners'
+    'screen_for_sharpe_ratio', 'screen_for_momentum', 'screen_for_quality', 'screen_for_enhanced_quality',
+    'screen_for_free_cash_flow_yield', 'pe_ratio_screener', 'price_to_book_screener', 
+    'fifty_two_week_low_screener', 'get_available_screeners', 'run_all_screeners'
 ]

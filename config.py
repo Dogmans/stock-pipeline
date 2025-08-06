@@ -33,6 +33,14 @@ class ScreeningThresholds:
     # Quality Parameters
     MIN_QUALITY_SCORE = 6.0  # Minimum quality score (out of 10) based on financial strength
     
+    # Enhanced Quality Parameters (0-100 point scale)
+    MIN_ENHANCED_QUALITY_SCORE = 50.0  # Minimum enhanced quality score (out of 100)
+    # Component thresholds for enhanced quality (each 0-25 points):
+    MIN_ROE_COMPONENT_SCORE = 8.0       # Minimum ROE component score
+    MIN_PROFITABILITY_COMPONENT_SCORE = 10.0  # Minimum profitability component score  
+    MIN_FINANCIAL_STRENGTH_COMPONENT_SCORE = 12.0  # Minimum financial strength component score
+    MIN_GROWTH_QUALITY_COMPONENT_SCORE = 8.0  # Minimum growth quality component score
+    
     # Free Cash Flow Yield Parameters
     MIN_FCF_YIELD = 8.0  # Minimum free cash flow yield (%) relative to market cap
     
