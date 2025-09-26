@@ -46,7 +46,12 @@ def get_sp500_symbols(force_refresh=False):
         
     url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
     try:
-        tables = pd.read_html(url)
+        # Set proper User-Agent header as required by Wikipedia
+        headers = {
+            'User-Agent': 'Stock-Pipeline/1.0 (Educational Purpose; Python/pandas)'
+        }
+        tables = pd.read_html(url, header=0, storage_options={'User-Agent': headers['User-Agent']})
+        # Get the first table which contains the S&P 500 companies
         df = tables[0]
         df.columns = [col.replace(' ', '_').lower() for col in df.columns]
         

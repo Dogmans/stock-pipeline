@@ -371,3 +371,28 @@ Debug the metrics that went into combined score calculation:
 # See detailed ranks from each screener
 python -c "from screeners import screen_for_combined; from universe import get_stock_universe; results = screen_for_combined(get_stock_universe()); print(results[['symbol', 'rank_details']].head(5))"
 ```
+
+## Project Cleanup
+
+Remove temporary debug and test files:
+
+```powershell
+# Remove all debug files created during troubleshooting
+Remove-Item "debug_*.py" -ErrorAction SilentlyContinue
+
+# Remove temporary test files
+Remove-Item "test_*fix*.py" -ErrorAction SilentlyContinue
+
+# Remove multiple files at once
+Remove-Item "debug_universe.py", "debug_universe2.py", "debug_fcf.py", "debug_price_to_book.py", "test_price_to_book_fix.py" -ErrorAction SilentlyContinue
+```
+
+Verify cleanup:
+
+```powershell
+# Check for any remaining temporary files
+Get-ChildItem -Name "debug_*.py", "test_*fix*.py" -ErrorAction SilentlyContinue
+
+# List all temporary files in project
+Get-ChildItem -Name "*.tmp", "*debug*", "*temp*" -Recurse -ErrorAction SilentlyContinue
+```
