@@ -81,6 +81,7 @@ from cache_config import cache
 import config
 from utils.logger import get_logger
 from utils.rate_limiter import RateLimiter
+from utils.throttling import throttler, create_cache_checker
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -138,7 +139,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         params["apikey"] = self.api_key
         
         try:
-            # Apply rate limiting if requested
+            # Apply legacy rate limiting if requested (cache-aware throttling is handled by decorators)
             if rate_limit:
                 fmp_rate_limiter.wait_if_needed()
                 
@@ -201,6 +202,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
         return df
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, symbols, period="1y", interval="1d", force_refresh=False: f"FinancialModelingPrepProvider.get_historical_prices:{symbols}:{period}:{interval}:{force_refresh}"
+    ))
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
                              interval: str = "1d",
@@ -286,6 +290,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
         return result
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, symbol, annual=True, force_refresh=False: f"FinancialModelingPrepProvider.get_income_statement:{symbol}:{annual}:{force_refresh}"
+    ))
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
                             force_refresh: bool = False) -> pd.DataFrame:
@@ -334,6 +341,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         # Process the data
         return self._process_financial_statement(data, column_mapping)
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, symbol, annual=True, force_refresh=False: f"FinancialModelingPrepProvider.get_balance_sheet:{symbol}:{annual}:{force_refresh}"
+    ))
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
                          force_refresh: bool = False) -> pd.DataFrame:
@@ -383,6 +393,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         # Process the data
         return self._process_financial_statement(data, column_mapping)
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, symbol, annual=True, force_refresh=False: f"FinancialModelingPrepProvider.get_cash_flow:{symbol}:{annual}:{force_refresh}"
+    ))
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
                      force_refresh: bool = False) -> pd.DataFrame:
@@ -431,7 +444,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         return self._process_financial_statement(data, column_mapping)
         
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
-    @cache.memoize(expire=24*3600)  # Cache for 1 day (24 hours)
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, symbol, force_refresh=False: f"FinancialModelingPrepProvider.get_company_overview:{symbol}:{force_refresh}"
+    ))
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> Dict[str, Any]:
         """
