@@ -12,6 +12,7 @@ compared to the original binary scoring system.
 
 import pandas as pd
 import logging
+from tqdm import tqdm
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 from .common import *
 
@@ -56,7 +57,7 @@ def enhanced_quality_screener(symbols, min_quality_score=50.0):
     provider = FinancialModelingPrepProvider()
     results = []
     
-    for symbol in symbols:
+    for symbol in tqdm(symbols, desc="Enhanced quality screening", unit="symbol"):
         try:
             # Get comprehensive company data
             company_data = provider.get_company_overview(symbol)
