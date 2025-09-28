@@ -565,3 +565,75 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 overview['MarketCapitalization'] = market_cap_entry.get('marketCap', '')
         
         return overview
+
+    @cache.memoize(expire=4*3600)  # Cache for 4 hours (insider data changes more frequently)
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, symbol, lookback_days=60, force_refresh=False: f"FinancialModelingPrepProvider.get_insider_trading:{symbol}:{lookback_days}:{force_refresh}"
+    ))
+    def get_insider_trading(self, symbol: str, lookback_days: int = 60, force_refresh: bool = False) -> List[dict]:
+        """
+        Get insider trading data for a specific symbol using the stable API.
+        
+        Args:
+            symbol: Stock symbol to get insider trading data for
+            lookback_days: Number of days to look back for trades
+            force_refresh: Whether to bypass cache and fetch fresh data
+            
+        Returns:
+            List of insider trading records within the lookback period
+        """
+        if force_refresh:
+            # Clear cache for this specific call
+            cache_key = f"FinancialModelingPrepProvider.get_insider_trading:{symbol}:{lookback_days}:{force_refresh}"
+            try:
+                cache.delete(cache_key)
+            except:
+                pass  # Ignore cache deletion errors
+            
+        from datetime import datetime, timedelta
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Apply rate limiting
+            fmp_rate_limiter.wait_if_needed()
+            
+            # Use symbol-specific API endpoint for comprehensive coverage
+            url = f"https://financialmodelingprep.com/stable/insider-trading/search"
+            params = {
+                'symbol': symbol,
+                'page': 0,
+                'limit': 100,
+                'apikey': self.api_key
+            }
+            
+            response = requests.get(url, params=params, timeout=15)
+            
+            if response.status_code != 200:
+                logger.error(f"Error fetching insider trading data for {symbol}: {response.status_code}")
+                return []
+                
+            data = response.json()
+            if not data:
+                return []
+            
+            # Filter by date - only return trades within lookback period
+            cutoff_date = datetime.now() - timedelta(days=lookback_days)
+            recent_trades = []
+            
+            for trade in data:
+                try:
+                    trade_date = datetime.strptime(trade['transactionDate'], '%Y-%m-%d')
+                    if trade_date >= cutoff_date:
+                        recent_trades.append(trade)
+                except (KeyError, ValueError):
+                    # Skip trades with invalid or missing dates
+                    continue
+            
+            logger.debug(f"Retrieved {len(recent_trades)} insider trades for {symbol} (last {lookback_days} days)")
+            return recent_trades
+            
+        except Exception as e:
+            logger.error(f"Error fetching insider trading data for {symbol}: {e}")
+            return []

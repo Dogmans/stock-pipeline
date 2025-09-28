@@ -24,7 +24,7 @@ import config
 from utils.logger import get_logger
 logger = get_logger(__name__)
 
-def screen_for_insider_buying(universe_df, min_buying_score=65.0, lookback_days=60):
+def screen_for_insider_buying(universe_df, min_buying_score=65.0, lookback_days=60, provider=None):
     """
     Screen for stocks with pre-pump insider buying patterns and technical consolidation.
     
@@ -32,6 +32,7 @@ def screen_for_insider_buying(universe_df, min_buying_score=65.0, lookback_days=
         universe_df (DataFrame): Stock universe being analyzed
         min_buying_score (float): Minimum pre-pump score (0-100) for meets_threshold flag
         lookback_days (int): Number of days to look back for insider activity
+        provider (FinancialModelingPrepProvider, optional): Data provider instance to use
         
     Returns:
         DataFrame: Stocks with pre-pump insider buying patterns, sorted by score
@@ -40,82 +41,40 @@ def screen_for_insider_buying(universe_df, min_buying_score=65.0, lookback_days=
     
     # Extract symbols from universe  
     symbols = universe_df['symbol'].tolist()
+    logger.info(f"Analyzing {len(symbols)} symbols for insider trading activity...")
     
-    # Get all recent insider trading data first
-    logger.info("Fetching recent insider trading data...")
-    insider_data = get_recent_insider_trading(lookback_days)
+    # Initialize provider for symbol-specific insider trading queries
+    if provider is None:
+        provider = FinancialModelingPrepProvider()
     
-    if not insider_data:
-        logger.warning("No insider trading data available")
+    # Collect insider trading data for each symbol
+    all_insider_data = []
+    symbols_with_data = 0
+    
+    for symbol in tqdm(symbols, desc="Fetching insider trading data", unit="symbol"):
+        try:
+            symbol_trades = provider.get_insider_trading(symbol, lookback_days)
+            logger.debug(f"Retrieved {len(symbol_trades) if symbol_trades else 0} trades for {symbol}")
+            if symbol_trades:
+                all_insider_data.extend(symbol_trades)
+                symbols_with_data += 1
+                logger.debug(f"Added {len(symbol_trades)} trades for {symbol}, total now: {len(all_insider_data)}")
+        except Exception as e:
+            logger.error(f"Error fetching insider data for {symbol}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+    
+    logger.info(f"Found {len(all_insider_data)} insider trades for {symbols_with_data} symbols in universe")
+    
+    if not all_insider_data:
+        logger.warning("No insider trading data available for any symbols in universe")
         return pd.DataFrame()
     
-    # Filter to our universe symbols
-    universe_symbols = set(symbols)
-    relevant_data = [trade for trade in insider_data if trade.get('symbol') in universe_symbols]
-    
-    logger.info(f"Found {len(relevant_data)} insider trades for {len(set(trade['symbol'] for trade in relevant_data))} symbols in universe")
-    
     # Analyze pre-pump patterns for each symbol
-    return analyze_pre_pump_patterns(relevant_data, universe_df, min_buying_score, lookback_days)
+    return analyze_pre_pump_patterns(all_insider_data, universe_df, min_buying_score, lookback_days)
 
-def get_recent_insider_trading(lookback_days=60):
-    """
-    Get recent insider trading data from FMP API.
-    
-    Args:
-        lookback_days (int): Number of days to look back
-        
-    Returns:
-        list: List of insider trading records
-    """
-    provider = FinancialModelingPrepProvider()
-    
-    try:
-        # Use the v4 API for insider trading
-        import requests
-        api_key = config.FINANCIAL_MODELING_PREP_API_KEY
-        
-        all_trades = []
-        page = 0
-        cutoff_date = datetime.now() - timedelta(days=lookback_days)
-        
-        # FMP returns 100 records per call, we'll fetch multiple pages
-        while page < 10:  # Limit to prevent infinite loops
-            url = f"https://financialmodelingprep.com/api/v4/insider-trading?page={page}&apikey={api_key}"
-            
-            response = requests.get(url, timeout=15)
-            if response.status_code != 200:
-                logger.error(f"Error fetching insider trading data: {response.status_code}")
-                break
-                
-            data = response.json()
-            if not data:
-                break
-                
-            # Filter by date
-            recent_trades = []
-            for trade in data:
-                try:
-                    trade_date = datetime.strptime(trade['transactionDate'], '%Y-%m-%d')
-                    if trade_date >= cutoff_date:
-                        recent_trades.append(trade)
-                except:
-                    continue
-            
-            all_trades.extend(recent_trades)
-            
-            # If we got fewer than 100 records or no recent trades, we're done
-            if len(data) < 100 or not recent_trades:
-                break
-                
-            page += 1
-            
-        logger.info(f"Retrieved {len(all_trades)} insider trades from last {lookback_days} days")
-        return all_trades
-        
-    except Exception as e:
-        logger.error(f"Error fetching insider trading data: {e}")
-        return []
+
 
 def analyze_pre_pump_patterns(insider_data, universe_df, min_buying_score, lookback_days):
     """
@@ -158,7 +117,7 @@ def analyze_pre_pump_patterns(insider_data, universe_df, min_buying_score, lookb
                     'symbol': symbol,
                     'company_name': company_name,
                     'sector': sector,
-                    'buying_score': insider_analysis['pre_pump_score'],  # Changed to pre_pump_score
+                    'buying_score': insider_analysis['pre_pump_score'],
                     'total_trades': insider_analysis['total_trades'],
                     'buy_trades': insider_analysis['buy_trades'],
                     'sell_trades': insider_analysis['sell_trades'],
@@ -286,7 +245,7 @@ def analyze_insider_activity(trades):
             director_trades += 1
         
         # Categorize by transaction type - FIXED METHODOLOGY
-        acquisition = trade.get('acquistionOrDisposition', '').upper()
+        acquisition = trade.get('acquisitionOrDisposition', '').upper()
         transaction_type = trade.get('transactionType', '').upper()
         
         # Only consider ACTUAL PURCHASES with real money as buying signals:
@@ -380,7 +339,7 @@ def analyze_buying_acceleration(trades):
     
     # Recent volume surge (0-10 points)
     recent_buy_count = sum(1 for trade in recent_trades 
-                          if trade.get('acquistionOrDisposition', '').upper() == 'A')
+                          if trade.get('acquisitionOrDisposition', '').upper() == 'A')
     if recent_buy_count >= 2:
         score += min(10, recent_buy_count * 2)
     
