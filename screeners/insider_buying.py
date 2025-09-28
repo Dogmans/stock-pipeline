@@ -285,19 +285,24 @@ def analyze_insider_activity(trades):
         elif 'director' in owner_type:
             director_trades += 1
         
-        # Categorize by transaction type
+        # Categorize by transaction type - FIXED METHODOLOGY
         acquisition = trade.get('acquistionOrDisposition', '').upper()
         transaction_type = trade.get('transactionType', '').upper()
         
-        # Consider as buying if:
-        if (acquisition == 'A' or 
-            'PURCHASE' in transaction_type or 
-            'BUY' in transaction_type or
-            ('EXERCISE' in transaction_type and acquisition == 'A')):
-            buy_trades.append(trade)
-        elif (acquisition == 'D' or 
-              'SALE' in transaction_type or 
-              'SELL' in transaction_type):
+        # Only consider ACTUAL PURCHASES with real money as buying signals:
+        # - A-P-Purchase: Open market purchases with personal money
+        # - Only transactions with price > 0 (exclude $0 option exercises)
+        price = trade.get('price', 0)
+        
+        if (acquisition == 'A' and 
+            ('PURCHASE' in transaction_type or 
+             'BUY' in transaction_type)):
+            # Must have actual price paid (not $0 option exercises)
+            if price > 0 and not ('AWARD' in transaction_type or 'GRANT' in transaction_type):
+                buy_trades.append(trade)
+        elif (acquisition == 'D' and 
+              ('SALE' in transaction_type or 
+               'SELL' in transaction_type)):
             sell_trades.append(trade)
     
     # Calculate trade values
