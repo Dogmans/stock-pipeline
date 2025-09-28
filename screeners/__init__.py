@@ -17,6 +17,7 @@ from . import momentum
 from . import quality
 from . import enhanced_quality
 from . import free_cash_flow_yield
+from . import insider_buying
 
 # Import utility functions
 from .utils import get_available_screeners, run_all_screeners
@@ -40,6 +41,7 @@ screen_for_momentum = momentum.screen_for_momentum
 screen_for_quality = quality.screen_for_quality
 screen_for_enhanced_quality = enhanced_quality.screen_for_enhanced_quality
 screen_for_free_cash_flow_yield = free_cash_flow_yield.screen_for_free_cash_flow_yield
+screen_for_insider_buying = insider_buying.screen_for_insider_buying
 
 # Add aliases for backward compatibility with older tests
 pe_ratio_screener = pe_ratio.screen_for_pe_ratio
@@ -53,6 +55,6 @@ __all__ = [
     'screen_for_combined', 'screen_for_traditional_value', 'screen_for_high_performance',
     'screen_for_comprehensive', 'screen_for_distressed_value', 'screen_for_sector_corrections', 
     'screen_for_sharpe_ratio', 'screen_for_momentum', 'screen_for_quality', 'screen_for_enhanced_quality',
-    'screen_for_free_cash_flow_yield', 'pe_ratio_screener', 'price_to_book_screener', 
+    'screen_for_free_cash_flow_yield', 'screen_for_insider_buying', 'pe_ratio_screener', 'price_to_book_screener', 
     'fifty_two_week_low_screener', 'get_available_screeners', 'run_all_screeners'
 ]

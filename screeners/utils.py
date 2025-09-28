@@ -30,7 +30,8 @@ def get_available_screeners():
         'pe_ratio', 'price_to_book', 'fifty_two_week_lows', 
         'fallen_ipos', 'turnaround_candidates', 'peg_ratio', 
         'sector_corrections', 'combined', 'sharpe_ratio',
-        'momentum', 'quality', 'enhanced_quality', 'free_cash_flow_yield'
+        'momentum', 'quality', 'enhanced_quality', 'free_cash_flow_yield',
+        'insider_buying'
     ]
     
     # Special handling for combined screeners
