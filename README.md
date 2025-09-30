@@ -33,14 +33,30 @@ This pipeline implements a comprehensive stock screening system based on the val
     - `__init__.py`: Package exports
     - `common.py`: Common screening utilities
     - `utils.py`: Helper functions for running screeners
-    - `pe_ratio.py`: P/E ratio screener
-    - `price_to_book.py`: Book value screener
+    
+    **Value Screening:**
+    - `pe_ratio.py`: P/E ratio screener (classic value metric)
+    - `price_to_book.py`: Book value screener (Graham-style value)
+    - `peg_ratio.py`: PEG ratio screener (growth at reasonable price)
+    
+    **Technical & Market Timing:**
     - `fifty_two_week_lows.py`: 52-week low detection
-    - `fallen_ipos.py`: IPO analysis
-    - `peg_ratio.py`: PEG ratio screener
-    - `sector_corrections.py`: Sector correction detection
-    - `combined.py`: Combined screening approach
+    - `momentum.py`: Momentum screener (6M/3M performance analysis)
+    - `sharpe_ratio.py`: Risk-adjusted return screener
+    
+    **Quality & Fundamental:**
+    - `quality.py`: Basic quality screener (financial strength)
+    - `enhanced_quality.py`: Enhanced quality screener (0-100 granular scoring)
+    - `free_cash_flow_yield.py`: Free cash flow yield screener
+    
+    **Special Situations:**
+    - `fallen_ipos.py`: IPO analysis (stabilized post-IPO opportunities)
     - `turnaround_candidates.py`: Turnaround candidate detection
+    - `insider_buying.py`: Pre-pump insider buying patterns
+    - `sector_corrections.py`: Sector correction detection
+    
+    **Combined Strategies:**
+    - `combined.py`: Multiple combined screening approaches
   - `visualization.py`: Functions to visualize screening results
 
 - Orchestration:
@@ -98,6 +114,59 @@ Edit `config.py` to adjust:
 - Stock universes to scan
 
 For detailed documentation on all components, see [DOCUMENTATION.md](DOCUMENTATION.md)
+
+## Available Screening Strategies
+
+The pipeline includes comprehensive screening strategies across multiple investment approaches:
+
+### Value Investing
+- **P/E Ratio Screening**: Classic low P/E ratio detection (< 10 default)
+- **Price-to-Book Screening**: Graham-style book value analysis (< 1.2 default)
+- **PEG Ratio Screening**: Growth at reasonable price analysis
+
+### Quality & Fundamental Analysis
+- **Quality Screening**: Basic financial strength assessment (10-point scale)
+- **Enhanced Quality Screening**: Advanced quality analysis (0-100 granular scoring)
+  - ROE Analysis (0-25 points)
+  - Profitability Analysis (0-25 points) 
+  - Financial Strength (0-25 points)
+  - Growth Quality (0-25 points)
+- **Free Cash Flow Yield**: FCF-based valuation screening
+
+### Technical & Momentum
+- **Momentum Screening**: 6-month/3-month performance analysis
+- **Sharpe Ratio Screening**: Risk-adjusted return analysis
+- **52-Week Low Detection**: Quality stocks near yearly lows
+
+### Special Situations
+- **Fallen IPO Analysis**: Post-IPO stabilization opportunities
+- **Turnaround Candidates**: Financial recovery pattern detection
+- **Insider Buying Patterns**: Pre-pump insider activity detection (0-100 scoring)
+  - Insider Activity Analysis (0-40 points)
+  - Technical Consolidation (0-35 points)
+  - Acceleration Analysis (0-25 points)
+- **Sector Corrections**: Sector-wide downturn opportunities
+
+### Combined Strategies
+- **Traditional Value**: P/E + P/B + PEG combined
+- **High Performance**: Momentum + Quality + FCF Yield
+- **Comprehensive**: All strategies combined
+- **Distressed Value**: Specialized distressed situation analysis
+
+### Usage Examples
+```bash
+# Run individual screeners
+python main.py --universe sp500 --strategies pe_ratio
+python main.py --universe sp500 --strategies enhanced_quality
+python main.py --universe sp500 --strategies insider_buying
+
+# Run combined strategies
+python main.py --universe sp500 --strategies traditional_value
+python main.py --universe sp500 --strategies high_performance
+
+# Mix and match
+python main.py --universe sp500 --strategies momentum,quality,insider_buying
+```
 
 ## Recent Updates
 

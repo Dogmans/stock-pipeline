@@ -269,38 +269,188 @@ python main.py --universe sp500 --strategies value,sharpe_ratio
 - **Cache Friendly**: Reuses existing price data when available
 - **Rate Limited**: Execution time depends on API rate limits
 
+## Momentum Screener
+
+The momentum screener identifies stocks with strong recent performance trends using weighted analysis of 6-month and 3-month returns.
+
+### Implementation Details
+
+1. **Momentum Score Calculation**:
+   ```python
+   # Weighted momentum score (6M: 60%, 3M: 40%)
+   momentum_score = (six_month_return * 0.6) + (three_month_return * 0.4)
+   ```
+
+2. **Key Features**:
+   - Default threshold: 15% momentum score
+   - Configurable lookback periods
+   - Sector and market cap analysis
+   - Company fundamental integration
+
+3. **Usage Example**:
+   ```bash
+   python main.py --universe sp500 --strategies momentum
+   ```
+
+## Quality Screener
+
+Basic quality screening using a 10-point financial strength assessment.
+
+### Scoring Components
+
+1. **Profitability** (0-3 points)
+2. **Financial Strength** (0-3 points) 
+3. **Operational Efficiency** (0-2 points)
+4. **Growth Stability** (0-2 points)
+
+### Usage Example
+```bash
+python main.py --universe sp500 --strategies quality
+```
+
+## Enhanced Quality Screener
+
+Advanced quality analysis with granular 0-100 point scoring across four dimensions.
+
+### Scoring Components (0-100 Total)
+
+1. **ROE Analysis** (0-25 points):
+   - ROE > 15%: Full points
+   - ROE 10-15%: Scaled scoring
+   - ROE < 10%: Minimal points
+
+2. **Profitability Analysis** (0-25 points):
+   - Operating margin assessment
+   - Profit margin evaluation
+   - Trend analysis
+
+3. **Financial Strength** (0-25 points):
+   - Debt-to-equity ratio
+   - Current ratio analysis
+   - Financial stability metrics
+
+4. **Growth Quality** (0-25 points):
+   - Revenue growth consistency
+   - Earnings growth quality
+   - Sustainable growth indicators
+
+### Usage Example
+```bash
+python main.py --universe sp500 --strategies enhanced_quality
+```
+
+### Default Threshold
+- Minimum score: 50/100 for `meets_threshold` flag
+- Provides much better differentiation than basic quality screener
+
+## Free Cash Flow Yield Screener
+
+Screens for stocks with attractive free cash flow yields relative to market capitalization.
+
+### Key Metrics
+
+1. **FCF Yield Calculation**:
+   ```python
+   fcf_yield = (free_cash_flow / market_cap) * 100
+   ```
+
+2. **Quality Indicators**:
+   - FCF growth trends
+   - FCF vs. net income comparison
+   - Capital allocation efficiency
+
+### Usage Example
+```bash
+python main.py --universe sp500 --strategies free_cash_flow_yield
+```
+
+## Insider Buying Screener (Pre-Pump Pattern Detection)
+
+Advanced screener detecting pre-pump insider buying patterns with technical consolidation analysis.
+
+### Multi-Component Scoring (0-100 points)
+
+#### Component 1: Insider Activity Analysis (0-40 points)
+- **Buy/Sell Ratio** (0-25 points): Percentage of buy vs. sell transactions
+- **Net Share Activity** (0-10 points): Positive net buying bonus
+- **Insider Diversity** (0-5 points): Multiple insiders buying confidence boost
+
+#### Component 2: Technical Consolidation Analysis (0-35 points)
+- **Price Consolidation** (0-20 points): Low volatility base-building periods
+- **Volume Patterns** (0-15 points): Unusual volume during insider activity
+- **Support Level Adherence**: Price stability above technical support
+
+#### Component 3: Acceleration Analysis (0-25 points)
+- **Recent vs. Historical Activity** (0-15 points): 30-day vs. 90-day comparison
+- **Volume Surge** (0-10 points): Recent buying volume above averages
+- **Activity Concentration**: Multiple transactions in short timeframes
+
+### Enhanced Thresholds
+- **Default threshold**: 65.0/100 (selective for pre-pump patterns)
+- **Lookback period**: 60 days (configurable)
+- **Consolidation threshold**: <15% annualized volatility
+- **Acceleration threshold**: 1.5x recent vs. historical activity
+
+### Usage Example
+```bash
+python main.py --universe sp500 --strategies insider_buying
+```
+
+## Combined Screeners
+
+Multiple pre-configured combined screening strategies for different investment approaches.
+
+### Available Combined Strategies
+
+1. **Traditional Value** (`traditional_value`):
+   - P/E ratio + Price-to-book + PEG ratio
+   - Classic Graham/Buffett value metrics
+
+2. **High Performance** (`high_performance`):
+   - Momentum + Quality + Free Cash Flow Yield
+   - Research-backed performance indicators
+
+3. **Comprehensive** (`comprehensive`):
+   - All available screening strategies combined
+   - Maximum coverage analysis
+
+4. **Distressed Value** (`distressed_value`):
+   - Specialized distressed situation screening
+   - Turnaround + sector correction focus
+
+### Usage Examples
+```bash
+# Run individual combined strategies
+python main.py --universe sp500 --strategies traditional_value
+python main.py --universe sp500 --strategies high_performance
+
+# Compare multiple approaches
+python main.py --universe sp500 --strategies traditional_value,high_performance
+```
+
 ## Future Enhancements
 
-Potential improvements to the turnaround detection:
+### Momentum Screener Enhancements
+1. **Relative Strength Analysis**: Compare to sector and market performance
+2. **Volume Confirmation**: Incorporate volume analysis for momentum validation
+3. **Trend Quality**: Assess consistency and sustainability of momentum
 
-1. **Additional Metrics**:
-   - Include analyst estimate beats after previous misses
-   - Add FCF (Free Cash Flow) improvement detection
-   - Track inventory and accounts receivable trends
+### Quality Screener Enhancements
+1. **Sector-Specific Metrics**: Customize quality factors by industry
+2. **ESG Integration**: Incorporate environmental, social, governance factors
+3. **Management Quality**: Add management effectiveness metrics
 
-2. **Pattern Recognition**:
-   - Add price pattern recognition to identify bottoming patterns
-   - Incorporate relative strength vs. industry peers
-   - Consider sector-specific turnaround metrics
+### Enhanced Quality Improvements
+1. **Machine Learning Scoring**: Use ML models for quality prediction
+2. **Peer Comparison**: Relative quality scoring within sectors
+3. **Time Series Analysis**: Quality trend analysis over multiple periods
 
-3. **Advanced Scoring**:
-   - Implement machine learning to identify successful historical turnarounds
-   - Weight factors based on sector-specific importance
-   - Add time-based decay to give more weight to recent improvements
+### Insider Buying Enhancements
+1. **Sentiment Analysis**: Analyze insider trading timing and market conditions
+2. **Outcome Tracking**: Track historical success rates of detected patterns
+3. **Options Activity**: Incorporate unusual options activity correlation
 
-### Sharpe Ratio Enhancements
-
-1. **Advanced Risk Metrics**:
-   - Implement Beta calculation for market-relative risk
-   - Add Alpha calculation for excess returns
-   - Include Maximum Drawdown analysis
-
-2. **Portfolio-Level Analysis**:
-   - Calculate portfolio Sharpe ratio for combined positions
-   - Implement correlation analysis between selected stocks
-   - Add sector-relative Sharpe ratio comparisons
-
-3. **Time-Series Analysis**:
-   - Rolling Sharpe ratio calculations for trend analysis
-   - Seasonal adjustment for cyclical stocks
-   - Volatility clustering detection
+### Technical Analysis Integration
+1. **Chart Pattern Recognition**: Automated technical pattern detection
+2. **Support/Resistance Levels**: Dynamic support and resistance calculation
+3. **Relative Strength Index**: RSI integration across all screeners
