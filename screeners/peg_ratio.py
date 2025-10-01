@@ -86,14 +86,16 @@ def screen_for_peg_ratio(universe_df=None, max_peg_ratio=1.0, min_growth=5.0, fo
             # Fall back to company_data growth rates if quarterly calculation failed
             if growth_rate is None:
                 if eps_growth is not None and eps_growth != '' and not np.isnan(float(eps_growth)) and float(eps_growth) > 0:
-                    growth_rate = float(eps_growth) * 100  # Convert to percentage
+                    # Don't multiply by 100 - assume it's already in percentage format
+                    growth_rate = float(eps_growth)
                     growth_type = "EPS Growth"
                 elif revenue_growth is not None and revenue_growth != '' and not np.isnan(float(revenue_growth)) and float(revenue_growth) > 0:
-                    growth_rate = float(revenue_growth) * 100  # Convert to percentage
+                    # Don't multiply by 100 - assume it's already in percentage format
+                    growth_rate = float(revenue_growth)
                     growth_type = "Revenue Growth"
             
-            # Skip if growth rate is not available or zero/negative (can't calculate meaningful PEG)
-            if growth_rate is None or growth_rate <= 0:
+            # Skip if growth rate is not available, zero/negative, or unrealistically high
+            if growth_rate is None or growth_rate <= 0 or growth_rate > 100:  # Cap at 100% growth
                 continue
             
             # Calculate PEG ratio
