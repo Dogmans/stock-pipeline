@@ -193,10 +193,32 @@ def calculate_pre_pump_score(trades, symbol, provider):
     # 1. INSIDER BUYING ANALYSIS (40 points max)
     insider_metrics = analyze_insider_activity(trades)
     
-    # 2. TECHNICAL ANALYSIS (35 points max)
+    # CRITICAL: If there are NO insider buys, the score must be 0
+    # This is an insider buying screener - without insider buying, it's irrelevant
+    if insider_metrics['buy_trades'] == 0:
+        return {
+            'pre_pump_score': 0,
+            'total_trades': insider_metrics['total_trades'],
+            'buy_trades': 0,
+            'sell_trades': insider_metrics['sell_trades'],
+            'net_shares': insider_metrics['net_shares'],
+            'buy_value': 0,
+            'sell_value': insider_metrics['sell_value'],
+            'unique_insiders': insider_metrics['unique_insiders'],
+            'executive_trades': insider_metrics['executive_trades'],
+            'director_trades': insider_metrics['director_trades'],
+            'recent_activity_spike': 0,
+            'avg_trade_size': insider_metrics['avg_trade_size'],
+            'acceleration_score': 0,
+            'technical_score': 0,
+            'consolidation_detected': False,
+            'volume_pattern_score': 0
+        }
+    
+    # 2. TECHNICAL ANALYSIS (35 points max) - only if we have insider buying
     technical_metrics = analyze_technical_setup(symbol, provider)
     
-    # 3. ACCELERATION ANALYSIS (25 points max)
+    # 3. ACCELERATION ANALYSIS (25 points max) - only if we have insider buying
     acceleration_metrics = analyze_buying_acceleration(trades)
     
     # Combine scores
