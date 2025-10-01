@@ -1,5 +1,32 @@
 # PowerShell Commands for Cache Management
 
+## VS Code Debug Configurations
+
+The project includes pre-configured VS Code debug configurations for common scenarios:
+
+### Available Debug Configurations:
+- **Debug SP500 All Strategies**: Run all screeners on S&P 500 (limit: 50)
+- **Debug Russell2000 All Strategies**: Run all screeners on Russell 2000 (limit: 50)
+- **Debug SP500 High Performance**: Run high-performance screeners on S&P 500 (limit: 30)
+- **Debug Russell2000 Traditional Value**: Run traditional value screeners on Russell 2000 (limit: 30)
+- **Debug Custom Stock List**: Test specific stocks with selected screeners
+- **Debug with Cache Info**: Run with cache information display
+- **Debug Force Refresh**: Run with fresh data (bypass cache)
+
+### Available Tasks:
+- **Run SP500 All Strategies**: Execute without debugging
+- **Run Russell2000 All Strategies**: Execute without debugging  
+- **Run SP500 High Performance**: Execute high-performance screeners
+- **Run Russell2000 Traditional Value**: Execute traditional value screeners
+- **Test Individual Screeners**: Test on sample stocks
+- **Clear Cache**: Clear all cached data
+- **Show Cache Info**: Display cache statistics
+
+### Usage:
+1. Press `F5` to start debugging with the default configuration
+2. Press `Ctrl+Shift+P` and type "Debug: Select and Start Debugging" to choose a specific configuration
+3. Press `Ctrl+Shift+P` and type "Tasks: Run Task" to execute tasks without debugging
+
 ## Cache Management
 
 Clear all cache entries:
