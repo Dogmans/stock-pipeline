@@ -14,10 +14,42 @@ This pipeline implements a comprehensive stock screening system based on the val
 
 ## Setup Instructions
 
-1. Install requirements: `pip install -r requirements.txt`
-   - Note: TA-Lib may require additional setup steps. See [TA-Lib Installation Guide](https://github.com/mrjbq7/ta-lib#installation)
-2. Set up your API keys in the `config.py` file
-3. Run the main pipeline: `python main.py`
+### 1. Environment Setup
+```bash
+# Create virtual environment (optional but recommended)
+python -m venv venv
+venv\Scripts\activate  # Windows
+# or source venv/bin/activate  # Linux/Mac
+
+# Install requirements
+pip install -r requirements.txt
+```
+Note: TA-Lib may require additional setup steps. See [TA-Lib Installation Guide](https://github.com/mrjbq7/ta-lib#installation)
+
+### 2. API Configuration
+1. Copy the `.env` template and configure your API keys:
+   ```bash
+   # Edit .env file with your API keys
+   FINANCIAL_MODELING_PREP_API_KEY=your_key_here
+   ALPHA_VANTAGE_API_KEY=your_key_here  
+   FINNHUB_API_KEY=your_key_here
+   ```
+
+2. **Required API Keys:**
+   - **Financial Modeling Prep** (Primary): [Get API Key](https://financialmodelingprep.com/developer/docs) - Paid tier recommended (300 calls/minute)
+   - **Alpha Vantage** (Backup): [Get Free API Key](https://www.alphavantage.co/support/#api-key) - 5 calls/minute
+   - **Finnhub** (Company Data): [Get Free API Key](https://finnhub.io/register) - 60 calls/minute
+
+### 3. VS Code Setup (Optional)
+Pre-configured debug configurations are available:
+- **Debug SP500 All Strategies**: Run all screeners on S&P 500
+- **Debug Russell2000 All Strategies**: Run all screeners on Russell 2000  
+- Press `F5` or use Run and Debug panel
+
+### 4. Quick Start
+```bash
+python main.py --universe sp500 --strategies all --limit 20
+```
 
 ## Pipeline Components
 
@@ -131,7 +163,7 @@ The pipeline includes comprehensive screening strategies across multiple investm
   - Profitability Analysis (0-25 points) 
   - Financial Strength (0-25 points)
   - Growth Quality (0-25 points)
-- **Free Cash Flow Yield**: FCF-based valuation screening
+- **Free Cash Flow Yield**: Uses API's pre-calculated FCF yield for accurate valuation screening
 
 ### Technical & Momentum
 - **Momentum Screening**: 6-month/3-month performance analysis
@@ -142,6 +174,7 @@ The pipeline includes comprehensive screening strategies across multiple investm
 - **Fallen IPO Analysis**: Post-IPO stabilization opportunities
 - **Turnaround Candidates**: Financial recovery pattern detection
 - **Insider Buying Patterns**: Pre-pump insider activity detection (0-100 scoring)
+  - **Requires actual insider purchases** - Stocks with zero insider buying automatically get 0 score
   - Insider Activity Analysis (0-40 points)
   - Technical Consolidation (0-35 points)
   - Acceleration Analysis (0-25 points)
@@ -155,49 +188,64 @@ The pipeline includes comprehensive screening strategies across multiple investm
 
 ### Usage Examples
 ```bash
-# Run individual screeners
-python main.py --universe sp500 --strategies pe_ratio
-python main.py --universe sp500 --strategies enhanced_quality
-python main.py --universe sp500 --strategies insider_buying
+# Quick start - all strategies on SP500 (limited results)
+python main.py --universe sp500 --strategies all --limit 20
 
-# Run combined strategies
+# Individual screeners
+python main.py --universe sp500 --strategies pe_ratio
+python main.py --universe sp500 --strategies enhanced_quality  
+python main.py --universe russell2000 --strategies insider_buying
+
+# Combined strategies (pre-configured)
 python main.py --universe sp500 --strategies traditional_value
 python main.py --universe sp500 --strategies high_performance
+python main.py --universe sp500 --strategies comprehensive
 
-# Mix and match
-python main.py --universe sp500 --strategies momentum,quality,insider_buying
+# Custom combinations
+python main.py --universe russell2000 --strategies momentum,enhanced_quality,insider_buying
+python main.py --universe sp500 --strategies peg_ratio,fcf_yield,quality --limit 30
+
+# Cache management
+python main.py --cache-info                    # Show cache statistics  
+python main.py --clear-cache                   # Clear all cache
+python main.py --force-refresh --limit 10      # Fresh data (testing)
 ```
+
+## Performance & Rate Limiting
+
+- **Financial Modeling Prep**: 300 calls/minute (paid tier recommended)
+- **Caching System**: 24-hour data expiry reduces API usage
+- **Intelligent Throttling**: Cache-aware rate limiting
+- **Progress Tracking**: Real-time progress bars for long operations
 
 ## Recent Updates
 
-### June 2025
+### October 2025 - Major Improvements
+- **Fixed PEG Ratio Data Issues**: Corrected growth rate format handling (decimal vs percentage)
+- **Enhanced FCF Yield Screener**: Now uses API's pre-calculated `freeCashFlowYield` for accuracy
+- **Improved Insider Buying Logic**: Stocks with zero insider purchases automatically get 0 score
+- **Enhanced Reporting**: Added PEG ratio display and improved growth rate formatting
+- **VS Code Integration**: Added comprehensive debug configurations and tasks
+
+### September 2025 - Documentation & Screener Updates  
+- **Updated Documentation**: Comprehensive README and screener method documentation
+- **Enhanced Quality Screener**: 0-100 granular scoring system for better differentiation
+- **Insider Buying Screener**: Advanced pre-pump pattern detection with technical analysis
+- **Rate Limiting**: Properly configured for Financial Modeling Prep (300 calls/minute)
+
+### June 2025 - Architecture Improvements
 - Updated data provider architecture to allow API-specific method naming
 - Removed redundant test files and improved test organization
 - Enhanced documentation for the new architecture
 
-### November 2023
-- Refactored the screeners to fetch their own data directly from providers
-- Removed chunked processing
-- Simplified the overall codebase
+## Key Features
 
-## Recent Enhancements
-
-1. **Enhanced Screener Behavior** (June 2025):
-   - All screeners now return complete stock sets ranked by relevant metrics
-   - Each result includes a `meets_threshold` flag to filter for traditional threshold-based screening
-   - Results can be used individually or by the combined screener for comprehensive scoring
-   - See `docs/screener_methods/enhanced_behavior.md` for details
-
-2. **Combined Screener** (June 2025):
-   - New screener that ranks stocks based on their performance across multiple strategies
-   - Calculates average position across different metrics (P/E, P/B, PEG, etc.)
-   - Gives slight bonus to stocks appearing in multiple screeners
-   - See `docs/screener_methods/combined.md` for details
-
-3. **PEG Ratio Screener** (June 2025):
-   - Calculates Price/Earnings to Growth ratio to find stocks undervalued relative to growth
-   - Uses either latest quarterly data or annual growth rates as available
-   - See `docs/screener_methods/peg_ratio.md` for details
+1. **Comprehensive Screening**: 15+ screening strategies across value, quality, momentum, and special situations
+2. **Advanced Scoring**: Granular 0-100 point systems for quality and insider buying analysis
+3. **API Integration**: Optimized for Financial Modeling Prep with proper rate limiting (300 calls/minute)
+4. **Caching System**: Intelligent caching reduces API usage and improves performance
+5. **VS Code Integration**: Pre-configured debug setups for efficient development and testing
+6. **Flexible Output**: Detailed reports with proper metric formatting and threshold indicators
 
 ## Modules
 
