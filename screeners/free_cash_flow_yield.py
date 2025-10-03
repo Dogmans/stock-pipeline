@@ -40,27 +40,28 @@ def screen_for_free_cash_flow_yield(universe_df, min_fcf_yield=None):
     # Process each symbol individually
     for symbol in tqdm(symbols, desc="Calculating FCF yields", unit="symbol"):
         try:
-            # Get cash flow statement and company overview
-            cash_flow = fmp_provider.get_cash_flow(symbol)
+            # Get company data which includes pre-calculated freeCashFlowYield
             company_data = fmp_provider.get_company_overview(symbol)
             
-            if cash_flow is None or not company_data or cash_flow.empty:
+            if not company_data:
                 continue
             
-            # Get free cash flow (TTM) - use the most recent entry
-            latest_cash_flow = cash_flow.iloc[0]  # Most recent year
-            free_cash_flow = latest_cash_flow.get('freeCashflow')  # Note: lowercase 'f'
+            # Use API's pre-calculated FCF yield (in decimal format)
+            fcf_yield_decimal = company_data.get('freeCashFlowYield')
+            
+            if fcf_yield_decimal is None or pd.isna(fcf_yield_decimal):
+                # Skip stocks without FCF yield data
+                continue
+                
+            # Convert from decimal to percentage (0.031 -> 3.1%)
+            fcf_yield = float(fcf_yield_decimal) * 100
+            
+            # Only consider stocks with positive FCF yield
+            if fcf_yield <= 0:
+                continue
+            
+            # Get market cap for display purposes
             market_cap = company_data.get('MarketCapitalization')
-            
-            if not free_cash_flow or not market_cap or market_cap <= 0:
-                continue
-            
-            # Calculate FCF Yield
-            fcf_yield = (free_cash_flow / market_cap) * 100
-            
-            # Only consider stocks with positive free cash flow
-            if free_cash_flow <= 0:
-                continue
             
             # Extract company info
             company_name = company_data.get('Name', symbol)
@@ -69,16 +70,15 @@ def screen_for_free_cash_flow_yield(universe_df, min_fcf_yield=None):
             
             # All stocks are included for ranking, but mark whether they meet the threshold
             meets_threshold = fcf_yield >= min_fcf_yield
-            reason = f"FCF Yield: {fcf_yield:.1f}% (FCF: ${free_cash_flow/1e9:.1f}B)" if meets_threshold else f"FCF Yield: {fcf_yield:.1f}%"
+            reason = f"FCF Yield: {fcf_yield:.1f}%" + (" (Strong)" if meets_threshold else "")
             
-            # Add to results (all stocks with positive FCF)
+            # Add to results (all stocks with positive FCF yield)
             results.append({
                 'symbol': symbol,
                 'company_name': company_name,
                 'sector': sector,
                 'current_price': current_price,
                 'fcf_yield': fcf_yield,
-                'free_cash_flow': free_cash_flow,
                 'market_cap': market_cap,
                 'meets_threshold': meets_threshold,
                 'reason': reason

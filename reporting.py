@@ -52,8 +52,10 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                     key_metric = f"P/B: {results.iloc[0]['price_to_book']:.3f}"
                 elif 'dividend_yield' in results.columns:
                     key_metric = f"Yield: {results.iloc[0]['dividend_yield']:.2%}"
+                elif 'peg_ratio' in results.columns:
+                    key_metric = f"PEG: {results.iloc[0]['peg_ratio']:.2f}"
                 elif 'growth_rate' in results.columns:
-                    key_metric = f"Growth: {results.iloc[0]['growth_rate']:.2%}"
+                    key_metric = f"Growth: {results.iloc[0]['growth_rate']:.1f}%"
                 elif 'sharpe_ratio' in results.columns:
                     key_metric = f"Sharpe: {results.iloc[0]['sharpe_ratio']:.2f}"
                 elif 'momentum_score' in results.columns:
@@ -121,6 +123,8 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                 key_metrics.append('pct_off_high')
             if 'pct_above_low' in display_results.columns:
                 key_metrics.append('pct_above_low')
+            if 'peg_ratio' in display_results.columns:
+                key_metrics.append('peg_ratio')
             if 'growth_rate' in display_results.columns:
                 key_metrics.append('growth_rate')
             if 'sharpe_ratio' in display_results.columns:
@@ -149,10 +153,14 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                     if metric in row:
                         if metric == 'price_to_book':
                             f.write(f" {row[metric]:.3f} |")
+                        elif metric == 'peg_ratio':
+                            f.write(f" {row[metric]:.2f} |")
                         elif 'ratio' in metric:
                             f.write(f" {row[metric]:.2f} |")
                         elif 'yield' in metric:
                             f.write(f" {row[metric]:.2%} |")
+                        elif 'rate' in metric and 'growth' in metric:
+                            f.write(f" {row[metric]:.1f}% |")
                         elif 'rate' in metric:
                             f.write(f" {row[metric]:.2%} |")
                         elif 'pct' in metric:
@@ -185,6 +193,7 @@ def generate_metrics_definitions():
 |--------|------------|----------------|
 | P/E Ratio | Price to Earnings Ratio | Lower values typically indicate better value |
 | P/B Ratio | Price to Book Ratio | Lower values typically indicate better value |
+| PEG Ratio | Price/Earnings to Growth Ratio | Lower values indicate better value relative to growth |
 | Dividend Yield | Annual dividend / Current price | Higher values indicate better income potential |
 | Pct Off High | Percentage below 52-week high | Higher values may indicate undervaluation |
 | Pct Above Low | Percentage above 52-week low | Lower values may indicate buying opportunity |

@@ -77,7 +77,7 @@ def screen_for_peg_ratio(universe_df=None, max_peg_ratio=1.0, min_growth=5.0, fo
                         # Only calculate growth if previous EPS was positive
                         # (negative to positive is infinite growth and skews results)
                         if year_ago_eps > 0 and current_eps > 0:
-                            eps_yoy_growth = ((current_eps / year_ago_eps) - 1) * 100
+                            eps_yoy_growth = ((current_eps / year_ago_eps) - 1) * 100  # Keep as percentage
                             growth_rate = eps_yoy_growth
                             growth_type = "EPS YoY"
                 except (IndexError, KeyError, TypeError, ZeroDivisionError):
@@ -86,12 +86,14 @@ def screen_for_peg_ratio(universe_df=None, max_peg_ratio=1.0, min_growth=5.0, fo
             # Fall back to company_data growth rates if quarterly calculation failed
             if growth_rate is None:
                 if eps_growth is not None and eps_growth != '' and not np.isnan(float(eps_growth)) and float(eps_growth) > 0:
-                    # Don't multiply by 100 - assume it's already in percentage format
-                    growth_rate = float(eps_growth)
+                    # FMP API returns growth rates in decimal format (0.15 = 15%)
+                    # Convert to percentage for consistent units
+                    growth_rate = float(eps_growth) * 100
                     growth_type = "EPS Growth"
                 elif revenue_growth is not None and revenue_growth != '' and not np.isnan(float(revenue_growth)) and float(revenue_growth) > 0:
-                    # Don't multiply by 100 - assume it's already in percentage format
-                    growth_rate = float(revenue_growth)
+                    # FMP API returns growth rates in decimal format (0.15 = 15%)
+                    # Convert to percentage for consistent units
+                    growth_rate = float(revenue_growth) * 100
                     growth_type = "Revenue Growth"
             
             # Skip if growth rate is not available, zero/negative, or unrealistically high
