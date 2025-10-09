@@ -42,28 +42,35 @@ def screen_for_free_cash_flow_yield(universe_df, min_fcf_yield=None):
     # Process each symbol individually
     for symbol in tqdm(symbols, desc="Calculating FCF yields", unit="symbol"):
         try:
-            # Get company data which includes pre-calculated freeCashFlowYield
+            # Get company data for market cap and basic info
             company_data = fmp_provider.get_company_overview(symbol)
             
             if not company_data:
                 continue
             
-            # Use API's pre-calculated FCF yield (in decimal format)
-            fcf_yield_decimal = company_data.get('freeCashFlowYield')
-            
-            if fcf_yield_decimal is None or pd.isna(fcf_yield_decimal):
-                # Skip stocks without FCF yield data
+            # Get market cap
+            market_cap = company_data.get('MarketCapitalization')
+            if not market_cap or market_cap <= 0:
                 continue
-                
-            # Convert from decimal to percentage (0.031 -> 3.1%)
-            fcf_yield = float(fcf_yield_decimal) * 100
+            
+            # Get cash flow data to calculate FCF yield
+            cash_flow_data = fmp_provider.get_cash_flow(symbol)
+            
+            if cash_flow_data.empty:
+                continue
+            
+            # Get the most recent free cash flow (TTM)
+            latest_fcf = cash_flow_data.iloc[0].get('freeCashflow')
+            
+            if latest_fcf is None or pd.isna(latest_fcf) or latest_fcf == 0:
+                continue
+            
+            # Calculate FCF yield as percentage
+            fcf_yield = (float(latest_fcf) / float(market_cap)) * 100
             
             # Only consider stocks with positive FCF yield
             if fcf_yield <= 0:
                 continue
-            
-            # Get market cap for display purposes
-            market_cap = company_data.get('MarketCapitalization')
             
             # Extract company info
             company_name = company_data.get('Name', symbol)
