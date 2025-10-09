@@ -75,6 +75,31 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
         for strategy, results in screening_results.items():
             f.write(f"## {strategy.replace('_', ' ').title()} Strategy\n\n")
             
+            # Add explanatory paragraph for each strategy
+            strategy_descriptions = {
+                'pe_ratio': 'Identifies undervalued stocks trading at low price-to-earnings ratios. Lower P/E ratios may indicate better value opportunities, though context matters by sector and growth expectations.',
+                'price_to_book': 'Finds stocks trading near or below their book value (tangible assets minus liabilities). Values below 1.0 suggest the stock trades for less than its liquidation value.',
+                'peg_ratio': 'Screens for stocks with attractive Price/Earnings-to-Growth ratios. PEG ratios below 1.0 suggest the stock may be undervalued relative to its growth prospects.',
+                'momentum': 'Identifies stocks with strong recent performance trends using 6-month and 3-month weighted returns. Higher momentum scores indicate stronger recent price performance.',
+                'quality': 'Evaluates financial strength using a 10-point system covering profitability, debt levels, and operational efficiency. Higher scores indicate stronger, more sustainable businesses.',
+                'enhanced_quality': 'Advanced quality analysis with 0-100 granular scoring across four dimensions: ROE (25 pts), Profitability (25 pts), Financial Strength (25 pts), and Growth Quality (25 pts). Higher scores indicate superior financial quality.',
+                'free_cash_flow_yield': 'Screens for stocks with high free cash flow relative to market capitalization. Higher FCF yields may indicate better value and cash-generating ability.',
+                'sharpe_ratio': 'Identifies stocks with superior risk-adjusted returns. Higher Sharpe ratios indicate better return per unit of risk taken, with values above 1.0 considered good.',
+                'insider_buying': 'Detects pre-pump insider buying patterns combined with technical consolidation. Scores consider insider activity (40 pts), technical setup (35 pts), and acceleration patterns (25 pts). Only stocks with actual insider purchases receive non-zero scores.',
+                'fifty_two_week_lows': 'Finds quality stocks trading near their 52-week lows, potentially indicating temporary undervaluation or buying opportunities during market downturns.',
+                'fallen_ipos': 'Targets IPO stocks that have declined significantly but may be stabilizing. Looks for companies that have moved past initial volatility and are approaching sustainable operations.',
+                'turnaround_candidates': 'Identifies companies showing signs of financial recovery through improved earnings, margins, or balance sheet metrics. Focuses on genuine turnaround patterns rather than steady growth.',
+                'sector_corrections': 'Detects sector-wide downturns that may create buying opportunities in fundamentally sound companies experiencing temporary weakness due to sector headwinds.',
+                'traditional_value': 'Combines classic value metrics (P/E, P/B, PEG ratios) to identify comprehensively undervalued stocks using Graham and Buffett-inspired criteria.',
+                'high_performance': 'Combines research-backed performance indicators (Momentum, Quality, FCF Yield) to identify stocks with strong fundamentals and positive price trends.',
+                'comprehensive': 'Ranks stocks across all available screening strategies to identify companies that score well on multiple criteria, providing a holistic investment view.',
+                'distressed_value': 'Focuses on special situation investments including turnarounds and sector corrections, targeting companies with potential for significant recovery.',
+                'combined': 'Multi-strategy approach that scores stocks across various metrics and ranks them by average performance, identifying the most consistently attractive opportunities.'
+            }
+            
+            description = strategy_descriptions.get(strategy, f'Analysis results for {strategy.replace("_", " ")} screening strategy.')
+            f.write(f"{description}\n\n")
+            
             if not isinstance(results, pd.DataFrame) or results.empty:
                 f.write("No stocks passed this screener.\n\n")
                 continue
