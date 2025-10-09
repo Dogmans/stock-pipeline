@@ -6,6 +6,8 @@ Screens for stocks trading near their 52-week low price.
 from .common import *
 from market_data import is_market_in_correction
 
+STRATEGY_DESCRIPTION = "Finds quality stocks trading near their 52-week lows, potentially indicating temporary undervaluation or buying opportunities during market downturns."
+
 def screen_for_52_week_lows(universe_df, min_pct_off_high=None, max_pct_above_low=None):
     """
     Screen for stocks near their 52-week lows.

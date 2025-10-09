@@ -5,6 +5,8 @@ Screens for stocks with low Price to Earnings ratios.
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Identifies undervalued stocks trading at low price-to-earnings ratios. Lower P/E ratios may indicate better value opportunities, though context matters by sector and growth expectations."
+
 def screen_for_pe_ratio(universe_df, max_pe=None):
     """
     Screen for stocks with low P/E ratios.

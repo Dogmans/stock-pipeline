@@ -6,6 +6,8 @@ Research basis: Warren Buffett's quality investing principles and Piotroski F-Sc
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Evaluates financial strength using a 10-point system covering profitability, debt levels, and operational efficiency. Higher scores indicate stronger, more sustainable businesses."
+
 def screen_for_quality(universe_df, min_quality_score=None):
     """
     Screen for high-quality companies using composite quality score.

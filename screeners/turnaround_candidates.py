@@ -5,6 +5,8 @@ Screens for companies showing signs of financial turnaround or improvement.
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Identifies companies showing signs of financial recovery through improved earnings, margins, or balance sheet metrics. Focuses on genuine turnaround patterns rather than steady growth."
+
 def screen_for_turnaround_candidates(universe_df, force_refresh=False):
     """
     Screen for companies showing signs of financial turnaround or improvement.

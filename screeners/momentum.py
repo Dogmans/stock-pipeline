@@ -6,6 +6,8 @@ Research basis: Jegadeesh & Titman (1993) - Returns to Buying Winners and Sellin
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Identifies stocks with strong recent performance trends using 6-month and 3-month weighted returns. Higher momentum scores indicate stronger recent price performance."
+
 def screen_for_momentum(universe_df, min_momentum_score=None, lookback_period="7mo"):
     """
     Screen for stocks with strong price momentum.

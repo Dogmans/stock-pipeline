@@ -6,6 +6,8 @@ Research basis: Joel Greenblatt's "Magic Formula" and FCF yield as predictor of 
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Screens for stocks with high free cash flow relative to market capitalization. Higher FCF yields may indicate better value and cash-generating ability."
+
 def screen_for_free_cash_flow_yield(universe_df, min_fcf_yield=None):
     """
     Screen for stocks with high free cash flow yield.

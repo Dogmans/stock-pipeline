@@ -16,6 +16,8 @@ from tqdm import tqdm
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 from .common import *
 
+STRATEGY_DESCRIPTION = "Advanced quality analysis with 0-100 granular scoring across four dimensions: ROE (25 pts), Profitability (25 pts), Financial Strength (25 pts), and Growth Quality (25 pts). Higher scores indicate superior financial quality."
+
 logger = logging.getLogger(__name__)
 
 def screen_for_enhanced_quality(universe_df, min_enhanced_quality_score=None):

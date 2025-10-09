@@ -5,6 +5,8 @@ Screens for recent IPOs that have dropped significantly from their highs.
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Targets IPO stocks that have declined significantly but may be stabilizing. Looks for companies that have moved past initial volatility and are approaching sustainable operations."
+
 def screen_for_fallen_ipos(universe_df, max_years_since_ipo=3, min_pct_off_high=70):
     """
     Screen for fallen IPOs that have dropped significantly from their highs.

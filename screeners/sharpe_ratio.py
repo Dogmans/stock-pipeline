@@ -5,6 +5,8 @@ Screens for stocks with high risk-adjusted returns (Sharpe ratio).
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Identifies stocks with superior risk-adjusted returns. Higher Sharpe ratios indicate better return per unit of risk taken, with values above 1.0 considered good."
+
 def screen_for_sharpe_ratio(universe_df, min_sharpe_ratio=None, lookback_period="1y"):
     """
     Screen for stocks with high Sharpe ratios (risk-adjusted returns).

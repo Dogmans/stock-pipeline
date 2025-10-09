@@ -20,6 +20,8 @@ from tqdm import tqdm
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 import config
 
+STRATEGY_DESCRIPTION = "Detects pre-pump insider buying patterns combined with technical consolidation. Scores consider insider activity (40 pts), technical setup (35 pts), and acceleration patterns (25 pts). Only stocks with actual insider purchases receive non-zero scores."
+
 # Get logger for this module
 from utils.logger import get_logger
 logger = get_logger(__name__)

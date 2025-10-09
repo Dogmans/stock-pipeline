@@ -5,6 +5,8 @@ Screens for stocks with low Price/Earnings-to-Growth (PEG) ratios.
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Screens for stocks with attractive Price/Earnings-to-Growth ratios. PEG ratios below 1.0 suggest the stock may be undervalued relative to its growth prospects."
+
 def screen_for_peg_ratio(universe_df=None, max_peg_ratio=1.0, min_growth=5.0, force_refresh=False):
     """
     Screen for stocks with low PEG (Price/Earnings to Growth) ratios.

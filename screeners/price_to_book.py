@@ -5,6 +5,8 @@ Screens for stocks trading below or near book value.
 
 from .common import *
 
+STRATEGY_DESCRIPTION = "Finds stocks trading near or below their book value (tangible assets minus liabilities). Values below 1.0 suggest the stock trades for less than its liquidation value."
+
 def screen_for_price_to_book(universe_df, max_pb_ratio=None):
     """
     Screen for stocks trading below or near book value.

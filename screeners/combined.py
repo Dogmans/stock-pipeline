@@ -6,6 +6,15 @@ Supports multiple predefined combinations and custom combinations.
 
 from .common import *
 
+# Strategy descriptions for combined screeners
+STRATEGY_DESCRIPTIONS = {
+    'combined': 'Multi-strategy approach that scores stocks across various metrics and ranks them by average performance, identifying the most consistently attractive opportunities.',
+    'traditional_value': 'Combines classic value metrics (P/E, P/B, PEG ratios) to identify comprehensively undervalued stocks using Graham and Buffett-inspired criteria.',
+    'high_performance': 'Combines research-backed performance indicators (Momentum, Quality, FCF Yield) to identify stocks with strong fundamentals and positive price trends.',
+    'comprehensive': 'Ranks stocks across all available screening strategies to identify companies that score well on multiple criteria, providing a holistic investment view.',
+    'distressed_value': 'Focuses on special situation investments including turnarounds and sector corrections, targeting companies with potential for significant recovery.'
+}
+
 def screen_for_combined(universe_df=None, strategies=None, force_refresh=False, combination_name=None):
     """
     Run multiple screeners and combine their results based on average ranking.

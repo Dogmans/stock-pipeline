@@ -11,6 +11,8 @@ from tqdm import tqdm
 from .common import logger
 from market_data import get_sector_performances, is_market_in_correction
 
+STRATEGY_DESCRIPTION = "Detects sector-wide downturns that may create buying opportunities in fundamentally sound companies experiencing temporary weakness due to sector headwinds."
+
 def screen_for_sector_corrections(universe_df, threshold=-10, market_data=None):
     """
     Screen for stocks in sectors that are currently in correction.
