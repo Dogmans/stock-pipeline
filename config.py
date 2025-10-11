@@ -44,6 +44,9 @@ class ScreeningThresholds:
     # Free Cash Flow Yield Parameters
     MIN_FCF_YIELD = 3.5  # Minimum free cash flow yield (%) relative to market cap
     
+    # Historic Value Parameters
+    MIN_HISTORIC_VALUE_SCORE = 25.0  # Minimum historic value score (0-100 scale)
+    
     # 52-Week Low Parameters
     MIN_PERCENT_OFF_52_WEEK_LOW = 0  # Currently at 52-week low
     MAX_PERCENT_OFF_52_WEEK_LOW = 15  # Within 15% of 52-week low
