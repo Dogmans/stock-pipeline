@@ -4,145 +4,179 @@ Screens for stocks with high risk-adjusted returns (Sharpe ratio).
 """
 
 from .common import *
+from .base_screener import BaseScreener
 
 STRATEGY_DESCRIPTION = "Identifies stocks with superior risk-adjusted returns. Higher Sharpe ratios indicate better return per unit of risk taken, with values above 1.0 considered good."
 
-def screen_for_sharpe_ratio(universe_df, min_sharpe_ratio=None, lookback_period="1y"):
-    """
-    Screen for stocks with high Sharpe ratios (risk-adjusted returns).
+
+class SharpeRatioScreener(BaseScreener):
+    """Screener for stocks with high Sharpe ratios (risk-adjusted returns)."""
     
-    The Sharpe ratio is calculated as:
-    (annualized return - risk-free rate) / annualized volatility
+    def __init__(self, min_sharpe_ratio=None, lookback_period="1y"):
+        super().__init__()
+        self.min_sharpe_ratio = min_sharpe_ratio or getattr(config.ScreeningThresholds, 'MIN_SHARPE_RATIO', 1.0)
+        self.lookback_period = lookback_period
+        self.risk_free_rate = 0.04  # 4% annual risk-free rate assumption
     
-    Args:
-        universe_df (DataFrame): Stock universe being analyzed (required)
-        min_sharpe_ratio (float): Minimum Sharpe ratio to include (default: 1.0)
-        lookback_period (str): Period for calculating returns and volatility (default: "1y")
+    def get_strategy_name(self):
+        return "Sharpe Ratio Screener"
+    
+    def get_strategy_description(self):
+        return STRATEGY_DESCRIPTION
+    
+    def get_data_for_symbol(self, symbol):
+        """
+        Fetch historical price data needed for Sharpe ratio calculation.
         
-    Returns:
-        DataFrame: Stocks meeting the criteria
-    """
-    if min_sharpe_ratio is None:
-        min_sharpe_ratio = config.ScreeningThresholds.MIN_SHARPE_RATIO if hasattr(config.ScreeningThresholds, 'MIN_SHARPE_RATIO') else 1.0
-    
-    logger.info(f"Screening for stocks with Sharpe ratio >= {min_sharpe_ratio} over {lookback_period} period...")
-    
-    # Import the FMP provider
-    from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
-    
-    # Use universe_df directly
-    symbols = universe_df['symbol'].tolist()
-    
-    # Initialize the FMP provider
-    fmp_provider = FinancialModelingPrepProvider()
-    
-    # Store results
-    results = []
-    
-    # Risk-free rate assumption (10-year Treasury yield approximation)
-    risk_free_rate = 0.04  # 4% annual
-    
-    # Process each symbol individually
-    for symbol in tqdm(symbols, desc="Calculating Sharpe ratios", unit="symbol"):
+        Args:
+            symbol (str): Stock symbol
+            
+        Returns:
+            dict: Dictionary containing historical data and overview
+        """
         try:
-            # Get historical price data
-            price_data = fmp_provider.get_historical_prices(symbol, period=lookback_period)
+            # Get historical price data for Sharpe ratio calculation
+            price_data = self.provider.get_historical_prices(symbol, period=self.lookback_period)
+            overview = self.provider.get_company_overview(symbol)
             
-            if symbol not in price_data or price_data[symbol] is None or price_data[symbol].empty:
-                continue
+            if price_data is None or symbol not in price_data or price_data[symbol].empty:
+                return None
                 
-            df = price_data[symbol]
+            # Flatten the data structure so BaseScreener can access company fields directly
+            result = {
+                'price_data': price_data[symbol],
+                'symbol': symbol
+            }
             
-            # Need at least 30 days of data for meaningful Sharpe ratio
-            if len(df) < 30:
-                continue
+            # Add company overview data at top level for BaseScreener compatibility
+            if overview:
+                result.update(overview)
                 
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching data for {symbol}: {e}")
+            return None
+    
+    def calculate_score(self, data):
+        """
+        Calculate Sharpe ratio for the stock.
+        
+        Args:
+            data (dict): Dictionary containing price data and overview
+            
+        Returns:
+            float: Sharpe ratio or None if calculation fails
+        """
+        price_data = data.get('price_data')
+        
+        if price_data is None or len(price_data) < 30:
+            return None
+        
+        try:
             # Calculate daily returns
-            df['returns'] = df['Close'].pct_change()
+            prices = price_data['Close'].values
+            daily_returns = np.diff(prices) / prices[:-1]
             
-            # Remove any NaN values
-            returns = df['returns'].dropna()
-            
-            if len(returns) < 30:
-                continue
+            if len(daily_returns) < 30:  # Need sufficient data points
+                return None
             
             # Calculate annualized return and volatility
-            # Assuming 252 trading days per year
-            annual_return = returns.mean() * 252
-            annual_volatility = returns.std() * np.sqrt(252)
+            mean_return = np.mean(daily_returns)
+            volatility = np.std(daily_returns, ddof=1)
             
-            # Avoid division by zero
-            if annual_volatility == 0:
-                continue
-                
+            # Annualize (assuming ~252 trading days per year)
+            annualized_return = mean_return * 252
+            annualized_volatility = volatility * np.sqrt(252)
+            
+            if annualized_volatility == 0:
+                return None
+            
             # Calculate Sharpe ratio
-            sharpe_ratio = (annual_return - risk_free_rate) / annual_volatility
+            excess_return = annualized_return - self.risk_free_rate
+            sharpe_ratio = excess_return / annualized_volatility
             
-            # Get company overview data for additional info
-            company_data = fmp_provider.get_company_overview(symbol)
+            return sharpe_ratio
             
-            # Extract company info
-            company_name = company_data.get('Name', symbol) if company_data else symbol
-            sector = company_data.get('Sector', 'Unknown') if company_data else 'Unknown'
-            market_cap = company_data.get('MarketCapitalization', 0) if company_data else 0
-            current_price = df['Close'].iloc[-1]
-            
-            # All stocks are included for ranking, but mark whether they meet the threshold
-            meets_threshold = sharpe_ratio >= min_sharpe_ratio
-            reason = f"High Sharpe ratio ({sharpe_ratio:.2f})" if meets_threshold else f"Sharpe ratio: {sharpe_ratio:.2f}"
-            
-            # Calculate additional metrics for context
-            total_return = (df['Close'].iloc[-1] / df['Close'].iloc[0] - 1) * 100
-            max_drawdown = calculate_max_drawdown(df['Close'])
-            
-            # Add to results (all stocks with sufficient data)
-            results.append({
-                'symbol': symbol,
-                'company_name': company_name,
-                'sector': sector,
-                'current_price': current_price,
-                'sharpe_ratio': sharpe_ratio,
-                'annual_return': annual_return,
-                'annual_volatility': annual_volatility,
-                'total_return_pct': total_return,
-                'max_drawdown_pct': max_drawdown,
-                'market_cap': market_cap,
-                'meets_threshold': meets_threshold,
-                'reason': reason
-            })
-            
-            if meets_threshold:
-                logger.info(f"Found {symbol} with high Sharpe ratio: {sharpe_ratio:.2f}")
-                
         except Exception as e:
-            logger.error(f"Error processing {symbol} for Sharpe ratio screening: {e}")
-            continue
+            symbol = data.get('symbol', 'unknown')
+            self.logger.error(f"Error calculating Sharpe ratio for {symbol}: {e}")
+            return None
     
-    # Convert to DataFrame
-    if results:
-        df = pd.DataFrame(results)
-        # Sort by Sharpe ratio (highest first)
-        df = df.sort_values('sharpe_ratio', ascending=False)
-        return df
-    else:
-        return pd.DataFrame()
-
-
-def calculate_max_drawdown(price_series):
-    """
-    Calculate the maximum drawdown of a price series.
-    
-    Args:
-        price_series (pd.Series): Time series of prices
+    def meets_threshold(self, score):
+        """
+        Check if Sharpe ratio meets minimum threshold.
         
-    Returns:
-        float: Maximum drawdown as a percentage
-    """
-    # Calculate running maximum
-    rolling_max = price_series.expanding().max()
+        Args:
+            score (float): Sharpe ratio
+            
+        Returns:
+            bool: True if Sharpe ratio exceeds minimum threshold
+        """
+        return score is not None and score >= self.min_sharpe_ratio
     
-    # Calculate drawdown
-    drawdown = (price_series - rolling_max) / rolling_max
+    def get_additional_data(self, symbol, data, current_price):
+        """
+        Extract additional data fields specific to Sharpe ratio screening.
+        
+        Args:
+            symbol (str): Stock symbol
+            data (dict): Stock data dictionary
+            current_price (float): Current stock price
+            
+        Returns:
+            dict: Additional data fields
+        """
+        additional = {}
+        price_data = data.get('price_data')
+        overview = data.get('overview', {})
+        
+        if price_data is not None and len(price_data) >= 30:
+            try:
+                prices = price_data['Close'].values
+                daily_returns = np.diff(prices) / prices[:-1]
+                
+                # Calculate individual components
+                mean_return = np.mean(daily_returns)
+                volatility = np.std(daily_returns, ddof=1)
+                
+                annualized_return = mean_return * 252
+                annualized_volatility = volatility * np.sqrt(252)
+                
+                additional.update({
+                    'annualized_return': annualized_return,
+                    'annualized_volatility': annualized_volatility,
+                    'risk_free_rate': self.risk_free_rate
+                })
+                
+                # Calculate max drawdown
+                cumulative_returns = np.cumprod(1 + daily_returns)
+                running_max = np.maximum.accumulate(cumulative_returns)
+                drawdowns = (cumulative_returns - running_max) / running_max
+                max_drawdown = np.min(drawdowns) if len(drawdowns) > 0 else None
+                additional['max_drawdown'] = max_drawdown
+                
+            except Exception as e:
+                self.logger.debug(f"Error calculating additional metrics for {symbol}: {e}")
+        
+        return additional
     
-    # Return maximum drawdown as positive percentage
-    return abs(drawdown.min()) * 100
+    def format_reason(self, score, meets_threshold_flag):
+        """
+        Format the screening reason for display.
+        
+        Args:
+            score (float): Sharpe ratio
+            meets_threshold_flag (bool): Whether stock meets threshold
+            
+        Returns:
+            str: Formatted reason string
+        """
+        if meets_threshold_flag:
+            return f"Strong risk-adjusted returns (Sharpe = {score:.2f})"
+        else:
+            return f"Sharpe ratio: {score:.2f}"
+    
+    def sort_results(self, df):
+        """Sort results by Sharpe ratio (highest first)."""
+        return df.sort_values('score', ascending=False)

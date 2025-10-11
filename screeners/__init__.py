@@ -1,60 +1,48 @@
 """
 Stock screeners package for the stock screening pipeline.
+
 This package contains various screening strategies based on different financial metrics.
+All screeners now use the BaseScreener class-based approach and are accessed through
+the registry system in utils.screener_registry.
+
+Usage:
+    from utils import get_screener, list_screeners, run_screener
+    
+    # Get available screeners
+    screeners = list_screeners()
+    
+    # Get a specific screener
+    pe_screener = get_screener("pe_ratio", max_pe=20.0)
+    results = pe_screener.screen_stocks(universe_df)
+    
+    # Or run directly
+    results = run_screener("pe_ratio", universe_df, max_pe=20.0)
 """
 
-# Import all individual screener modules
-from . import pe_ratio
-from . import price_to_book
-from . import fifty_two_week_lows
-from . import fallen_ipos
-from . import turnaround_candidates
-from . import peg_ratio
-from . import combined
-from . import sector_corrections
-from . import sharpe_ratio
-from . import momentum
-from . import quality
-from . import enhanced_quality
-from . import free_cash_flow_yield
-from . import insider_buying
+# Import screener classes for direct access if needed
+from .pe_ratio import PERatioScreener
+from .peg_ratio import PEGRatioScreener
+from .price_to_book import PriceToBookScreener
+from .sharpe_ratio import SharpeRatioScreener
+from .momentum import MomentumScreener
+from .quality import QualityScreener
+from .free_cash_flow_yield import FCFYieldScreener
+from .enhanced_quality import EnhancedQualityScreener
+from .insider_buying import InsiderBuyingScreener
+from .fifty_two_week_lows import FiftyTwoWeekLowsScreener
 
-# Import utility functions
-from .utils import get_available_screeners, run_all_screeners
+# Combined screener can be imported separately to avoid circular imports
+# from .combined import run_screeners_with_registry
 
-# Define the main screener functions to expose at the package level
-# This makes them accessible via screeners.function_name
-screen_for_pe_ratio = pe_ratio.screen_for_pe_ratio
-screen_for_price_to_book = price_to_book.screen_for_price_to_book
-screen_for_52_week_lows = fifty_two_week_lows.screen_for_52_week_lows
-screen_for_fallen_ipos = fallen_ipos.screen_for_fallen_ipos
-screen_for_turnaround_candidates = turnaround_candidates.screen_for_turnaround_candidates
-screen_for_peg_ratio = peg_ratio.screen_for_peg_ratio
-screen_for_combined = combined.screen_for_combined
-screen_for_traditional_value = combined.screen_for_traditional_value
-screen_for_high_performance = combined.screen_for_high_performance
-screen_for_comprehensive = combined.screen_for_comprehensive
-screen_for_distressed_value = combined.screen_for_distressed_value
-screen_for_sector_corrections = sector_corrections.screen_for_sector_corrections
-screen_for_sharpe_ratio = sharpe_ratio.screen_for_sharpe_ratio
-screen_for_momentum = momentum.screen_for_momentum
-screen_for_quality = quality.screen_for_quality
-screen_for_enhanced_quality = enhanced_quality.screen_for_enhanced_quality
-screen_for_free_cash_flow_yield = free_cash_flow_yield.screen_for_free_cash_flow_yield
-screen_for_insider_buying = insider_buying.screen_for_insider_buying
-
-# Add aliases for backward compatibility with older tests
-pe_ratio_screener = pe_ratio.screen_for_pe_ratio
-price_to_book_screener = price_to_book.screen_for_price_to_book
-fifty_two_week_low_screener = fifty_two_week_lows.screen_for_52_week_lows
-
-# Add exported symbols to __all__ for better import control
 __all__ = [
-    'screen_for_pe_ratio', 'screen_for_price_to_book', 'screen_for_52_week_lows',
-    'screen_for_fallen_ipos', 'screen_for_turnaround_candidates', 'screen_for_peg_ratio',
-    'screen_for_combined', 'screen_for_traditional_value', 'screen_for_high_performance',
-    'screen_for_comprehensive', 'screen_for_distressed_value', 'screen_for_sector_corrections', 
-    'screen_for_sharpe_ratio', 'screen_for_momentum', 'screen_for_quality', 'screen_for_enhanced_quality',
-    'screen_for_free_cash_flow_yield', 'screen_for_insider_buying', 'pe_ratio_screener', 'price_to_book_screener', 
-    'fifty_two_week_low_screener', 'get_available_screeners', 'run_all_screeners'
+    'PERatioScreener',
+    'PEGRatioScreener', 
+    'PriceToBookScreener',
+    'SharpeRatioScreener',
+    'MomentumScreener',
+    'QualityScreener',
+    'FCFYieldScreener',
+    'EnhancedQualityScreener',
+    'InsiderBuyingScreener',
+    'FiftyTwoWeekLowsScreener'
 ]

@@ -5,6 +5,7 @@ Supports multiple predefined combinations and custom combinations.
 """
 
 from .common import *
+from utils import list_screeners, run_screener
 
 # Strategy descriptions for combined screeners
 STRATEGY_DESCRIPTIONS = {
@@ -14,6 +15,49 @@ STRATEGY_DESCRIPTIONS = {
     'comprehensive': 'Ranks stocks across all available screening strategies to identify companies that score well on multiple criteria, providing a holistic investment view.',
     'distressed_value': 'Focuses on special situation investments including turnarounds and sector corrections, targeting companies with potential for significant recovery.'
 }
+
+
+def run_screeners_with_registry(universe_df, screener_names=None, **screener_kwargs):
+    """
+    Run multiple screeners using the new registry-based approach.
+    
+    This function demonstrates the new BaseScreener architecture by using
+    the screener registry to create and run multiple screening strategies.
+    
+    Args:
+        universe_df (DataFrame): Stock universe to screen
+        screener_names (list): List of screener names to run (defaults to all available)
+        **screener_kwargs: Additional arguments to pass to screener constructors
+        
+    Returns:
+        dict: Dictionary mapping screener names to their results
+    """
+    results = {}
+    
+    # Get available screeners if none specified
+    if screener_names is None:
+        screener_names = list(list_screeners().keys())
+    
+    logger.info(f"Running {len(screener_names)} screeners with registry: {screener_names}")
+    
+    # Run each screener
+    for name in screener_names:
+        try:
+            logger.info(f"Running {name} screener...")
+            result = run_screener(name, universe_df, **screener_kwargs)
+            results[name] = result
+            
+            if not result.empty:
+                meets_threshold_count = len(result[result['meets_threshold']])
+                logger.info(f"{name}: Found {len(result)} stocks, {meets_threshold_count} meet threshold")
+            else:
+                logger.warning(f"{name}: No results found")
+                
+        except Exception as e:
+            logger.error(f"Error running {name} screener: {e}")
+            results[name] = pd.DataFrame()
+    
+    return results
 
 def screen_for_combined(universe_df=None, strategies=None, combination_name=None):
     """

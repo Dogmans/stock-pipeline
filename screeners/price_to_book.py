@@ -4,107 +4,115 @@ Screens for stocks trading below or near book value.
 """
 
 from .common import *
+from .base_screener import BaseScreener
 
 STRATEGY_DESCRIPTION = "Finds stocks trading near or below their book value (tangible assets minus liabilities). Values below 1.0 suggest the stock trades for less than its liquidation value."
 
+
+class PriceToBookScreener(BaseScreener):
+    """Screener for stocks with low Price-to-Book ratios."""
+    
+    def __init__(self, max_pb_ratio=None):
+        super().__init__()
+        self.max_pb_ratio = max_pb_ratio or config.ScreeningThresholds.MAX_PRICE_TO_BOOK_RATIO
+    
+    def get_strategy_name(self):
+        return "Price-to-Book Screener"
+    
+    def get_strategy_description(self):
+        return STRATEGY_DESCRIPTION
+    
+    def calculate_score(self, data):
+        """
+        Calculate P/B ratio score. Lower P/B ratios get better scores.
+        
+        Args:
+            data (dict): Company data from providers
+            
+        Returns:
+            float: P/B ratio (or None if invalid)
+        """
+        pb_ratio = data.get('PriceToBookRatio')
+        
+        if pb_ratio is None or pb_ratio == '':
+            return None
+        
+        pb_ratio = self.safe_float(pb_ratio)
+        
+        # Handle invalid or extremely small P/B ratios
+        if pb_ratio is None or pb_ratio <= 0 or pb_ratio < 0.01:
+            return None
+        
+        return pb_ratio
+    
+    def meets_threshold(self, score):
+        """
+        Check if P/B ratio meets the screening threshold.
+        
+        Args:
+            score (float): P/B ratio
+            
+        Returns:
+            bool: True if P/B ratio is below maximum threshold
+        """
+        return score is not None and score <= self.max_pb_ratio
+    
+    def get_additional_data(self, symbol, data, current_price):
+        """
+        Extract additional data fields specific to P/B screening.
+        
+        Args:
+            symbol (str): Stock symbol
+            data (dict): Company data from providers
+            current_price (float): Current stock price
+            
+        Returns:
+            dict: Additional data fields
+        """
+        additional = {}
+        
+        # Calculate book value per share if we have valid data
+        pb_ratio = self.safe_float(data.get('PriceToBookRatio'))
+        if pb_ratio and pb_ratio > 0 and current_price:
+            additional['book_value_per_share'] = current_price / pb_ratio
+        
+        # Rename score to price_to_book for compatibility
+        if pb_ratio:
+            additional['price_to_book'] = pb_ratio
+        
+        return additional
+    
+    def format_reason(self, score, meets_threshold_flag):
+        """
+        Format the screening reason for display.
+        
+        Args:
+            score (float): P/B ratio
+            meets_threshold_flag (bool): Whether stock meets threshold
+            
+        Returns:
+            str: Formatted reason string
+        """
+        if meets_threshold_flag:
+            return f"Low price to book ratio (P/B = {score:.2f})"
+        else:
+            return f"Price to book ratio: P/B = {score:.2f}"
+    
+    def sort_results(self, df):
+        """Sort results by P/B ratio (lowest first)."""
+        return df.sort_values('score')
+
+
 def screen_for_price_to_book(universe_df, max_pb_ratio=None):
     """
-    Screen for stocks trading below or near book value.
-    Based on Strategy #1: "Understanding Relationship Between Book Value and Share Price"
+    Legacy function for backward compatibility.
     
     Args:
-        universe_df (DataFrame): Stock universe being analyzed (required)
+        universe_df (DataFrame): Stock universe being analyzed
         max_pb_ratio (float): Maximum price-to-book ratio to include
         
     Returns:
         DataFrame: Stocks meeting the criteria
     """
-    if max_pb_ratio is None:
-        max_pb_ratio = config.ScreeningThresholds.MAX_PRICE_TO_BOOK_RATIO
-    
-    logger.info(f"Screening for stocks with P/B ratio <= {max_pb_ratio}...")
-    
-    # Import the FMP provider
-    from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
-    
-    # Use universe_df directly
-    symbols = universe_df['symbol'].tolist()
-    
-    # Initialize the FMP provider
-    fmp_provider = FinancialModelingPrepProvider()
-    
-    # Store results
-    results = []
-    
-    # Process each symbol individually
-    for symbol in tqdm(symbols, desc="Screening for low price-to-book ratio", unit="symbol"):
-        try:
-            # Get company overview data
-            company_data = fmp_provider.get_company_overview(symbol)
-            
-            # Skip if we couldn't get company data
-            if not company_data:
-                continue
-            
-            # Check if P/B ratio is available and below threshold
-            pb_ratio = company_data.get('PriceToBookRatio')
-            if pb_ratio is None or pb_ratio <= 0 or np.isnan(float(pb_ratio)):
-                continue
-            
-            # Convert to float if it's a string
-            if isinstance(pb_ratio, str):
-                pb_ratio = float(pb_ratio)
-            
-            # Filter out extremely small P/B ratios that are likely data errors
-            # These would display as 0.00 when formatted to 2 decimal places
-            if pb_ratio < 0.01:  # Less than 1 cent per dollar of book value
-                continue
-            
-            # Get price data to get current price
-            price_data = fmp_provider.get_historical_prices(symbol, period="5d")
-            if symbol not in price_data or price_data[symbol] is None or price_data[symbol].empty:
-                current_price = company_data.get('price', 0)
-            else:
-                current_price = price_data[symbol]['Close'].iloc[-1]
-            
-            # Extract other relevant info
-            market_cap = company_data.get('MarketCapitalization', 0)
-            company_name = company_data.get('Name', symbol)
-            sector = company_data.get('Sector', 'Unknown')
-            
-            # Calculate book value per share based on available data
-            book_value_per_share = current_price / pb_ratio if pb_ratio > 0 else None
-            
-            # All stocks are included for ranking, but mark whether they meet the threshold
-            meets_threshold = pb_ratio <= max_pb_ratio
-            reason = f"Low price to book ratio (P/B = {pb_ratio:.2f})" if meets_threshold else f"Price to book ratio: P/B = {pb_ratio:.2f}"
-            
-            # Add to results (all stocks with valid P/B ratios)
-            results.append({
-                'symbol': symbol,
-                'company_name': company_name,
-                'sector': sector,
-                'current_price': current_price,
-                'book_value_per_share': book_value_per_share,
-                'price_to_book': pb_ratio,
-                'market_cap': market_cap,
-                'meets_threshold': meets_threshold,
-                'reason': reason
-            })
-            
-            if meets_threshold:
-                logger.info(f"Found {symbol} trading near book value: P/B={pb_ratio:.2f}")
-                
-        except Exception as e:
-            logger.error(f"Error processing {symbol} for P/B screening: {e}")
-            # If provider fails to return data, stop execution
-            raise Exception(f"Data provider failed for symbol {symbol}: {e}")
-    
-    # Convert to DataFrame
-    if results:
-        df = pd.DataFrame(results)
-        # Sort by P/B ratio (lowest first)
-        df = df.sort_values('price_to_book')
-        return df
-    else:
-        return pd.DataFrame()
+    screener = PriceToBookScreener(max_pb_ratio=max_pb_ratio)
+    return screener.screen_stocks(universe_df)

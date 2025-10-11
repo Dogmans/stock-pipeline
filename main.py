@@ -31,7 +31,7 @@ from universe import get_stock_universe
 from stock_data import get_historical_prices, get_fundamental_data, fetch_52_week_lows
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances
 # Updated import to use new screeners package
-from screeners.utils import run_all_screeners, get_available_screeners
+from utils import list_screeners, run_screener
 from reporting import generate_screening_report, generate_metrics_definitions
 from cache_config import clear_all_cache, clear_old_cache, get_cache_info
 
@@ -60,7 +60,7 @@ def parse_arguments():
                         help='File containing symbols to analyze, one per line or comma-separated')
     
     # Get available screeners
-    available_screeners = get_available_screeners()
+    available_screeners = list(list_screeners().keys())
     parser.add_argument('--strategies', type=str, default='all',
                         help=f'Comma-separated list of screening strategies: {", ".join(available_screeners)}')
     
@@ -223,7 +223,7 @@ def main():
     
     # Determine which strategies to run
     if args.strategies.lower() == 'all':
-        strategies = get_available_screeners()
+        strategies = list(list_screeners().keys())
     else:
         strategies = [s.strip() for s in args.strategies.split(',')]
     
@@ -231,7 +231,21 @@ def main():
     
     # Run the screening strategies
     logger.info("Running stock screeners")
-    screening_results = run_all_screeners(universe_df, strategies=strategies)
+    screening_results = {}
+    
+    for strategy_name in strategies:
+        try:
+            logger.info(f"Running {strategy_name} screener...")
+            result = run_screener(strategy_name, universe_df)
+            if result is not None and not result.empty:
+                screening_results[strategy_name] = result
+                logger.info(f"{strategy_name} screener found {len(result)} stocks")
+            else:
+                logger.warning(f"{strategy_name} screener returned no results")
+                screening_results[strategy_name] = pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Error running {strategy_name} screener: {e}")
+            screening_results[strategy_name] = pd.DataFrame()
       # 7. Generate screening report
     logger.info("Generating screening report")
       # Sort screening results by relevant metrics for each strategy
