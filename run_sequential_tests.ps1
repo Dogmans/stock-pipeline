@@ -84,7 +84,7 @@ $stages = @(
     },
     @{
         Name = "Data Processing"
-        Tests = @("test_data_processing")
+        Tests = @("test_providers")
         Description = "Testing data processing and calculations"
     },
     @{

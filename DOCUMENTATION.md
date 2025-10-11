@@ -35,11 +35,10 @@ These modules handle fetching data from various sources and APIs.
 | `data_providers/` | Modular data provider architecture for financial data collection with multiple API support (Financial Modeling Prep, YFinance, Alpha Vantage, Finnhub). |
 | `cache_config.py` | Implements file-based caching system to reduce redundant API calls, improve performance, and persist data between program runs. |
 
-### Data Processing
+### Utilities
 
 | Module | Description |
 |--------|-------------|
-| `data_processing.py` | Processes raw data by calculating technical indicators, financial ratios, and other metrics needed for screening. Includes functions for standardizing and normalizing data across different stocks. Main functions: `process_stock_data`, `calculate_financial_ratios`, `calculate_technical_indicators`. |
 | `utils/` | Package providing common utility functions used throughout the pipeline:
 | | - `logger.py`: Logging setup functionality
 | | - `filesystem.py`: Directory and file operations 
@@ -139,15 +138,6 @@ Modular data collection architecture with multiple API provider support:
 - `YFinanceProvider`: Yahoo Finance integration for price data and market indices
 - `AlphaVantageProvider`: Alpha Vantage API for fundamental data and technical indicators
 - `FinnhubProvider`: Finnhub API for real-time data and news sentiment
-
-### Data Processing (`data_processing.py`)
-
-This module transforms raw data into usable metrics for screening:
-
-- `calculate_technical_indicators()`: Computes technical indicators like RSI, MACD, and Bollinger Bands
-- `calculate_financial_ratios()`: Derives financial ratios from fundamental data
-- `calculate_price_statistics()`: Computes statistical measures of price performance
-- `process_stock_data()`: Main function that processes raw data into a standardized format
 
 ### Screening Strategies (`screeners/` package)
 

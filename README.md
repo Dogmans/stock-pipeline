@@ -60,7 +60,6 @@ python main.py --universe sp500 --strategies all --limit 20
   - `data_providers/`: Modular data provider architecture for financial data
 
 - Core Processing:
-  - `data_processing.py`: Tools to process and clean the collected data, calculate indicators and financial ratios
   - `screeners/`: Package containing modular stock screening strategies
     - `__init__.py`: Package exports
     - `common.py`: Common screening utilities
@@ -270,7 +269,6 @@ python main.py --force-refresh --limit 10      # Fresh data (testing)
 - `universe.py` - Stock universe selection
 - `market_data.py` - Market condition assessment
 - `data_providers/` - Modular data provider architecture
-- `data_processing.py` - Data processing and calculation
 - `screeners/` - Individual screening strategy modules
 - `visualization.py` - Reporting and visualization
 - `cache_config.py` - API response caching system

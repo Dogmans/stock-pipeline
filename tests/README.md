@@ -9,7 +9,7 @@ This directory contains unit tests for the stock screening pipeline modules.
 - `test_screeners.py`: Tests for the new screener architecture where each screener fetches its own data
 - `test_providers.py`: Tests for data providers with API-specific methods
 - `test_cache.py`: Tests for the file-based caching system functionality
-- `test_data_processing.py`: Tests for data processing and financial ratio calculations
+- `test_providers.py`: Tests for data provider functionality and API integration
 
 ### Supporting Tests
 

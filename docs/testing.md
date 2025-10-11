@@ -118,7 +118,7 @@ The test files are organized to align with our current architecture:
 
 1. `test_screeners.py` - Tests the new screener architecture where each screener fetches its own data
 2. `test_providers.py` - Tests data providers with their API-specific methods
-3. `test_data_processing.py` - Tests data processing utilities
+3. `test_providers.py` - Tests data provider functionality
 4. `test_cache.py` - Tests the caching system
 
 ### Other Test Files
