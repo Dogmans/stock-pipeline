@@ -28,7 +28,6 @@ import config
 from utils.logger import setup_logging, get_logger
 from utils.filesystem import ensure_directories_exist
 from universe import get_stock_universe
-from stock_data import get_historical_prices, get_fundamental_data, fetch_52_week_lows
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances
 # Updated import to use new screeners package
 from utils import list_screeners, run_screener

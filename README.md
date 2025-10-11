@@ -56,8 +56,8 @@ python main.py --universe sp500 --strategies all --limit 20
 - Data Collection:
   - `universe.py`: Stock universe selection (S&P 500, Russell 2000, custom lists)
   - `market_data.py`: Market-level data collection (indices, VIX, sectors)
-  - `stock_data.py`: Individual stock data collection (prices, fundamentals)
   - `cache_config.py`: Caching system to reduce redundant API calls
+  - `data_providers/`: Modular data provider architecture for financial data
 
 - Core Processing:
   - `data_processing.py`: Tools to process and clean the collected data, calculate indicators and financial ratios
@@ -269,8 +269,8 @@ python main.py --force-refresh --limit 10      # Fresh data (testing)
 - `run_pipeline.py` - Command-line wrapper with common presets
 - `universe.py` - Stock universe selection
 - `market_data.py` - Market condition assessment
-- `stock_data.py` - Stock data collection
+- `data_providers/` - Modular data provider architecture
 - `data_processing.py` - Data processing and calculation
-- `screeners.py` - Screening strategies
+- `screeners/` - Individual screening strategy modules
 - `visualization.py` - Reporting and visualization
-- `cache_manager.py` - API response caching system
+- `cache_config.py` - API response caching system

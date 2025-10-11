@@ -125,7 +125,7 @@ The test files are organized to align with our current architecture:
 
 - `test_config.py` - Tests configuration loading
 - `test_market_data.py` - Tests market data retrieval
-- `test_stock_data.py` - Tests stock data functions 
+- `test_providers.py` - Tests data provider functionality 
 - `test_universe.py` - Tests universe selection functions
 - `test_visualization.py` - Tests visualization functions
 - `test_utils.py` - Tests utility functions

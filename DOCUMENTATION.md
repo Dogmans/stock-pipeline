@@ -32,8 +32,8 @@ These modules handle fetching data from various sources and APIs.
 |--------|-------------|
 | `universe.py` | Defines and retrieves stock universes (S&P 500, NASDAQ 100, Russell 2000) which serve as the basis for screening. |
 | `market_data.py` | Gathers market-level data including indices, VIX, and sector performance metrics to provide market context. |
-| `stock_data.py` | Retrieves historical price data and fundamental information for individual stocks. |
-| `cache_manager.py` | Implements file-based caching system to reduce redundant API calls, improve performance, and persist data between program runs. |
+| `data_providers/` | Modular data provider architecture for financial data collection with multiple API support (Financial Modeling Prep, YFinance, Alpha Vantage, Finnhub). |
+| `cache_config.py` | Implements file-based caching system to reduce redundant API calls, improve performance, and persist data between program runs. |
 
 ### Data Processing
 
@@ -131,13 +131,14 @@ This module gathers market-level data to provide context for stock screening:
 - `is_market_in_correction()`: Determines if the market is in correction based on VIX levels
 - `get_sector_performances()`: Calculates performance metrics for market sectors to identify trends
 
-### Stock Data Collection (`stock_data.py`)
+### Data Providers (`data_providers/` package)
 
-Functions for retrieving data on individual stocks:
+Modular data collection architecture with multiple API provider support:
 
-- `get_historical_prices()`: Fetches historical price data for multiple stocks
-- `get_fundamental_data()`: Fetches fundamental data like income statements and balance sheets
-- `fetch_52_week_lows()`: Identifies stocks near their 52-week lows
+- `FinancialModelingPrepProvider`: Primary provider with comprehensive financial data (300 calls/minute)
+- `YFinanceProvider`: Yahoo Finance integration for price data and market indices
+- `AlphaVantageProvider`: Alpha Vantage API for fundamental data and technical indicators
+- `FinnhubProvider`: Finnhub API for real-time data and news sentiment
 
 ### Data Processing (`data_processing.py`)
 

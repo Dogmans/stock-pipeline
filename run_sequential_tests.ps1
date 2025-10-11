@@ -79,7 +79,7 @@ $stages = @(
     },
     @{
         Name = "Data Fetching"
-        Tests = @("test_stock_data", "test_market_data")
+        Tests = @("test_market_data")
         Description = "Testing data collection from APIs"
     },
     @{
@@ -122,7 +122,7 @@ foreach ($stage in $stages) {
     # Run each test module in this stage
     foreach ($test in $stage.Tests) {
         # Skip slow tests if requested
-        if ($SkipSlowTests -and $test -in @("test_stock_data", "test_market_data")) {
+        if ($SkipSlowTests -and $test -in @("test_market_data")) {
             Write-Host "Skipping slow test: $test..." -ForegroundColor DarkYellow
             continue
         }
