@@ -1,9 +1,29 @@
 """
 Stock screeners package for the stock screening pipeline.
 
-This package contains various screening strategies based on different financial metrics.
-All screeners now use the BaseScreener class-based approach and are accessed through
+This package contains 11 comprehensive screening strategies based on different financial metrics.
+All screeners use the BaseScreener class-based approach and are accessed through
 the registry system in utils.screener_registry.
+
+Available Screeners:
+    Value Investing:
+        - PERatioScreener: Classic P/E ratio screening
+        - PriceToBookScreener: Graham-style book value analysis  
+        - PEGRatioScreener: Growth at reasonable price screening
+        - HistoricValueScreener: Mean reversion value analysis (NEW)
+    
+    Quality & Fundamental:
+        - QualityScreener: Basic financial strength (10-point scale)
+        - EnhancedQualityScreener: Advanced quality (0-100 granular scoring)
+        - FCFYieldScreener: Free cash flow yield analysis
+    
+    Technical & Momentum:
+        - MomentumScreener: 6M/3M performance analysis
+        - SharpeRatioScreener: Risk-adjusted return screening
+        - FiftyTwoWeekLowsScreener: Quality stocks near yearly lows
+    
+    Special Situations:
+        - InsiderBuyingScreener: Pre-pump insider activity detection
 
 Usage:
     from utils import get_screener, list_screeners, run_screener
@@ -12,11 +32,11 @@ Usage:
     screeners = list_screeners()
     
     # Get a specific screener
-    pe_screener = get_screener("pe_ratio", max_pe=20.0)
-    results = pe_screener.screen_stocks(universe_df)
+    historic_value = get_screener("historic_value")
+    results = historic_value.screen_stocks(universe_df)
     
-    # Or run directly
-    results = run_screener("pe_ratio", universe_df, max_pe=20.0)
+    # Or run directly via main.py
+    python main.py --universe sp500 --strategies historic_value --limit 15
 """
 
 # Import screener classes for direct access if needed
@@ -30,6 +50,7 @@ from .free_cash_flow_yield import FCFYieldScreener
 from .enhanced_quality import EnhancedQualityScreener
 from .insider_buying import InsiderBuyingScreener
 from .fifty_two_week_lows import FiftyTwoWeekLowsScreener
+from .historic_value import HistoricValueScreener
 
 # Combined screener can be imported separately to avoid circular imports
 # from .combined import run_screeners_with_registry
@@ -44,5 +65,6 @@ __all__ = [
     'FCFYieldScreener',
     'EnhancedQualityScreener',
     'InsiderBuyingScreener',
-    'FiftyTwoWeekLowsScreener'
+    'FiftyTwoWeekLowsScreener',
+    'HistoricValueScreener'
 ]

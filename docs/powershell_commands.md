@@ -49,6 +49,26 @@ Run full pipeline with cache clearing:
 python main.py --clear-cache --full
 ```
 
+## Historic Value Screener Examples
+
+Test the new historic value screener:
+
+```powershell
+# Run historic value screening on S&P 500
+python main.py --universe sp500 --strategies historic_value --limit 15
+
+# Combine historic value with quality metrics
+python main.py --universe sp500 --strategies historic_value,quality,fcf_yield --limit 10
+
+# Force refresh for latest data
+python main.py --universe sp500 --strategies historic_value --force-refresh --limit 20
+
+# Test on Russell 2000 for smaller cap opportunities  
+python main.py --universe russell2000 --strategies historic_value --limit 25
+```
+
+Expected output: 400-450 stocks from S&P 500 meet basic criteria, with top candidates showing scores around 25-30/100.
+
 Run pipeline for specific universe with latest data:
 
 ```powershell

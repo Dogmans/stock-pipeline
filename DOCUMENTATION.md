@@ -48,9 +48,27 @@ These modules handle fetching data from various sources and APIs.
 
 ### Screening Engine
 
+The screening engine uses a modular architecture with individual screener modules in the `screeners/` package:
+
 | Module | Description |
 |--------|-------------|
-| `screeners.py` | Implements the various screening strategies based on the "15 Tools for Stock Picking" series. Each strategy is a separate function with configurable parameters, and can be run individually or combined. |
+| `base_screener.py` | Abstract base class defining the interface for all screeners with standardized methods |
+| `pe_ratio.py` | P/E ratio screener for classic value stock identification |
+| `price_to_book.py` | Price-to-book value screener following Graham's principles |
+| `peg_ratio.py` | PEG ratio screener for growth at reasonable price |
+| `quality.py` | Basic quality screener (10-point financial strength assessment) |
+| `enhanced_quality.py` | Advanced quality screener (0-100 granular scoring system) |
+| `free_cash_flow_yield.py` | Free cash flow yield screener using API calculations |
+| `historic_value.py` | **NEW**: Historic value screener for mean reversion opportunities |
+| `momentum.py` | Momentum screener based on 6M/3M performance analysis |
+| `sharpe_ratio.py` | Risk-adjusted return screener using Sharpe ratios |
+| `fifty_two_week_lows.py` | Screener for quality stocks near 52-week lows |
+| `insider_buying.py` | Pre-pump insider buying pattern detection |
+| `fallen_ipos.py` | Post-IPO stabilization opportunity screener |
+| `turnaround_candidates.py` | Financial turnaround situation screener |
+| `sector_corrections.py` | Sector-wide correction opportunity detection |
+| `combined.py` | Combined screening strategies and pre-configured approaches |
+| `utils.py` | Utility functions and screener registry management |
 
 ### Caching System
 
@@ -130,17 +148,39 @@ This module transforms raw data into usable metrics for screening:
 - `calculate_price_statistics()`: Computes statistical measures of price performance
 - `process_stock_data()`: Main function that processes raw data into a standardized format
 
-### Screening Strategies (`screeners.py`)
+### Screening Strategies (`screeners/` package)
 
-Implements various screening strategies based on value investing principles:
+The pipeline implements 11 comprehensive screening strategies using a standardized BaseScreener architecture:
 
-- `screen_for_price_to_book(universe_df)`: Identifies stocks trading near or below book value
-- `screen_for_pe_ratio(universe_df)`: Finds stocks with low P/E ratios
-- `screen_for_52_week_lows(universe_df)`: Locates stocks near 52-week lows
-- `screen_for_fallen_ipos(universe_df)`: Identifies fallen IPOs that may be ready for a rebound
-- `screen_for_cash_rich_biotech(universe_df)`: Finds biotech stocks with high cash reserves relative to market cap
-- `screen_for_sector_corrections(universe_df)`: Identifies sectors that may be in correction or oversold
-- `run_all_screeners(universe_df, strategies=None)`: Runs multiple screening strategies and combines the results
+#### Value Investing Screeners
+- `PERatioScreener`: Classic P/E ratio screening (threshold: < 10)
+- `PriceToBookScreener`: Graham-style book value analysis (threshold: < 1.2)
+- `PEGRatioScreener`: Growth at reasonable price screening
+- `HistoricValueScreener`: **NEW** - Mean reversion value screening with multi-factor analysis:
+  - Valuation discount scoring (40% weight): P/E, P/B, EV/EBITDA vs historical averages
+  - Quality filters (35% weight): ROE, profitability, financial stability
+  - Market structure analysis (25% weight): Market cap, volatility patterns
+  - Distress avoidance mechanisms and minimum thresholds
+
+#### Quality & Fundamental Screeners  
+- `QualityScreener`: Basic financial strength (10-point assessment)
+- `EnhancedQualityScreener`: Advanced quality analysis (0-100 granular scoring)
+- `FCFYieldScreener`: Free cash flow yield analysis using API calculations
+
+#### Technical & Momentum Screeners
+- `MomentumScreener`: 6M/3M weighted performance analysis
+- `SharpeRatioScreener`: Risk-adjusted return screening
+- `FiftyTwoWeekLowsScreener`: Quality stocks near yearly lows
+
+#### Special Situation Screeners
+- `InsiderBuyingScreener`: Pre-pump insider activity pattern detection (0-100 scoring)
+- `FallenIPOsScreener`: Post-IPO stabilization opportunities
+- `TurnaroundCandidatesScreener`: Financial recovery pattern detection
+- `SectorCorrectionsScreener`: Sector-wide correction opportunities
+
+#### Combined Strategies (`combined.py`)
+- Pre-configured strategy combinations for common investment approaches
+- Traditional value, high performance, and comprehensive screening modes
 
 ### Visualization (`visualization.py`)
 

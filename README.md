@@ -80,6 +80,7 @@ python main.py --universe sp500 --strategies all --limit 20
     - `quality.py`: Basic quality screener (financial strength)
     - `enhanced_quality.py`: Enhanced quality screener (0-100 granular scoring)
     - `free_cash_flow_yield.py`: Free cash flow yield screener
+    - `historic_value.py`: Historic value screener (trading below historical averages)
     
     **Special Situations:**
     - `fallen_ipos.py`: IPO analysis (stabilized post-IPO opportunities)
@@ -164,6 +165,11 @@ The pipeline includes comprehensive screening strategies across multiple investm
   - Financial Strength (0-25 points)
   - Growth Quality (0-25 points)
 - **Free Cash Flow Yield**: Uses API's pre-calculated FCF yield for accurate valuation screening
+- **Historic Value Screening**: Identifies stocks trading below historical averages (0-100 scoring)
+  - Valuation Discount Analysis (40% weight): P/E, P/B, EV/EBITDA vs historical norms
+  - Quality Filters (35% weight): ROE, profit margins, financial stability
+  - Market Structure Analysis (25% weight): Market cap, volatility, trading patterns
+  - Distress Avoidance: Minimum market cap, debt limits, profitability requirements
 
 ### Technical & Momentum
 - **Momentum Screening**: 6-month/3-month performance analysis
@@ -195,6 +201,7 @@ python main.py --universe sp500 --strategies all --limit 20
 python main.py --universe sp500 --strategies pe_ratio
 python main.py --universe sp500 --strategies enhanced_quality  
 python main.py --universe russell2000 --strategies insider_buying
+python main.py --universe sp500 --strategies historic_value
 
 # Combined strategies (pre-configured)
 python main.py --universe sp500 --strategies traditional_value
@@ -204,6 +211,7 @@ python main.py --universe sp500 --strategies comprehensive
 # Custom combinations
 python main.py --universe russell2000 --strategies momentum,enhanced_quality,insider_buying
 python main.py --universe sp500 --strategies peg_ratio,fcf_yield,quality --limit 30
+python main.py --universe sp500 --strategies historic_value,quality,fcf_yield --limit 15
 
 # Cache management
 python main.py --cache-info                    # Show cache statistics  
@@ -220,12 +228,20 @@ python main.py --force-refresh --limit 10      # Fresh data (testing)
 
 ## Recent Updates
 
-### October 2025 - Major Improvements
-- **Fixed PEG Ratio Data Issues**: Corrected growth rate format handling (decimal vs percentage)
-- **Enhanced FCF Yield Screener**: Now uses API's pre-calculated `freeCashFlowYield` for accuracy
-- **Improved Insider Buying Logic**: Stocks with zero insider purchases automatically get 0 score
-- **Enhanced Reporting**: Added PEG ratio display and improved growth rate formatting
-- **VS Code Integration**: Added comprehensive debug configurations and tasks
+### October 2025 - Historic Value Screener & Major Improvements  
+- **NEW: Historic Value Screener**: Comprehensive value screening based on mean reversion theory
+  - Multi-factor scoring: Valuation discount (40%), Quality (35%), Market structure (25%)
+  - Historic P/E, P/B, EV/EBITDA analysis using 5-year financial data
+  - Quality filters to avoid distressed situations (debt ratios, profitability, market cap)
+  - Distress avoidance mechanisms with minimum thresholds
+- **Fixed All Screener Issues**: Resolved sector display, field mapping, and method signature problems
+  - Quality screener: Fixed field name mismatches (DebtToEquityRatio vs DebtToEquity)
+  - FCF Yield screener: Improved API integration and calculation logic  
+  - Enhanced Quality screener: Standardized BaseScreener method signatures
+  - Momentum/Sharpe screeners: Fixed sector information display issues
+- **Enhanced Data Processing**: Improved data structure flattening for BaseScreener compatibility
+- **Updated Configuration**: Added historic value threshold settings (MIN_HISTORIC_VALUE_SCORE)
+- **Comprehensive Testing**: All 11 screeners now working correctly with proper stock discovery
 
 ### September 2025 - Documentation & Screener Updates  
 - **Updated Documentation**: Comprehensive README and screener method documentation

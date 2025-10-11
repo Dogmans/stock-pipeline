@@ -364,6 +364,110 @@ Screens for stocks with attractive free cash flow yields relative to market capi
 python main.py --universe sp500 --strategies free_cash_flow_yield
 ```
 
+## Historic Value Screener
+
+Advanced mean reversion value screening based on historic valuation analysis with multi-factor scoring system.
+
+### Core Methodology
+
+The Historic Value Screener identifies stocks trading below their historical averages while avoiding distressed situations through comprehensive quality filters.
+
+#### Multi-Factor Scoring (0-100 points)
+
+**Component 1: Valuation Discount Analysis (40% weight)**
+- **P/E Ratio Discount**: Current P/E vs. 5-year historical average
+- **P/B Ratio Discount**: Price-to-book vs. historical book value trends  
+- **EV/EBITDA Discount**: Enterprise value analysis vs. historical norms
+- **Historic Average Calculation**: Uses 5-year financial data for proxy estimates
+
+**Component 2: Quality Filters (35% weight)**  
+- **Profitability Analysis**: ROE trends and profit margin consistency
+- **Financial Stability**: Debt ratios and balance sheet strength
+- **Growth Quality**: Revenue and earnings sustainability indicators
+- **Management Efficiency**: Asset turnover and capital allocation metrics
+
+**Component 3: Market Structure Analysis (25% weight)**
+- **Market Capitalization**: Size and liquidity considerations (minimum $1B)
+- **Volatility Patterns**: Beta analysis for risk assessment  
+- **Trading Characteristics**: Volume patterns and market behavior
+- **Technical Support**: Price stability and momentum indicators
+
+### Distress Avoidance Mechanisms
+
+Critical filters to avoid value traps and distressed situations:
+
+1. **Minimum Thresholds**:
+   - Market cap ≥ $1 billion (liquidity requirement)
+   - Positive profit margins (profitability requirement)
+   - Debt-to-equity < 3.0 (leverage limit)
+
+2. **Quality Requirements**:
+   - ROE > -10% (basic profitability floor)
+   - Positive operating cash flow trends
+   - Stable or improving financial metrics
+
+3. **Market Structure Checks**:
+   - Beta < 2.5 (volatility limit)
+   - Minimum trading volume thresholds
+   - Price stability analysis
+
+### Scoring Examples
+
+**High-Quality Value Opportunity (Score: 75/100)**:
+- P/E: 8.5 vs. 15.2 historical average (25 points)
+- Strong balance sheet and ROE (27 points) 
+- Large cap, stable trading (23 points)
+
+**Moderate Value Play (Score: 45/100)**:
+- P/B: 0.8 vs. 1.4 historical average (18 points)
+- Average financial metrics (15 points)
+- Higher volatility, smaller size (12 points)
+
+### Configuration
+
+**Default Settings**:
+- Minimum threshold: 25.0/100 (optimized for S&P 500 distribution)
+- Historical lookback: 5 years for financial data
+- Market cap minimum: $1 billion
+- Maximum debt-to-equity: 3.0
+
+**Customizable Parameters**:
+```python
+# In config.py
+MIN_HISTORIC_VALUE_SCORE = 25.0  # Minimum score threshold
+```
+
+### Usage Examples
+
+```bash
+# Individual historic value screening
+python main.py --universe sp500 --strategies historic_value
+
+# Combined with quality screening  
+python main.py --universe sp500 --strategies historic_value,quality,fcf_yield --limit 15
+
+# Russell 2000 value opportunities
+python main.py --universe russell2000 --strategies historic_value --limit 25
+```
+
+### Theoretical Foundation
+
+Based on mean reversion principles and Benjamin Graham's value investing methodology:
+
+1. **Mean Reversion Theory**: Stock prices tend to revert to historical valuation norms over time
+2. **Quality Value Investing**: Focus on financially strong companies at temporary discounts
+3. **Distress Avoidance**: Systematic filters to avoid permanent value destruction
+4. **Multi-Factor Analysis**: Combines valuation, quality, and market structure for robust screening
+
+### Expected Outputs
+
+**Top Historic Value Candidates (October 2025)**:
+- FANG: Score 29.5/100 (Energy sector, P/E 10.13, P/B 0.93)
+- GM: Score 28.8/100 (Consumer Cyclical, P/E 8.45, P/B 0.94)  
+- BK: Score 27.5/100 (Financial Services, P/E 15.98, P/B 1.38)
+
+**Typical Results**: 400-450 stocks from S&P 500 meet basic criteria, with top 15-20 showing strongest historic value opportunities.
+
 ## Insider Buying Screener (Pre-Pump Pattern Detection)
 
 Advanced screener detecting pre-pump insider buying patterns with technical consolidation analysis.
