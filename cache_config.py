@@ -38,11 +38,13 @@ def clear_all_cache():
         int: Number of items deleted
     """
     try:
-        # Store the count first since clear() returns None
-        count = len(cache)
+        # For FanoutCache, get count from stats before clearing
+        stats = cache.stats()
+        items_count = stats[0] if stats else 0
+        
         cache.clear()
-        logger.info(f"Cleared all {count} items from {cache_dir}")
-        return count
+        logger.info(f"Cleared all {items_count} items from {cache_dir}")
+        return items_count
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         return 0

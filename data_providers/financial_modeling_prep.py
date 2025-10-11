@@ -77,7 +77,7 @@ import functools
 from tqdm import tqdm  # For progress bars
 
 from .base import BaseDataProvider
-from cache_config import cache
+from cache_config import cache, clear_all_cache
 import config
 from utils.logger import get_logger
 from utils.rate_limiter import RateLimiter
@@ -221,8 +221,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             Dictionary mapping each symbol to its historical price DataFrame
         """
+        # Global cache clearing when force_refresh=True
         if force_refresh:
-            cache.delete(self.get_historical_prices, symbols, period, interval)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
             
         if isinstance(symbols, str):
             symbols = [symbols]
@@ -307,8 +309,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             DataFrame containing income statement data
         """
+        # Global cache clearing when force_refresh=True
         if force_refresh:
-            cache.delete(self.get_income_statement, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         
         # Set up parameters
         period = "annual" if annual else "quarter"
@@ -358,8 +362,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             DataFrame containing balance sheet data
         """
+        # Global cache clearing when force_refresh=True
         if force_refresh:
-            cache.delete(self.get_balance_sheet, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         
         # Set up parameters
         period = "annual" if annual else "quarter"
@@ -410,8 +416,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             DataFrame containing cash flow data
         """
+        # Global cache clearing when force_refresh=True
         if force_refresh:
-            cache.delete(self.get_cash_flow, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         
         # Set up parameters
         period = "annual" if annual else "quarter"
@@ -467,8 +475,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             Dictionary containing company profile and metrics
         """
+        # Global cache clearing when force_refresh=True
         if force_refresh:
-            cache.delete(self.get_company_overview, symbol)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         
         # Initialize the overview dictionary
         overview = {
@@ -582,18 +592,15 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             List of insider trading records within the lookback period
         """
-        if force_refresh:
-            # Clear cache for this specific call
-            cache_key = f"FinancialModelingPrepProvider.get_insider_trading:{symbol}:{lookback_days}:{force_refresh}"
-            try:
-                cache.delete(cache_key)
-            except:
-                pass  # Ignore cache deletion errors
-            
         from datetime import datetime, timedelta
         import logging
         
         logger = logging.getLogger(__name__)
+        
+        if force_refresh:
+            # Global cache clearing when force_refresh=True
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         
         try:
             # Apply rate limiting

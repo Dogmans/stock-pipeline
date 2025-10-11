@@ -42,7 +42,7 @@ class ScreeningThresholds:
     MIN_GROWTH_QUALITY_COMPONENT_SCORE = 8.0  # Minimum growth quality component score
     
     # Free Cash Flow Yield Parameters
-    MIN_FCF_YIELD = 8.0  # Minimum free cash flow yield (%) relative to market cap
+    MIN_FCF_YIELD = 3.5  # Minimum free cash flow yield (%) relative to market cap
     
     # 52-Week Low Parameters
     MIN_PERCENT_OFF_52_WEEK_LOW = 0  # Currently at 52-week low

@@ -15,7 +15,7 @@ STRATEGY_DESCRIPTIONS = {
     'distressed_value': 'Focuses on special situation investments including turnarounds and sector corrections, targeting companies with potential for significant recovery.'
 }
 
-def screen_for_combined(universe_df=None, strategies=None, force_refresh=False, combination_name=None):
+def screen_for_combined(universe_df=None, strategies=None, combination_name=None):
     """
     Run multiple screeners and combine their results based on average ranking.
     
@@ -90,11 +90,8 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False, 
                     # Get the function from the module
                     screener_func = getattr(module, func_name)
                     
-                    # Some strategies may need force_refresh parameter
-                    if 'force_refresh' in screener_func.__code__.co_varnames:
-                        result = screener_func(universe_df=universe_df, force_refresh=force_refresh)
-                    else:
-                        result = screener_func(universe_df=universe_df)
+                    # Call screener function
+                    result = screener_func(universe_df=universe_df)
                     
                     # Store all results, not just top 10
                     screener_results[strategy] = result
@@ -262,7 +259,7 @@ def screen_for_combined(universe_df=None, strategies=None, force_refresh=False, 
     return result_df
 
 
-def screen_for_traditional_value(universe_df=None, force_refresh=False):
+def screen_for_traditional_value(universe_df=None):
     """
     Traditional Value Combined Screener.
     Combines P/E ratio, Price-to-Book, and PEG ratio screeners.
@@ -276,12 +273,11 @@ def screen_for_traditional_value(universe_df=None, force_refresh=False):
     """
     return screen_for_combined(
         universe_df=universe_df, 
-        force_refresh=force_refresh, 
         combination_name='traditional_value'
     )
 
 
-def screen_for_high_performance(universe_df=None, force_refresh=False):
+def screen_for_high_performance(universe_df=None):
     """
     High Performance Combined Screener.
     Combines Momentum, Quality, and Free Cash Flow Yield screeners.
@@ -296,12 +292,11 @@ def screen_for_high_performance(universe_df=None, force_refresh=False):
     """
     return screen_for_combined(
         universe_df=universe_df, 
-        force_refresh=force_refresh, 
         combination_name='high_performance'
     )
 
 
-def screen_for_comprehensive(universe_df=None, force_refresh=False):
+def screen_for_comprehensive(universe_df=None):
     """
     Comprehensive Combined Screener.
     Combines all available screening strategies.
@@ -315,12 +310,11 @@ def screen_for_comprehensive(universe_df=None, force_refresh=False):
     """
     return screen_for_combined(
         universe_df=universe_df, 
-        force_refresh=force_refresh, 
         combination_name='comprehensive'
     )
 
 
-def screen_for_distressed_value(universe_df=None, force_refresh=False):
+def screen_for_distressed_value(universe_df=None):
     """
     Distressed Value Combined Screener.
     Combines 52-week lows, fallen IPOs, and turnaround candidates.
@@ -334,6 +328,5 @@ def screen_for_distressed_value(universe_df=None, force_refresh=False):
     """
     return screen_for_combined(
         universe_df=universe_df, 
-        force_refresh=force_refresh, 
         combination_name='distressed_value'
     )

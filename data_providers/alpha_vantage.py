@@ -81,7 +81,7 @@ import os
 from tqdm import tqdm
 
 from .base import BaseDataProvider
-from cache_config import cache
+from cache_config import cache, clear_all_cache
 
 import config
 from utils.logger import get_logger
@@ -135,7 +135,8 @@ class AlphaVantageProvider(BaseDataProvider):
             Dictionary mapping each symbol to its historical price DataFrame
         """
         if force_refresh:
-            cache.delete(self.get_historical_prices, symbols, period, interval)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
             
         if isinstance(symbols, str):
             symbols = [symbols]
@@ -226,7 +227,8 @@ class AlphaVantageProvider(BaseDataProvider):
             DataFrame containing income statement data
         """
         if force_refresh:
-            cache.delete(self.get_income_statement, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
             
         try:
             params = {
@@ -272,7 +274,8 @@ class AlphaVantageProvider(BaseDataProvider):
             DataFrame containing balance sheet data
         """
         if force_refresh:
-            cache.delete(self.get_balance_sheet, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
             
         try:
             params = {
@@ -318,7 +321,8 @@ class AlphaVantageProvider(BaseDataProvider):
             DataFrame containing cash flow data
         """
         if force_refresh:
-            cache.delete(self.get_cash_flow, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         try:
             params = {
                 "function": "CASH_FLOW",
@@ -361,7 +365,8 @@ class AlphaVantageProvider(BaseDataProvider):
             Dictionary containing company overview data
         """
         if force_refresh:
-            cache.delete(self.get_company_overview, symbol)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
             
         try:
             params = {

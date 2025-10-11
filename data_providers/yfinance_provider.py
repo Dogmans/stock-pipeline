@@ -71,7 +71,7 @@ import pandas as pd
 import yfinance as yf
 
 from .base import BaseDataProvider
-from cache_config import cache
+from cache_config import cache, clear_all_cache
 from utils.logger import get_logger
 
 # Get logger for this module
@@ -98,7 +98,8 @@ class YFinanceProvider(BaseDataProvider):
                              force_refresh: bool = False) -> Dict[str, pd.DataFrame]:
         """Force refresh handling"""
         if force_refresh:
-            cache.delete(self.get_historical_prices, symbols, period, interval)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         """
         Get historical price data using yfinance.
         
@@ -159,7 +160,8 @@ class YFinanceProvider(BaseDataProvider):
             DataFrame containing income statement data
         """
         if force_refresh:
-            cache.delete(self.get_income_statement, symbol, annual)
+            logger.info("Force refresh requested - clearing all cache")
+            clear_all_cache()
         try:
             ticker = yf.Ticker(symbol)
             

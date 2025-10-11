@@ -153,9 +153,12 @@ def main():
         return  # Exit after showing cache info
     
     # Clear cache if requested
-    if args.clear_cache:
+    if args.clear_cache or args.force_refresh:
         num_deleted = clear_all_cache()
-        logger.info(f"Cleared {num_deleted} cache files")
+        if args.clear_cache:
+            logger.info(f"Cleared {num_deleted} cache files")
+        else:
+            logger.info(f"Force refresh requested - cleared {num_deleted} cache files")
     
     # Clear old cache files if requested
     if args.clear_old_cache is not None:
@@ -200,7 +203,7 @@ def main():
         logger.info(f"Selected {len(symbols)} custom symbols for analysis")
     else:
         logger.info(f"Selecting stock universe: {args.universe}")
-        universe_df = get_stock_universe(args.universe, force_refresh=args.force_refresh)
+        universe_df = get_stock_universe(args.universe)
     
     # Always process the full universe
     symbols = universe_df['symbol'].tolist()
@@ -211,9 +214,9 @@ def main():
     display_limit = args.limit  # Store the display limit for later use
       # 2. Check market conditions
     logger.info("Checking market conditions")
-    market_data = get_market_conditions(data_provider=data_provider, force_refresh=args.force_refresh)
-    in_correction, market_status = is_market_in_correction(data_provider=data_provider, force_refresh=args.force_refresh)
-    sector_performance = get_sector_performances(data_provider=data_provider, force_refresh=args.force_refresh)
+    market_data = get_market_conditions(data_provider=data_provider)
+    in_correction, market_status = is_market_in_correction(data_provider=data_provider)
+    sector_performance = get_sector_performances(data_provider=data_provider)
     
     logger.info(f"Market status: {market_status}")    # In the new architecture, we directly run the screeners with just the universe data
     # Each screener will fetch its own data directly from the data provider
