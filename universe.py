@@ -26,12 +26,57 @@ from cache_config import cache
 # Set up logger for this module
 logger = setup_logging()
 
+def _fetch_fmp_constituents(endpoint, index_name):
+    """
+    Common helper function to fetch index constituents from Financial Modeling Prep API.
+    
+    Args:
+        endpoint (str): The FMP API endpoint (e.g., 'sp500_constituent')
+        index_name (str): Human-readable name for logging (e.g., 'S&P 500')
+        
+    Returns:
+        DataFrame: DataFrame with ticker symbols and company information
+                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
+    """
+    try:
+        import requests
+        url = f'https://financialmodelingprep.com/api/v3/{endpoint}'
+        
+        response = requests.get(url, params={'apikey': config.FINANCIAL_MODELING_PREP_API_KEY})
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                # Convert to DataFrame and rename columns to match expected format
+                df = pd.DataFrame(data)
+                
+                # Map FMP columns to expected column names
+                result = pd.DataFrame({
+                    'symbol': df['symbol'],
+                    'security': df['name'],
+                    'gics_sector': df.get('sector', ''),
+                    'gics_sub-industry': df.get('subSector', df.get('sector', ''))
+                })
+                
+                logger.info(f"Successfully retrieved {len(result)} {index_name} symbols from Financial Modeling Prep")
+                return result
+            else:
+                logger.warning(f"Empty or invalid response from Financial Modeling Prep {index_name} API")
+                return None
+        else:
+            logger.warning(f"Error fetching {index_name} symbols from FMP: HTTP {response.status_code}")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"Error fetching {index_name} symbols from Financial Modeling Prep: {e}")
+        return None
+
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_sp500_symbols(force_refresh=False):
     """
-    Get a list of S&P 500 tickers from Wikipedia.
+    Get a list of S&P 500 tickers from Financial Modeling Prep API.
     
-    Scrapes the current S&P 500 component list from Wikipedia and returns
+    Fetches the current S&P 500 component list from FMP and returns
     a DataFrame with symbols, company names, and sector classifications.
     
     Args:
@@ -44,35 +89,22 @@ def get_sp500_symbols(force_refresh=False):
     if force_refresh:
         cache.delete(get_sp500_symbols)
         
-    url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-    try:
-        # Set proper User-Agent header as required by Wikipedia
-        headers = {
-            'User-Agent': 'Stock-Pipeline/1.0 (Educational Purpose; Python/pandas)'
-        }
-        tables = pd.read_html(url, header=0, storage_options={'User-Agent': headers['User-Agent']})
-        # Get the first table which contains the S&P 500 companies
-        df = tables[0]
-        df.columns = [col.replace(' ', '_').lower() for col in df.columns]
-        
-        # Clean up the symbols
-        df['symbol'] = df['symbol'].str.replace('.', '-')
-        
-        # Select relevant columns
-        result = df[['symbol', 'security', 'gics_sector', 'gics_sub-industry']]
-        logger.info(f"Successfully retrieved {len(result)} S&P 500 symbols")
+    result = _fetch_fmp_constituents('sp500_constituent', 'S&P 500')
+    
+    if result is not None:
         return result
-    except Exception as e:
-        logger.error(f"Error fetching S&P 500 symbols: {e}")
+    else:
+        logger.error("Failed to fetch S&P 500 symbols from Financial Modeling Prep")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_russell2000_symbols(force_refresh=False):
     """
-    Get a list of Russell 2000 tickers from iShares ETF holdings.
+    Get a list of Russell 2000 tickers from Financial Modeling Prep API.
     
-    Fetches the current Russell 2000 component list from the iShares Russell 2000 ETF (IWM)
-    holdings data and returns a DataFrame with symbols and company names.
+    Fetches the current Russell 2000 component list from FMP and returns
+    a DataFrame with symbols, company names, and sector classifications.
+    Falls back to iShares ETF holdings if FMP API is unavailable.
     
     Args:
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
@@ -84,7 +116,16 @@ def get_russell2000_symbols(force_refresh=False):
     if force_refresh:
         cache.delete(get_russell2000_symbols)
     
-    # iShares Russell 2000 ETF (IWM) holdings CSV URL
+    # Try Financial Modeling Prep API first
+    result = _fetch_fmp_constituents('russell2000_constituent', 'Russell 2000')
+    
+    if result is not None:
+        return result
+    
+    # Fallback to iShares ETF approach
+    logger.info("Falling back to iShares ETF approach for Russell 2000")
+    
+    # Fallback: iShares Russell 2000 ETF (IWM) holdings CSV URL
     url = "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund"
     
     try:
@@ -92,7 +133,7 @@ def get_russell2000_symbols(force_refresh=False):
         import requests
         import io
         
-        logger.info("Fetching Russell 2000 symbols from iShares ETF holdings...")
+        logger.info("Fetching Russell 2000 symbols from iShares ETF holdings (fallback)...")
         response = requests.get(url)
         if response.status_code != 200:
             raise ValueError(f"Failed to fetch Russell 2000 data: HTTP {response.status_code}")
@@ -127,7 +168,7 @@ def get_russell2000_symbols(force_refresh=False):
         # Remove duplicates
         df = df.drop_duplicates(subset='symbol')
         
-        logger.info(f"Successfully processed {len(df)} Russell 2000 symbols")
+        logger.info(f"Successfully processed {len(df)} Russell 2000 symbols from iShares fallback")
         return df
         
     except Exception as e:
@@ -136,12 +177,13 @@ def get_russell2000_symbols(force_refresh=False):
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
-def get_nasdaq100_symbols(force_refresh=False):
+def get_nasdaq_symbols(force_refresh=False):
     """
-    Get a list of NASDAQ 100 tickers from Wikipedia.
+    Get a list of NASDAQ constituents from Financial Modeling Prep API.
     
-    Scrapes the current NASDAQ 100 component list from Wikipedia and returns
-    a DataFrame with symbols and company names.
+    Fetches the current NASDAQ component list from FMP and returns
+    a DataFrame with symbols, company names, and sector classifications.
+    Falls back to Wikipedia scraping if FMP API is unavailable.
     
     Args:
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
@@ -149,11 +191,20 @@ def get_nasdaq100_symbols(force_refresh=False):
     Returns:
         DataFrame: DataFrame with ticker symbols and company information
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
-                  (note that sector info may be empty)
     """
     if force_refresh:
-        cache.delete(get_nasdaq100_symbols)
+        cache.delete(get_nasdaq_symbols)
+    
+    # Try Financial Modeling Prep API first
+    result = _fetch_fmp_constituents('nasdaq_constituent', 'NASDAQ')
+    
+    if result is not None:
+        return result
+    
+    # Fallback to Wikipedia scraping
+    logger.info("Falling back to Wikipedia scraping for NASDAQ")
         
+    # Fallback: Wikipedia scraping
     url = 'https://en.wikipedia.org/wiki/Nasdaq-100'
     try:
         tables = pd.read_html(url)
@@ -176,13 +227,57 @@ def get_nasdaq100_symbols(force_refresh=False):
                 df['gics_sub-industry'] = ''
             
             result = df[['symbol', 'security', 'gics_sector', 'gics_sub-industry']]
-            logger.info(f"Successfully retrieved {len(result)} NASDAQ 100 symbols")
+            logger.info(f"Successfully retrieved {len(result)} NASDAQ symbols from Wikipedia fallback")
             return result
         
-        logger.error("Could not find appropriate table for NASDAQ 100 components")
+        logger.error("Could not find appropriate table for NASDAQ components")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
     except Exception as e:
-        logger.error(f"Error fetching NASDAQ 100 symbols: {e}")
+        logger.error(f"Error fetching NASDAQ symbols: {e}")
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
+def get_nasdaq100_symbols(force_refresh=False):
+    """
+    Get a list of NASDAQ 100 tickers from Wikipedia.
+    
+    This function is deprecated in favor of get_nasdaq_symbols() which uses FMP API.
+    Kept for backward compatibility.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+    
+    Returns:
+        DataFrame: DataFrame with ticker symbols and company information
+                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
+    """
+    logger.warning("get_nasdaq100_symbols() is deprecated, use get_nasdaq_symbols() instead")
+    return get_nasdaq_symbols(force_refresh=force_refresh)
+
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
+def get_dowjones_symbols(force_refresh=False):
+    """
+    Get a list of Dow Jones Industrial Average tickers from Financial Modeling Prep API.
+    
+    Fetches the current DJIA component list from FMP and returns
+    a DataFrame with symbols, company names, and sector classifications.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+    
+    Returns:
+        DataFrame: DataFrame with ticker symbols and company information
+                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
+    """
+    if force_refresh:
+        cache.delete(get_dowjones_symbols)
+    
+    result = _fetch_fmp_constituents('dowjones_constituent', 'Dow Jones')
+    
+    if result is not None:
+        return result
+    else:
+        logger.error("Failed to fetch Dow Jones symbols from Financial Modeling Prep")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
@@ -202,7 +297,7 @@ def get_stock_universe(universe=None, force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete(get_stock_universe, universe)
+        cache.delete_memoized(get_stock_universe, universe)
     if universe is None:
         universe = config.DEFAULT_UNIVERSE
     
@@ -212,14 +307,19 @@ def get_stock_universe(universe=None, force_refresh=False):
         return get_russell2000_symbols(force_refresh=force_refresh)
     elif universe == config.UNIVERSES["NASDAQ100"]:
         return get_nasdaq100_symbols(force_refresh=force_refresh)
+    elif universe == config.UNIVERSES["NASDAQ"]:
+        return get_nasdaq_symbols(force_refresh=force_refresh)
+    elif universe == config.UNIVERSES["DOWJONES"]:
+        return get_dowjones_symbols(force_refresh=force_refresh)
     elif universe == config.UNIVERSES["ALL"]:
         # Combine all universes
         sp500 = get_sp500_symbols(force_refresh=force_refresh)
         russell = get_russell2000_symbols(force_refresh=force_refresh)
-        nasdaq = get_nasdaq100_symbols(force_refresh=force_refresh)
+        nasdaq = get_nasdaq_symbols(force_refresh=force_refresh)
+        dowjones = get_dowjones_symbols(force_refresh=force_refresh)
         
         # Combine and remove duplicates
-        combined = pd.concat([sp500, russell, nasdaq])
+        combined = pd.concat([sp500, russell, nasdaq, dowjones])
         combined = combined.drop_duplicates(subset=['symbol'])
         logger.info(f"Combined universe contains {len(combined)} unique symbols")
         return combined
@@ -237,11 +337,17 @@ if __name__ == "__main__":
     if not sp500.empty:
         logger.info(f"Sample S&P 500 symbols: {', '.join(sp500['symbol'].head(5).tolist())}")
     
-    # Test NASDAQ 100 retrieval
-    nasdaq = get_nasdaq100_symbols()
-    logger.info(f"NASDAQ 100: Retrieved {len(nasdaq)} symbols")
+    # Test NASDAQ retrieval
+    nasdaq = get_nasdaq_symbols()
+    logger.info(f"NASDAQ: Retrieved {len(nasdaq)} symbols")
     if not nasdaq.empty:
-        logger.info(f"Sample NASDAQ 100 symbols: {', '.join(nasdaq['symbol'].head(5).tolist())}")
+        logger.info(f"Sample NASDAQ symbols: {', '.join(nasdaq['symbol'].head(5).tolist())}")
+    
+    # Test Dow Jones retrieval
+    dowjones = get_dowjones_symbols()
+    logger.info(f"Dow Jones: Retrieved {len(dowjones)} symbols")
+    if not dowjones.empty:
+        logger.info(f"Sample Dow Jones symbols: {', '.join(dowjones['symbol'].head(5).tolist())}")
     
     # Test Russell 2000 retrieval
     russell = get_russell2000_symbols()

@@ -163,7 +163,9 @@ OUTPUT_DIR = "output"
 UNIVERSES = {
     "SP500": "sp500",
     "RUSSELL2000": "russell2000",
-    "NASDAQ100": "nasdaq100",
+    "NASDAQ100": "nasdaq100",  # Deprecated, use NASDAQ
+    "NASDAQ": "nasdaq",
+    "DOWJONES": "dowjones", 
     "ALL": "all"
 }
 
