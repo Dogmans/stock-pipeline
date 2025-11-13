@@ -16,7 +16,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config
 from utils.logger import get_logger
-from universe import get_stock_universe
 from cache_config import cache
 import data_providers
 

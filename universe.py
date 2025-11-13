@@ -71,7 +71,6 @@ def _fetch_fmp_constituents(endpoint, index_name):
         logger.warning(f"Error fetching {index_name} symbols from Financial Modeling Prep: {e}")
         return None
 
-@cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_sp500_symbols(force_refresh=False):
     """
     Get a list of S&P 500 tickers from Financial Modeling Prep API.
@@ -87,8 +86,14 @@ def get_sp500_symbols(force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete(get_sp500_symbols)
+        # Clear cache for both possible call signatures
+        cache.delete_memoized(_get_sp500_symbols_cached)
         
+    return _get_sp500_symbols_cached()
+
+@cache.memoize(expire=24*3600)  # Cache for 24 hours  
+def _get_sp500_symbols_cached():
+    """Internal cached function for S&P 500 symbols."""
     result = _fetch_fmp_constituents('sp500_constituent', 'S&P 500')
     
     if result is not None:
@@ -114,7 +119,7 @@ def get_russell2000_symbols(force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete(get_russell2000_symbols)
+        cache.delete_memoized(get_russell2000_symbols, force_refresh)
     
     # Try Financial Modeling Prep API first
     result = _fetch_fmp_constituents('russell2000_constituent', 'Russell 2000')
@@ -193,7 +198,7 @@ def get_nasdaq_symbols(force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete(get_nasdaq_symbols)
+        cache.delete_memoized(get_nasdaq_symbols, force_refresh)
     
     # Try Financial Modeling Prep API first
     result = _fetch_fmp_constituents('nasdaq_constituent', 'NASDAQ')
@@ -270,7 +275,7 @@ def get_dowjones_symbols(force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete(get_dowjones_symbols)
+        cache.delete_memoized(get_dowjones_symbols, force_refresh)
     
     result = _fetch_fmp_constituents('dowjones_constituent', 'Dow Jones')
     
@@ -280,7 +285,6 @@ def get_dowjones_symbols(force_refresh=False):
         logger.error("Failed to fetch Dow Jones symbols from Financial Modeling Prep")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-@cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_stock_universe(universe=None, force_refresh=False):
     """
     Get a list of stock symbols based on the specified universe.
@@ -297,26 +301,31 @@ def get_stock_universe(universe=None, force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete_memoized(get_stock_universe, universe)
+        cache.delete_memoized(_get_stock_universe_cached, universe)
     if universe is None:
         universe = config.DEFAULT_UNIVERSE
     
+    return _get_stock_universe_cached(universe)
+
+@cache.memoize(expire=24*3600)  # Cache for 24 hours
+def _get_stock_universe_cached(universe):
+    """Internal cached function for stock universe selection."""
     if universe == config.UNIVERSES["SP500"]:
-        return get_sp500_symbols(force_refresh=force_refresh)
+        return get_sp500_symbols()
     elif universe == config.UNIVERSES["RUSSELL2000"]:
-        return get_russell2000_symbols(force_refresh=force_refresh)
+        return get_russell2000_symbols()
     elif universe == config.UNIVERSES["NASDAQ100"]:
-        return get_nasdaq100_symbols(force_refresh=force_refresh)
+        return get_nasdaq100_symbols()
     elif universe == config.UNIVERSES["NASDAQ"]:
-        return get_nasdaq_symbols(force_refresh=force_refresh)
+        return get_nasdaq_symbols()
     elif universe == config.UNIVERSES["DOWJONES"]:
-        return get_dowjones_symbols(force_refresh=force_refresh)
+        return get_dowjones_symbols()
     elif universe == config.UNIVERSES["ALL"]:
         # Combine all universes
-        sp500 = get_sp500_symbols(force_refresh=force_refresh)
-        russell = get_russell2000_symbols(force_refresh=force_refresh)
-        nasdaq = get_nasdaq_symbols(force_refresh=force_refresh)
-        dowjones = get_dowjones_symbols(force_refresh=force_refresh)
+        sp500 = get_sp500_symbols()
+        russell = get_russell2000_symbols()
+        nasdaq = get_nasdaq_symbols()
+        dowjones = get_dowjones_symbols()
         
         # Combine and remove duplicates
         combined = pd.concat([sp500, russell, nasdaq, dowjones])
@@ -325,7 +334,7 @@ def get_stock_universe(universe=None, force_refresh=False):
         return combined
     else:
         logger.warning(f"Unknown universe: {universe}, defaulting to S&P 500")
-        return get_sp500_symbols(force_refresh=force_refresh)
+        return get_sp500_symbols()
 
 if __name__ == "__main__":
     # Test module functionality
