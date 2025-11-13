@@ -26,6 +26,9 @@ from cache_config import cache
 # Set up logger for this module
 logger = setup_logging()
 
+# Cache timeout constant (24 hours in seconds)
+CACHE_EXPIRE = 24 * 3600
+
 def _fetch_fmp_constituents(endpoint, index_name):
     """
     Common helper function to fetch index constituents from Financial Modeling Prep API.
@@ -102,25 +105,9 @@ def _get_sp500_symbols_cached():
         logger.error("Failed to fetch S&P 500 symbols from Financial Modeling Prep")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-@cache.memoize(expire=24*3600)  # Cache for 24 hours
-def get_russell2000_symbols(force_refresh=False):
-    """
-    Get a list of Russell 2000 tickers from Financial Modeling Prep API.
-    
-    Fetches the current Russell 2000 component list from FMP and returns
-    a DataFrame with symbols, company names, and sector classifications.
-    Falls back to iShares ETF holdings if FMP API is unavailable.
-    
-    Args:
-        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
-    
-    Returns:
-        DataFrame: DataFrame with ticker symbols and company information
-                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
-    """
-    if force_refresh:
-        cache.delete_memoized(get_russell2000_symbols, force_refresh)
-    
+@cache.memoize(expire=CACHE_EXPIRE)
+def _get_russell2000_symbols_cached():
+    """Cached implementation of Russell 2000 symbols fetching."""
     # Try Financial Modeling Prep API first
     result = _fetch_fmp_constituents('russell2000_constituent', 'Russell 2000')
     
@@ -181,14 +168,13 @@ def get_russell2000_symbols(force_refresh=False):
         # Return empty DataFrame with the expected columns
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
-@cache.memoize(expire=24*3600)  # Cache for 24 hours
-def get_nasdaq_symbols(force_refresh=False):
+def get_russell2000_symbols(force_refresh=False):
     """
-    Get a list of NASDAQ constituents from Financial Modeling Prep API.
+    Get a list of Russell 2000 tickers from Financial Modeling Prep API.
     
-    Fetches the current NASDAQ component list from FMP and returns
+    Fetches the current Russell 2000 component list from FMP and returns
     a DataFrame with symbols, company names, and sector classifications.
-    Falls back to Wikipedia scraping if FMP API is unavailable.
+    Falls back to iShares ETF holdings if FMP API is unavailable.
     
     Args:
         force_refresh (bool, optional): If True, bypass cache and fetch fresh data
@@ -198,8 +184,13 @@ def get_nasdaq_symbols(force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete_memoized(get_nasdaq_symbols, force_refresh)
+        cache.delete_memoized(_get_russell2000_symbols_cached)
     
+    return _get_russell2000_symbols_cached()
+
+@cache.memoize(expire=CACHE_EXPIRE)
+def _get_nasdaq_symbols_cached():
+    """Cached implementation of NASDAQ symbols fetching."""
     # Try Financial Modeling Prep API first
     result = _fetch_fmp_constituents('nasdaq_constituent', 'NASDAQ')
     
@@ -241,6 +232,26 @@ def get_nasdaq_symbols(force_refresh=False):
         logger.error(f"Error fetching NASDAQ symbols: {e}")
         return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
+def get_nasdaq_symbols(force_refresh=False):
+    """
+    Get a list of NASDAQ constituents from Financial Modeling Prep API.
+    
+    Fetches the current NASDAQ component list from FMP and returns
+    a DataFrame with symbols, company names, and sector classifications.
+    Falls back to Wikipedia scraping if FMP API is unavailable.
+    
+    Args:
+        force_refresh (bool, optional): If True, bypass cache and fetch fresh data
+    
+    Returns:
+        DataFrame: DataFrame with ticker symbols and company information
+                  Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
+    """
+    if force_refresh:
+        cache.delete_memoized(_get_nasdaq_symbols_cached)
+    
+    return _get_nasdaq_symbols_cached()
+
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
 def get_nasdaq100_symbols(force_refresh=False):
     """
@@ -259,7 +270,17 @@ def get_nasdaq100_symbols(force_refresh=False):
     logger.warning("get_nasdaq100_symbols() is deprecated, use get_nasdaq_symbols() instead")
     return get_nasdaq_symbols(force_refresh=force_refresh)
 
-@cache.memoize(expire=24*3600)  # Cache for 24 hours
+@cache.memoize(expire=CACHE_EXPIRE)
+def _get_dowjones_symbols_cached():
+    """Cached implementation of Dow Jones symbols fetching."""
+    result = _fetch_fmp_constituents('dowjones_constituent', 'Dow Jones')
+    
+    if result is not None:
+        return result
+    else:
+        logger.error("Failed to fetch Dow Jones symbols from Financial Modeling Prep")
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+
 def get_dowjones_symbols(force_refresh=False):
     """
     Get a list of Dow Jones Industrial Average tickers from Financial Modeling Prep API.
@@ -275,15 +296,9 @@ def get_dowjones_symbols(force_refresh=False):
                   Columns: 'symbol', 'security', 'gics_sector', 'gics_sub-industry'
     """
     if force_refresh:
-        cache.delete_memoized(get_dowjones_symbols, force_refresh)
+        cache.delete_memoized(_get_dowjones_symbols_cached)
     
-    result = _fetch_fmp_constituents('dowjones_constituent', 'Dow Jones')
-    
-    if result is not None:
-        return result
-    else:
-        logger.error("Failed to fetch Dow Jones symbols from Financial Modeling Prep")
-        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+    return _get_dowjones_symbols_cached()
 
 def get_stock_universe(universe=None, force_refresh=False):
     """
