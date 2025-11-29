@@ -644,3 +644,216 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         except Exception as e:
             logger.error(f"Error fetching insider trading data for {symbol}: {e}")
             return []
+
+    def get_analyst_estimates(self, symbol: str, period: str = "annual", force_refresh: bool = False) -> pd.DataFrame:
+        """
+        Get analyst financial estimates for a symbol.
+        
+        Args:
+            symbol: Stock symbol
+            period: "annual" or "quarterly" 
+            force_refresh: Force refresh cache
+            
+        Returns:
+            DataFrame with analyst estimates data
+        """
+        try:
+            params = {"period": period}
+            
+            success, data, error = self._make_api_request("analyst-estimates", symbol, params)
+            if not success:
+                logger.error(f"Error fetching analyst estimates for {symbol}: {error}")
+                return pd.DataFrame()
+                
+            if data:
+                df = pd.DataFrame(data)
+                if not df.empty:
+                    df['symbol'] = symbol
+                    if 'date' in df.columns:
+                        df['date'] = pd.to_datetime(df['date'])
+                return df
+            return pd.DataFrame()
+            
+        except Exception as e:
+            logger.error(f"Error fetching analyst estimates for {symbol}: {e}")
+            return pd.DataFrame()
+
+    def get_analyst_grades(self, symbol: str, limit: int = 100, force_refresh: bool = False) -> pd.DataFrame:
+        """
+        Get recent analyst rating changes (upgrades/downgrades).
+        
+        Args:
+            symbol: Stock symbol
+            limit: Number of recent ratings to retrieve
+            force_refresh: Force refresh cache
+            
+        Returns:
+            DataFrame with rating changes
+        """
+        try:
+            params = {"limit": limit}
+            
+            success, data, error = self._make_api_request("grade", symbol, params)
+            if not success:
+                logger.error(f"Error fetching analyst grades for {symbol}: {error}")
+                return pd.DataFrame()
+                
+            if data:
+                df = pd.DataFrame(data)
+                if not df.empty:
+                    df['symbol'] = symbol
+                    if 'date' in df.columns:
+                        df['date'] = pd.to_datetime(df['date'])
+                return df
+            return pd.DataFrame()
+            
+        except Exception as e:
+            logger.error(f"Error fetching analyst grades for {symbol}: {e}")
+            return pd.DataFrame()
+
+    def get_analyst_grades_consensus(self, symbol: str, force_refresh: bool = False) -> dict:
+        """
+        Get current consensus analyst ratings summary.
+        
+        Args:
+            symbol: Stock symbol
+            force_refresh: Force refresh cache
+            
+        Returns:
+            Dictionary with consensus ratings data
+        """
+        try:
+            # Try analyst-stock-recommendation first
+            params = {}
+            
+            success, data, error = self._make_api_request("analyst-stock-recommendation", symbol, params)
+            if not success:
+                logger.error(f"Error fetching analyst consensus for {symbol}: {error}")
+                return {}
+                
+            if data and len(data) > 0:
+                consensus_data = data[0] if isinstance(data, list) else data
+                consensus_data['symbol'] = symbol
+                return consensus_data
+            return {}
+            
+        except Exception as e:
+            logger.error(f"Error fetching analyst consensus for {symbol}: {e}")
+            return {}
+
+    def get_analyst_upgrades_downgrades(self, symbol: str, force_refresh: bool = False) -> list:
+        """
+        Get analyst upgrades and downgrades for a symbol.
+        Note: This endpoint appears to be empty, so we return empty list.
+        
+        Args:
+            symbol: Stock symbol
+            force_refresh: Force refresh cache
+            
+        Returns:
+            List of upgrade/downgrade records (currently empty)
+        """
+        try:
+            params = {}
+            
+            success, data, error = self._make_api_request("upgrades-downgrades", symbol, params)
+            if success and data:
+                return data
+            else:
+                logger.warning(f"No upgrades/downgrades data for {symbol}: {error}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching upgrades/downgrades for {symbol}: {e}")
+            return []
+
+    def get_price_target_summary(self, symbol: str, force_refresh: bool = False) -> dict:
+        """
+        Get price target summary across time periods.
+        
+        Args:
+            symbol: Stock symbol
+            force_refresh: Force refresh cache
+            
+        Returns:
+            Dictionary with price target summary
+        """
+        try:
+            params = {}
+            
+            success, data, error = self._make_api_request("price-target-summary", symbol, params)
+            if not success:
+                logger.error(f"Error fetching price target summary for {symbol}: {error}")
+                return {}
+                
+            if data and len(data) > 0:
+                target_data = data[0] if isinstance(data, list) else data
+                target_data['symbol'] = symbol
+                return target_data
+            return {}
+            
+        except Exception as e:
+            logger.error(f"Error fetching price target summary for {symbol}: {e}")
+            return {}
+
+    def get_price_target_consensus(self, symbol: str, force_refresh: bool = False) -> dict:
+        """
+        Get current consensus price targets.
+        
+        Args:
+            symbol: Stock symbol  
+            force_refresh: Force refresh cache
+            
+        Returns:
+            Dictionary with consensus price targets
+        """
+        try:
+            params = {}
+            
+            success, data, error = self._make_api_request("price-target-consensus", symbol, params)
+            if not success:
+                logger.error(f"Error fetching price target consensus for {symbol}: {error}")
+                return {}
+                
+            if data and len(data) > 0:
+                consensus_data = data[0] if isinstance(data, list) else data
+                consensus_data['symbol'] = symbol
+                return consensus_data
+            return {}
+            
+        except Exception as e:
+            logger.error(f"Error fetching price target consensus for {symbol}: {e}")
+            return {}
+
+    def get_analyst_grades_historical(self, symbol: str, limit: int = 100, force_refresh: bool = False) -> pd.DataFrame:
+        """
+        Get historical analyst rating counts over time.
+        
+        Args:
+            symbol: Stock symbol
+            limit: Number of historical records
+            force_refresh: Force refresh cache
+            
+        Returns:
+            DataFrame with historical rating counts
+        """
+        try:
+            params = {"limit": limit}
+            
+            success, data, error = self._make_api_request("historical-rating", symbol, params)
+            if not success:
+                logger.error(f"Error fetching historical analyst ratings for {symbol}: {error}")
+                return pd.DataFrame()
+                
+            if data:
+                df = pd.DataFrame(data)
+                if not df.empty:
+                    df['symbol'] = symbol
+                    if 'date' in df.columns:
+                        df['date'] = pd.to_datetime(df['date'])
+                return df
+            return pd.DataFrame()
+            
+        except Exception as e:
+            logger.error(f"Error fetching historical analyst ratings for {symbol}: {e}")
+            return pd.DataFrame()

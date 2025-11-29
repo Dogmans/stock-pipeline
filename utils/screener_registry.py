@@ -87,6 +87,7 @@ def auto_register_screeners():
         from screeners.insider_buying import InsiderBuyingScreener
         from screeners.fifty_two_week_lows import FiftyTwoWeekLowsScreener
         from screeners.historic_value import HistoricValueScreener
+        from screeners.analyst_sentiment_momentum import AnalystSentimentMomentumScreener
         
         # Register the screeners
         register_screener("pe_ratio", PERatioScreener)
@@ -99,6 +100,8 @@ def auto_register_screeners():
         register_screener("enhanced_quality", EnhancedQualityScreener)
         register_screener("insider_buying", InsiderBuyingScreener)
         register_screener("fifty_two_week_lows", FiftyTwoWeekLowsScreener)
+        register_screener("historic_value", HistoricValueScreener)
+        register_screener("analyst_sentiment_momentum", AnalystSentimentMomentumScreener)
         register_screener("historic_value", HistoricValueScreener)
         
         logger.info(f"Auto-registered {len(_screener_registry)} screeners")

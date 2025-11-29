@@ -532,7 +532,160 @@ python main.py --universe sp500 --strategies high_performance
 python main.py --universe sp500 --strategies traditional_value,high_performance
 ```
 
+## Analyst Sentiment Momentum Screener
+
+Advanced screener analyzing professional analyst sentiment momentum through rating changes, coverage patterns, and consensus trends.
+
+### Multi-Component Scoring (0-100 points)
+
+#### Component 1: Rating Changes Analysis (0-30 points)
+- **Grade Momentum** (0-20 points): Analyzes recent upgrades vs. downgrades over 90-day period
+- **Rating Hierarchy**: Strong Sell (1) → Sell (2) → Hold/Neutral (3) → Buy (4) → Strong Buy (5)
+- **Momentum Calculation**: Weighted recent changes vs. historical baseline
+- **Trend Analysis**: Tracks direction and magnitude of rating shifts
+
+#### Component 2: Price Target Analysis (0-25 points)
+- **Target Trends** (0-15 points): Price target revision patterns
+- **Consensus Strength** (0-10 points): Agreement among analysts on targets
+- **Note**: Limited data availability on current API tier
+
+#### Component 3: Estimate Revisions (0-20 points)
+- **Earnings Estimate Changes** (0-12 points): Recent estimate revision patterns
+- **Revision Momentum** (0-8 points): Frequency and direction of changes
+- **Note**: Limited data availability on current API tier
+
+#### Component 4: Consensus Quality (0-15 points)
+- **Agreement Level** (0-10 points): Analyst consensus strength
+- **Distribution Analysis** (0-5 points): Range and variance of opinions
+
+#### Component 5: Coverage Analysis (0-10 points)
+- **Active Coverage** (0-5 points): Number of analysts covering the stock
+- **Coverage Quality** (0-5 points): Institutional analyst participation
+
+### Data Sources and Processing
+
+**Primary Data Source**: Financial Modeling Prep analyst endpoints
+- **Working Endpoint**: `/grade/{symbol}` (50+ analyst ratings per stock)
+- **Limited Endpoints**: Price targets, estimates, consensus (subscription tier dependent)
+
+**Processing Pipeline**:
+```python
+# Example grade change analysis
+def _calculate_rating_momentum_score(grade_data, symbol):
+    """Calculate rating momentum from grade changes"""
+    grade_hierarchy = {
+        'strong sell': 1, 'sell': 2, 'underweight': 2,
+        'hold': 3, 'neutral': 3, 'equal weight': 3,
+        'buy': 4, 'overweight': 4,
+        'strong buy': 5, 'outperform': 4
+    }
+    
+    # Analyze upgrade/downgrade patterns
+    upgrades = sum(1 for change in grade_changes if change > 0)
+    downgrades = sum(1 for change in grade_changes if change < 0)
+    
+    # Calculate momentum score
+    if total_changes > 0:
+        momentum_ratio = (upgrades - downgrades) / total_changes
+        return max(0, min(30, 15 + momentum_ratio * 15))
+    
+    return 0
+```
+
+### Configuration and Thresholds
+
+**Default Settings**:
+- Minimum threshold: 20.0/100 for basic screening
+- High-quality threshold: 50.0/100 for selective screening
+- Lookback period: 90 days for rating analysis
+- Coverage requirement: Minimum 5 analyst ratings
+
+**Customizable Parameters**:
+```python
+# In config.py
+ANALYST_SENTIMENT_MIN_SCORE = 20.0  # Minimum score threshold
+ANALYST_SENTIMENT_LOOKBACK_DAYS = 90  # Analysis period
+ANALYST_SENTIMENT_MIN_COVERAGE = 5  # Minimum analyst count
+```
+
+### Expected Performance
+
+**API Performance**:
+- Processing speed: ~2-3 seconds per stock
+- Data richness: 50+ analyst ratings per covered stock
+- Coverage: Most large-cap stocks have significant analyst coverage
+
+**Typical Scoring Results**:
+- **High-Quality Stocks** (70-100 points): Strong upgrade momentum with broad coverage
+- **Moderate Opportunities** (40-70 points): Mixed sentiment with some positive trends
+- **Basic Coverage** (20-40 points): Limited analyst activity or neutral sentiment
+
+### Usage Examples
+
+```bash
+# Individual analyst sentiment screening
+python main.py --universe sp500 --strategies analyst_sentiment_momentum
+
+# Combined with other momentum strategies
+python main.py --universe sp500 --strategies analyst_sentiment_momentum,momentum,quality
+
+# High-selectivity screening
+python main.py --universe sp500 --strategies analyst_sentiment_momentum --limit 10
+
+# Russell 2000 coverage analysis
+python main.py --universe russell2000 --strategies analyst_sentiment_momentum --limit 25
+```
+
+### Implementation Notes
+
+**Data Quality Considerations**:
+- Grade data is most reliable and comprehensive
+- Price target and estimate endpoints may require higher subscription tier
+- Graceful degradation when endpoints return empty data
+- Robust error handling for inconsistent API responses
+
+**Scoring Validation**:
+- Example: AAPL achieved 26.9/100 score with balanced grade changes
+- Stocks with no analyst coverage automatically score 0
+- Heavy weighting on actual rating changes vs. theoretical consensus
+
+**Technical Implementation**:
+- Integrated with Financial Modeling Prep provider
+- Uses existing caching and rate limiting infrastructure
+- Follows standard BaseScreener architecture
+- Generates detailed reasoning for each scored stock
+
+### Theoretical Foundation
+
+Based on institutional investor sentiment theory and analyst herding behavior:
+1. **Momentum Theory**: Analyst upgrades often precede price movements
+2. **Information Asymmetry**: Professional analysts have access to non-public information
+3. **Institutional Validation**: High analyst coverage indicates institutional interest
+4. **Sentiment Persistence**: Positive analyst momentum tends to continue short-term
+
+### Integration with Other Screeners
+
+**Complementary Strategies**:
+- **With Quality Screeners**: Validates fundamental strength behind analyst optimism
+- **With Momentum Screeners**: Confirms technical trends with professional sentiment
+- **With Value Screeners**: Identifies undervalued stocks with improving sentiment
+
+**Combined Strategy Examples**:
+```bash
+# Professional validation of value opportunities
+python main.py --universe sp500 --strategies historic_value,analyst_sentiment_momentum
+
+# High-conviction momentum plays
+python main.py --universe sp500 --strategies momentum,analyst_sentiment_momentum,enhanced_quality
+```
+
 ## Future Enhancements
+
+### Analyst Sentiment Momentum Enhancements
+1. **Subscription Tier Upgrade**: Enable full price target and estimate analysis
+2. **Sentiment Scoring**: Advanced NLP analysis of analyst reports and commentary
+3. **Timing Analysis**: Correlation between analyst changes and optimal entry points
+4. **Sector Relative Analysis**: Compare analyst sentiment within industry groups
 
 ### Momentum Screener Enhancements
 1. **Relative Strength Analysis**: Compare to sector and market performance

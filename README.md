@@ -175,6 +175,15 @@ The pipeline includes comprehensive screening strategies across multiple investm
 - **Sharpe Ratio Screening**: Risk-adjusted return analysis
 - **52-Week Low Detection**: Quality stocks near yearly lows
 
+### Sentiment Analysis
+- **Analyst Sentiment Momentum**: Professional analyst sentiment analysis (0-100 scoring)
+  - Rating Changes Analysis (30% weight): Upgrade/downgrade momentum over 90 days
+  - Price Target Analysis (25% weight): Target revision patterns (limited data availability)
+  - Estimate Revisions (20% weight): Earnings estimate trends (limited data availability)
+  - Consensus Quality (15% weight): Analyst agreement strength
+  - Coverage Analysis (10% weight): Active analyst coverage patterns
+  - **Data Source**: Financial Modeling Prep analyst grades (50+ ratings per stock)
+
 ### Special Situations
 - **Fallen IPO Analysis**: Post-IPO stabilization opportunities
 - **Turnaround Candidates**: Financial recovery pattern detection

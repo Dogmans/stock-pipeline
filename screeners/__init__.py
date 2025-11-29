@@ -1,7 +1,7 @@
 """
 Stock screeners package for the stock screening pipeline.
 
-This package contains 11 comprehensive screening strategies based on different financial metrics.
+This package contains 12 comprehensive screening strategies based on different financial metrics.
 All screeners use the BaseScreener class-based approach and are accessed through
 the registry system in utils.screener_registry.
 
@@ -10,7 +10,7 @@ Available Screeners:
         - PERatioScreener: Classic P/E ratio screening
         - PriceToBookScreener: Graham-style book value analysis  
         - PEGRatioScreener: Growth at reasonable price screening
-        - HistoricValueScreener: Mean reversion value analysis (NEW)
+        - HistoricValueScreener: Mean reversion value analysis
     
     Quality & Fundamental:
         - QualityScreener: Basic financial strength (10-point scale)
@@ -24,6 +24,7 @@ Available Screeners:
     
     Special Situations:
         - InsiderBuyingScreener: Pre-pump insider activity detection
+        - AnalystSentimentMomentumScreener: Analyst sentiment momentum analysis (NEW)
 
 Usage:
     from utils import get_screener, list_screeners, run_screener
@@ -32,11 +33,11 @@ Usage:
     screeners = list_screeners()
     
     # Get a specific screener
-    historic_value = get_screener("historic_value")
-    results = historic_value.screen_stocks(universe_df)
+    sentiment = get_screener("analyst_sentiment_momentum")
+    results = sentiment.screen_stocks(universe_df)
     
     # Or run directly via main.py
-    python main.py --universe sp500 --strategies historic_value --limit 15
+    python main.py --universe sp500 --strategies analyst_sentiment_momentum --limit 15
 """
 
 # Import screener classes for direct access if needed
@@ -51,6 +52,7 @@ from .enhanced_quality import EnhancedQualityScreener
 from .insider_buying import InsiderBuyingScreener
 from .fifty_two_week_lows import FiftyTwoWeekLowsScreener
 from .historic_value import HistoricValueScreener
+from .analyst_sentiment_momentum import AnalystSentimentMomentumScreener
 
 # Combined screener can be imported separately to avoid circular imports
 # from .combined import run_screeners_with_registry
@@ -66,5 +68,6 @@ __all__ = [
     'EnhancedQualityScreener',
     'InsiderBuyingScreener',
     'FiftyTwoWeekLowsScreener',
-    'HistoricValueScreener'
+    'HistoricValueScreener',
+    'AnalystSentimentMomentumScreener'
 ]
