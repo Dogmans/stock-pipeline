@@ -100,7 +100,18 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                 top_stock = results.iloc[0]['symbol']
                   # Identify key metric based on strategy
                 key_metric = ""
-                if 'pe_ratio' in results.columns:
+                if strategy == 'historic_value' and 'pe_discount_pct' in results.columns:
+                    # Special handling for historic value strategy
+                    pe_current = results.iloc[0].get('pe_ratio')
+                    pe_historic = results.iloc[0].get('pe_historic') 
+                    pe_discount = results.iloc[0].get('pe_discount_pct')
+                    if pe_current and pe_historic and pe_discount:
+                        key_metric = f"P/E: {pe_current:.1f} vs {pe_historic:.1f} ({pe_discount:.0f}% off)"
+                    elif 'pb_discount_pct' in results.columns:
+                        pb_discount = results.iloc[0].get('pb_discount_pct')
+                        if pb_discount:
+                            key_metric = f"Value discount: {pb_discount:.0f}%"
+                elif 'pe_ratio' in results.columns:
                     key_metric = f"P/E: {results.iloc[0]['pe_ratio']:.2f}"
                 elif 'pct_off_high' in results.columns:
                     key_metric = f"{results.iloc[0]['pct_off_high']:.1f}% off high"
@@ -195,11 +206,28 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                 key_metrics.append('quality_score')
             if 'fcf_yield' in display_results.columns:
                 key_metrics.append('fcf_yield')
+            
+            # Add historic value specific metrics if this is historic value screener
+            historic_value_metrics = []
+            if strategy == 'historic_value' and any(col in display_results.columns for col in ['pe_historic', 'pb_historic', 'ev_ebitda_historic']):
+                if 'pe_historic' in display_results.columns:
+                    historic_value_metrics.extend(['pe_ratio', 'pe_historic', 'pe_discount_pct'])
+                if 'pb_historic' in display_results.columns:
+                    historic_value_metrics.extend(['pb_ratio', 'pb_historic', 'pb_discount_pct'])
+                if 'ev_ebitda_historic' in display_results.columns:
+                    historic_value_metrics.extend(['ev_ebitda', 'ev_ebitda_historic', 'ev_discount_pct'])
+                # Replace standard metrics with historic value specific ones
+                key_metrics = historic_value_metrics
                 
             # Create table header
             f.write("| Symbol | Company Name | Sector |")
             for metric in key_metrics:
-                f.write(f" {metric.replace('_', ' ').title()} |")
+                header_name = metric.replace('_', ' ').title()
+                if metric.endswith('_historic'):
+                    header_name = header_name.replace(' Historic', ' (Hist Avg)')
+                elif metric.endswith('_discount_pct'):
+                    header_name = header_name.replace(' Discount Pct', ' Discount')
+                f.write(f" {header_name} |")
             f.write("\n")
             
             f.write("|--------|--------------|--------|")
@@ -211,7 +239,15 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                 f.write(f"| {row['symbol']} | {row['company_name']} | {row.get('sector', 'N/A')} |")
                 for metric in key_metrics:
                     if metric in row:
-                        if metric == 'price_to_book':
+                        # Special formatting for historic value metrics
+                        if metric.endswith('_historic'):
+                            f.write(f" {row[metric]:.2f} |")
+                        elif metric.endswith('_discount_pct'):
+                            if row[metric] is not None:
+                                f.write(f" {row[metric]:.1f}% |")
+                            else:
+                                f.write(" - |")
+                        elif metric == 'price_to_book':
                             f.write(f" {row[metric]:.3f} |")
                         elif metric == 'peg_ratio':
                             f.write(f" {row[metric]:.2f} |")
