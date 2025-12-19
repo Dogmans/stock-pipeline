@@ -6,10 +6,8 @@ Each module implements the BaseDataProvider interface to ensure consistent behav
 """
 
 from .base import BaseDataProvider
-from .alpha_vantage import AlphaVantageProvider
 from .yfinance_provider import YFinanceProvider
 from .financial_modeling_prep import FinancialModelingPrepProvider
-from .finnhub_provider import FinnhubProvider
 
 # Default provider instance for easy access - Financial Modeling Prep
 default_provider = FinancialModelingPrepProvider()
@@ -26,10 +24,8 @@ def get_provider(provider_name=None):
         BaseDataProvider: Provider instance.
     """
     providers = {
-        'alpha_vantage': AlphaVantageProvider(),
         'yfinance': YFinanceProvider(),
         'financial_modeling_prep': FinancialModelingPrepProvider(),
-        'finnhub': FinnhubProvider(),
     }    
     if provider_name is None:
         return default_provider

@@ -114,14 +114,6 @@ The `force_refresh` parameter bypasses the cache in two ways:
 - All methods have same caching pattern as FMP, with same expiry times
 - No explicit API rate limits, but caching prevents excessive calls
 
-### Finnhub
-- Has stricter API rate limits, requires both caching and rate limiting
-- Same cache expiry pattern as other providers
-
-### Alpha Vantage
-- Very restrictive API limits (5 calls per minute, 500 per day)
-- Cache expiry is typically longer to avoid hitting limits
-
 ## User Experience Features
 
 ### Progress Bars
@@ -139,8 +131,6 @@ def get_historical_prices(self, symbols, period="1y", interval="1d", force_refre
 
 Provider-specific implementations:
 1. **Financial Modeling Prep**: "Fetching historical prices"
-2. **Finnhub**: "Fetching Finnhub prices"  
-3. **Alpha Vantage**: "Fetching Alpha Vantage prices"
 
 Progress bars are automatically:
 - Displayed when fetching multiple symbols
@@ -378,19 +368,6 @@ balance = provider.get_balance_sheet_quarterly(symbol)
 
 # Stock quotes
 quote = provider.get_quote(symbol)
-```
-
-### Alpha Vantage Provider
-```python
-# Methods match Alpha Vantage API functions
-provider = AlphaVantageProvider()
-
-# Company overview
-overview = provider.get_company_overview(symbol)
-
-# Time series data
-daily = provider.get_time_series_daily(symbol)
-intraday = provider.get_time_series_intraday(symbol, interval='5min')
 ```
 
 ## Common Utilities

@@ -82,7 +82,7 @@ def parse_arguments():
     parser.add_argument('--cache-info', action='store_true',
                         help='Display information about the current cache and exit')    # Data provider options
     parser.add_argument('--data-provider', type=str, default=None,
-                        choices=['alpha_vantage', 'yfinance', 'financial_modeling_prep', 'finnhub'],
+                        choices=['yfinance', 'financial_modeling_prep'],
                         help='Data provider to use for financial data')
     
     parser.add_argument('--provider-stats', action='store_true',

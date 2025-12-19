@@ -24,8 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import data_providers
 from data_providers.yfinance_provider import YFinanceProvider
-from data_providers.financial_modeling_prep import FinancialModelingPrepProvider 
-from data_providers.finnhub_provider import FinnhubProvider
+from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 
 class TestProviders(unittest.TestCase):
     """Tests for individual data providers."""
@@ -66,18 +65,7 @@ class TestProviders(unittest.TestCase):
             self.fmp_available = False
             print(f"Financial Modeling Prep provider unavailable: {e}")
             
-        try:
-            # Check if Finnhub API key is configured
-            if hasattr(config, 'FINNHUB_API_KEY') and config.FINNHUB_API_KEY:
-                self.finnhub_provider = FinnhubProvider()
-                self.finnhub_available = True
-            else:
-                self.finnhub_available = False
-                print("Finnhub API key not configured, skipping tests")
-        except Exception as e:
-            self.finnhub_available = False
-            print(f"Finnhub provider unavailable: {e}")
-      # YFinance Provider Tests
+    # YFinance Provider Tests
     #  - Used primarily for market indexes and VIX data
     def test_yfinance_get_market_indexes(self):
         """Test YFinance provider for market indexes (primary use case)."""
@@ -223,22 +211,6 @@ class TestProviders(unittest.TestCase):
         expected_columns = ['fiscalDateEnding', 'operatingCashflow', 'capitalExpenditures', 'freeCashflow']
         for col in expected_columns:
             self.assertIn(col, result.columns)
-            
-    # Finnhub Provider Tests
-    #  - Used for company profile data
-    def test_finnhub_get_company_overview(self):
-        """Test Finnhub provider for company overview data."""
-        if not self.finnhub_available:
-            self.skipTest("Finnhub provider not available")
-        
-        # Test with Apple stock
-        result = self.finnhub_provider.get_company_overview('AAPL')
-        
-        # Check basic company information
-        self.assertIsNotNone(result)
-        self.assertIn('Symbol', result)
-        self.assertEqual(result['Symbol'], 'AAPL')
-        self.assertIn('Name', result)
     
     # Default Provider Test
     def test_default_provider_selection(self):

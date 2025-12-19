@@ -32,7 +32,7 @@ These modules handle fetching data from various sources and APIs.
 |--------|-------------|
 | `universe.py` | Defines and retrieves stock universes (S&P 500, NASDAQ 100, Russell 2000) which serve as the basis for screening. |
 | `market_data.py` | Gathers market-level data including indices, VIX, and sector performance metrics to provide market context. |
-| `data_providers/` | Modular data provider architecture for financial data collection with multiple API support (Financial Modeling Prep, YFinance, Alpha Vantage, Finnhub). |
+| `data_providers/` | Modular data provider architecture for financial data collection with multiple API support (Financial Modeling Prep, YFinance). |
 | `cache_config.py` | Implements file-based caching system to reduce redundant API calls, improve performance, and persist data between program runs. |
 
 ### Utilities
@@ -136,8 +136,6 @@ Modular data collection architecture with multiple API provider support:
 
 - `FinancialModelingPrepProvider`: Primary provider with comprehensive financial data (300 calls/minute)
 - `YFinanceProvider`: Yahoo Finance integration for price data and market indices
-- `AlphaVantageProvider`: Alpha Vantage API for fundamental data and technical indicators
-- `FinnhubProvider`: Finnhub API for real-time data and news sentiment
 
 ### Screening Strategies (`screeners/` package)
 

@@ -11,8 +11,6 @@ load_dotenv()
 LOGLEVEL = os.getenv('LOGLEVEL', 'DEBUG').upper()  # Default to DEBUG if not set
 
 # API Keys - set these in your environment or .env file
-ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
-FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
 FINANCIAL_MODELING_PREP_API_KEY = os.getenv('FINANCIAL_MODELING_PREP_API_KEY')
 
 # Screening Parameters
@@ -177,15 +175,11 @@ CACHE_EXPIRY_HOURS = 24  # Refresh data every 24 hours
 
 # API Rate Limits (calls per minute)
 API_RATE_LIMITS = {
-    "alpha_vantage": 5,      # Alpha Vantage free tier: 5 calls per minute
     "financial_modeling_prep": 300,  # Financial Modeling Prep paid tier: 300 calls per minute
-    "finnhub": 60,           # Finnhub free tier: 60 calls per minute
     "yfinance": 2000         # YFinance approximate limit: 2000 calls per minute
 }
 
 # API Daily Limits (calls per day)
 API_DAILY_LIMITS = {
-    "alpha_vantage": 500,    # Alpha Vantage free tier: 500 calls per day
     "financial_modeling_prep": None, # Financial Modeling Prep paid tier: No daily limit
-    "finnhub": 60 * 60 * 16  # Finnhub free tier: ~60 calls per minute * 16 hours
 }

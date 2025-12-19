@@ -31,14 +31,10 @@ Note: TA-Lib may require additional setup steps. See [TA-Lib Installation Guide]
    ```bash
    # Edit .env file with your API keys
    FINANCIAL_MODELING_PREP_API_KEY=your_key_here
-   ALPHA_VANTAGE_API_KEY=your_key_here  
-   FINNHUB_API_KEY=your_key_here
    ```
 
 2. **Required API Keys:**
    - **Financial Modeling Prep** (Primary): [Get API Key](https://financialmodelingprep.com/developer/docs) - Paid tier recommended (300 calls/minute)
-   - **Alpha Vantage** (Backup): [Get Free API Key](https://www.alphavantage.co/support/#api-key) - 5 calls/minute
-   - **Finnhub** (Company Data): [Get Free API Key](https://finnhub.io/register) - 60 calls/minute
 
 ### 3. VS Code Setup (Optional)
 Pre-configured debug configurations are available:
