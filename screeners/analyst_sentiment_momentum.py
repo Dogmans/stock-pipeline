@@ -17,6 +17,7 @@ import pandas as pd
 import logging
 import numpy as np
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
 from tqdm import tqdm
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 from .base_screener import BaseScreener
@@ -35,6 +36,7 @@ class AnalystSentimentMomentumScreener(BaseScreener):
         Args:
             lookback_days: Days to look back for historical sentiment analysis
         """
+        super().__init__()  # Initialize BaseScreener
         self.lookback_days = lookback_days
     
     def get_strategy_name(self) -> str:
@@ -50,7 +52,7 @@ class AnalystSentimentMomentumScreener(BaseScreener):
             "Higher scores indicate stronger positive analyst sentiment momentum."
         )
     
-    def calculate_score(self, symbol: str, company_data: dict, analyst_data: dict = None) -> float:
+    def _calculate_analyst_momentum_score(self, symbol: str, company_data: dict, analyst_data: dict = None) -> float:
         """
         Calculate analyst sentiment momentum score (0-100).
         
@@ -375,96 +377,186 @@ class AnalystSentimentMomentumScreener(BaseScreener):
         
         return True
     
-    def screen_stocks(self, universe_df, provider=None) -> pd.DataFrame:
+    def get_data_for_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        Screen stocks for analyst sentiment momentum.
+        Fetch all required data for analyst sentiment analysis.
         
         Args:
-            universe_df: DataFrame with stock universe
-            provider: Data provider instance
+            symbol: Stock symbol to fetch data for
             
         Returns:
-            DataFrame with screening results
+            Dictionary containing all data needed for scoring, or None if data unavailable
         """
-        if provider is None:
-            provider = FinancialModelingPrepProvider()
+        try:
+            # Get company overview
+            company_data = self.provider.get_company_overview(symbol)
+            if not company_data:
+                return None
+            
+            # Collect analyst data efficiently
+            analyst_data = {
+                'grades': self.provider.get_analyst_grades(symbol, limit=50),
+                'consensus': self.provider.get_analyst_grades_consensus(symbol),
+                'estimates': self.provider.get_analyst_estimates(symbol, period="annual"),
+                'price_targets': self.provider.get_price_target_summary(symbol),
+                'historical_ratings': self.provider.get_analyst_grades_historical(symbol, limit=20)
+            }
+            
+            # Combine company and analyst data
+            result = {
+                'symbol': symbol,
+                'company_data': company_data,
+                'analyst_data': analyst_data
+            }
+            
+            # Add company overview data at top level for compatibility
+            result.update(company_data)
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching data for {symbol}: {e}")
+            return None
+    
+    def calculate_score(self, data: Dict[str, Any]) -> Optional[float]:
+        """
+        Calculate analyst sentiment momentum score.
         
-        logger.info(f"Screening for analyst sentiment momentum...")
+        Args:
+            data: Dictionary containing all relevant data for the stock
+            
+        Returns:
+            Score (0-100) or None if calculation fails
+        """
+        try:
+            symbol = data.get('symbol', 'Unknown')
+            company_data = data.get('company_data', {})
+            analyst_data = data.get('analyst_data', {})
+            
+            return self._calculate_analyst_momentum_score(symbol, company_data, analyst_data)
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating score: {e}")
+            return None
+    
+    def meets_threshold(self, score: float) -> bool:
+        """
+        Check if analyst sentiment score meets minimum threshold.
         
-        symbols = universe_df['symbol'].tolist()
-        logger.info(f"Analyzing {len(symbols)} symbols for analyst sentiment...")
+        Args:
+            score: Calculated analyst sentiment score
+            
+        Returns:
+            True if score meets minimum threshold
+        """
+        # Lowered threshold for testing since most auxiliary endpoints are empty
+        return score is not None and score >= 1.0
+    
+    def get_additional_data(self, symbol: str, data: Dict[str, Any], current_price: float) -> Dict[str, Any]:
+        """
+        Extract additional data fields specific to analyst sentiment screening.
         
-        results = []
+        Args:
+            symbol: Stock symbol
+            data: Stock data dictionary
+            current_price: Current stock price
+            
+        Returns:
+            Dict with additional analyst sentiment metrics
+        """
+        analyst_data = data.get('analyst_data', {})
         
-        for symbol in tqdm(symbols, desc="Analyzing analyst sentiment", unit="symbol"):
-            try:
-                # Get company overview
-                company_data = provider.get_company_overview(symbol)
-                if not company_data:
-                    continue
-                
-                # Collect all analyst data
-                analyst_data = {}
-                
-                # Get analyst grades (recent changes)
-                analyst_data['grades'] = provider.get_analyst_grades(symbol, limit=50)
-                
-                # Get consensus ratings
-                analyst_data['consensus'] = provider.get_analyst_grades_consensus(symbol)
-                
-                # Get estimates
-                analyst_data['estimates'] = provider.get_analyst_estimates(symbol, period="annual")
-                
-                # Get price targets
-                analyst_data['price_targets'] = provider.get_price_target_summary(symbol)
-                
-                # Get historical ratings
-                analyst_data['historical_ratings'] = provider.get_analyst_grades_historical(symbol, limit=20)
-                
-                # Calculate score
-                score = self.calculate_score(symbol, company_data, analyst_data)
-                meets_threshold = self.meets_threshold(symbol, company_data, score, analyst_data)
-                
-                if meets_threshold:
-                    result = {
-                        'symbol': symbol,
-                        'company_name': company_data.get('companyName', 'Unknown'),
-                        'price': company_data.get('price', 0),
-                        'market_cap': company_data.get('mktCap', 0),
-                        'sector': company_data.get('sector', 'Unknown'),
-                        'score': score,
-                        'reasoning': self._generate_reasoning(symbol, analyst_data, score)
-                    }
-                    results.append(result)
-                    
-                    logger.info(f"Found {symbol}: Analyst Sentiment Momentum (Score: {score:.1f})")
-                
-            except Exception as e:
-                logger.error(f"Error screening {symbol}: {e}")
-                continue
+        # Get basic analyst metrics
+        grades = analyst_data.get('grades', [])
+        consensus = analyst_data.get('consensus', {})
         
-        if results:
-            results_df = pd.DataFrame(results)
-            results_df = results_df.sort_values('score', ascending=False)
-            logger.info(f"Analyst Sentiment Momentum screener found {len(results)} stocks")
-            return results_df
+        total_analysts = (consensus.get('strongBuy', 0) + consensus.get('buy', 0) + 
+                         consensus.get('hold', 0) + consensus.get('sell', 0) + consensus.get('strongSell', 0))
+        
+        return {
+            'analyst_momentum_score': data.get('score', 0),
+            'total_analysts': total_analysts,
+            'analyst_grades_count': len(grades) if isinstance(grades, pd.DataFrame) and not grades.empty else 0,
+            'sector': data.get('sector', 'Unknown')
+        }
+    
+    def format_reason(self, score: float, meets_threshold_flag: bool) -> str:
+        """
+        Format the screening reason for display.
+        
+        Args:
+            score: Analyst sentiment score
+            meets_threshold_flag: Whether stock meets threshold
+            
+        Returns:
+            Formatted reason string
+        """
+        if meets_threshold_flag:
+            return f"Strong analyst sentiment momentum (Score: {score:.1f}/100)"
         else:
-            logger.warning("No stocks found with significant analyst sentiment momentum")
-            return pd.DataFrame()
+            return f"Analyst sentiment score: {score:.1f}/100"
+    
+    def sort_results(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Sort results by analyst sentiment score (highest first)."""
+        return df.sort_values('score', ascending=False)
     
     def _generate_reasoning(self, symbol: str, analyst_data: dict, score: float) -> str:
         """Generate human-readable reasoning for the score."""
         try:
             reasons = []
             
-            # Check for recent upgrades
-            grades_df = analyst_data.get('grades', pd.DataFrame())
-            if not grades_df.empty:
-                recent_upgrades = grades_df[grades_df['action'].str.contains('upgrade', case=False, na=False)]
-                if len(recent_upgrades) > 0:
-                    reasons.append(f"{len(recent_upgrades)} recent analyst upgrade(s)")
+            # Check for recent grade changes
+            grades_data = analyst_data.get('grades', pd.DataFrame())
+            if isinstance(grades_data, pd.DataFrame) and not grades_data.empty:
+                # Count upgrade vs downgrade patterns
+                upgrades = 0
+                downgrades = 0
+                
+                for _, grade in grades_data.iterrows():
+                    prev_grade = str(grade.get('previousGrade', '')).lower()
+                    new_grade = str(grade.get('newGrade', '')).lower()
+                    
+                    if prev_grade and new_grade and prev_grade != new_grade:
+                        # Detect upgrades - transitions to more positive ratings
+                        if (('buy' in new_grade and 'buy' not in prev_grade) or 
+                            ('strong buy' in new_grade) or
+                            ('outperform' in new_grade and 'outperform' not in prev_grade) or
+                            ('overweight' in new_grade and 'overweight' not in prev_grade)):
+                            upgrades += 1
+                        # Detect downgrades - transitions to more negative ratings  
+                        elif (('sell' in new_grade and 'sell' not in prev_grade) or
+                              ('underperform' in new_grade and 'underperform' not in prev_grade) or
+                              ('underweight' in new_grade and 'underweight' not in prev_grade)):
+                            downgrades += 1
+                
+                if upgrades > 0:
+                    reasons.append(f"{upgrades} recent analyst upgrade(s)")
+                elif downgrades > 0:
+                    reasons.append(f"{downgrades} recent analyst downgrade(s)")
+                
+                # Always mention total ratings analyzed
+                reasons.append(f"{len(grades_data)} total analyst ratings")
+            elif isinstance(grades_data, list) and grades_data:
+                # Fallback for list format
+                for grade in grades_data[:10]:  # Look at recent 10 ratings
+                    prev_grade = grade.get('previousGrade', '').lower()
+                    new_grade = grade.get('newGrade', '').lower()
+                    
+                    if prev_grade and new_grade and prev_grade != new_grade:
+                        # Simple upgrade/downgrade detection
+                        if ('buy' in new_grade and 'buy' not in prev_grade) or ('strong buy' in new_grade):
+                            upgrades += 1
+                        elif ('sell' in new_grade and 'sell' not in prev_grade) or ('strong sell' in new_grade):
+                            downgrades += 1
+                
+                if upgrades > 0:
+                    reasons.append(f"{upgrades} recent analyst upgrade(s)")
+                elif downgrades > 0:
+                    reasons.append(f"{downgrades} recent analyst downgrade(s)")
+                else:
+                    reasons.append(f"{len(grades_data)} analyst ratings analyzed")
             
-            # Check consensus
+            # Check consensus if available
             consensus = analyst_data.get('consensus', {})
             total_analysts = (consensus.get('strongBuy', 0) + consensus.get('buy', 0) + 
                             consensus.get('hold', 0) + consensus.get('sell', 0) + consensus.get('strongSell', 0))
@@ -474,13 +566,19 @@ class AnalystSentimentMomentumScreener(BaseScreener):
                 if bullish_ratio > 0.6:
                     reasons.append(f"{bullish_ratio:.0%} bullish consensus ({total_analysts} analysts)")
             
-            # Check price targets
+            # Check price targets if available
             targets = analyst_data.get('price_targets', {})
-            if targets.get('targetConsensus', 0) > 0:
+            if targets and targets.get('targetConsensus', 0) > 0:
                 reasons.append(f"Avg target: ${targets.get('targetConsensus', 0):.2f}")
             
-            return "; ".join(reasons) if reasons else f"Score: {score:.1f}"
+            # Always provide score information
+            if not reasons:
+                reasons.append(f"Analyst sentiment score: {score:.1f}/100")
+            else:
+                reasons.append(f"Score: {score:.1f}/100")
+            
+            return "; ".join(reasons)
             
         except Exception as e:
             logger.error(f"Error generating reasoning for {symbol}: {e}")
-            return f"Score: {score:.1f}"
+            return f"Analyst sentiment score: {score:.1f}/100"

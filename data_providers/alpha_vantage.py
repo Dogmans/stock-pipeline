@@ -84,10 +84,10 @@ from .base import BaseDataProvider
 from cache_config import cache, clear_all_cache
 
 import config
-from utils.logger import get_logger
+import logging
 
 # Get logger for this module
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class AlphaVantageProvider(BaseDataProvider):
     """

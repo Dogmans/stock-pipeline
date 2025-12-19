@@ -8,10 +8,16 @@ including logging setup, directory creation, persistence, API rate limiting, and
 from .logger import setup_logging
 from .filesystem import ensure_directories_exist
 from .rate_limiter import RateLimiter, ApiRateLimiter
+# Import screener registry functions without triggering auto-registration
 from .screener_registry import (
     register_screener, 
     get_screener, 
     list_screeners, 
-    auto_register_screeners, 
     run_screener
 )
+
+# Lazy import for auto_register_screeners to avoid circular imports
+def auto_register_screeners():
+    """Lazy import to auto-register screeners when needed."""
+    from .screener_registry import auto_register_screeners as _auto_register
+    return _auto_register()

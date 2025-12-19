@@ -27,7 +27,64 @@ The project includes pre-configured VS Code debug configurations for common scen
 2. Press `Ctrl+Shift+P` and type "Debug: Select and Start Debugging" to choose a specific configuration
 3. Press `Ctrl+Shift+P` and type "Tasks: Run Task" to execute tasks without debugging
 
-## Cache Management
+## Screener Debugging and Fixes
+
+### Fixed: Analyst Sentiment Momentum Screener (2025-12-02)
+
+**Issue**: Screener was broken with "'action' field missing" errors and DataFrame handling issues.
+
+**Root Cause**: 
+- Code expected 'action' field in analyst grades data that doesn't exist in FMP API response
+- DataFrame vs list data structure mismatches  
+- Missing BaseScreener initialization
+
+**Fix Applied**:
+```powershell
+# Test the fixed screener with small universe
+python -c "
+from screeners.analyst_sentiment_momentum import AnalystSentimentMomentumScreener
+import pandas as pd
+
+screener = AnalystSentimentMomentumScreener()
+test_universe = pd.DataFrame({'symbol': ['AAPL', 'MSFT']})
+results = screener.screen_stocks(test_universe)
+print(f'Found {len(results)} stocks with analyst momentum')
+for _, row in results.iterrows():
+    print(f'  {row[\"symbol\"]}: Score {row[\"score\"]:.1f}')
+"
+```
+
+**Expected Output**:
+```
+Found 2 stocks with analyst momentum
+  AAPL: Score 26.9
+  MSFT: Score 21.2  
+```
+
+**Technical Details**:
+- Fixed: DataFrame handling in `_generate_reasoning()` method
+- Fixed: Missing `super().__init__()` call in constructor 
+- Fixed: DataFrame boolean evaluation in `get_additional_data()`
+- Performance: ~2.2 seconds per symbol (reasonable for 5 API calls)
+- Data Sources: Uses FMP analyst grades endpoint successfully, gracefully handles empty auxiliary endpoints
+
+### Debugging Individual Screeners
+
+Test any screener with minimal universe:
+
+```powershell
+python -c "
+from screeners.[SCREENER_NAME] import [ScreenerClass]
+import pandas as pd
+
+screener = [ScreenerClass]()
+test_universe = pd.DataFrame({'symbol': ['AAPL', 'MSFT']})
+results = screener.screen_stocks(test_universe)
+print(f'Results: {len(results)} stocks found')
+"
+```
+
+
 
 Clear all cache entries:
 

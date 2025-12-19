@@ -40,8 +40,14 @@ def get_screener(name: str, **kwargs) -> Optional[BaseScreener]:
     """
     screener_class = _screener_registry.get(name)
     if screener_class is None:
-        logger.error(f"Screener '{name}' not found in registry")
-        return None
+        # Try auto-registering screeners if registry is empty
+        if not _screener_registry:
+            auto_register_screeners()
+            screener_class = _screener_registry.get(name)
+        
+        if screener_class is None:
+            logger.error(f"Screener '{name}' not found in registry")
+            return None
     
     try:
         return screener_class(**kwargs)
@@ -55,8 +61,12 @@ def list_screeners() -> Dict[str, str]:
     List all registered screeners.
     
     Returns:
-        Dict[str, str]: Dictionary mapping screener names to their descriptions
+        Dict[str, str]: Dictionary of screener names to descriptions
     """
+    # Auto-register screeners if registry is empty
+    if not _screener_registry:
+        auto_register_screeners()
+    
     screeners = {}
     for name, screener_class in _screener_registry.items():
         try:
@@ -102,7 +112,6 @@ def auto_register_screeners():
         register_screener("fifty_two_week_lows", FiftyTwoWeekLowsScreener)
         register_screener("historic_value", HistoricValueScreener)
         register_screener("analyst_sentiment_momentum", AnalystSentimentMomentumScreener)
-        register_screener("historic_value", HistoricValueScreener)
         
         logger.info(f"Auto-registered {len(_screener_registry)} screeners")
         
@@ -133,5 +142,5 @@ def run_screener(name: str, universe_df, **kwargs):
     return screener.screen_stocks(universe_df)
 
 
-# Auto-register screeners when this module is imported
-auto_register_screeners()
+# Auto-register screeners when needed, but not during module import
+# This prevents circular import issues
