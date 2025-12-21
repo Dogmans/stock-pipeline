@@ -3,72 +3,16 @@ Financial Modeling Prep data provider for retrieving financial data.
 
 This module implements the BaseDataProvider interface for Financial Modeling Prep API.
 
-Example Responses
-----------------
+⚠️ IMPORTANT: See data_providers/fmp_types.py for complete field documentation
 
-get_historical_prices:
-    Returns a dictionary where keys are symbols and values are DataFrames:
-    {
-        'AAPL': DataFrame(
-            Date        Open      High       Low      Close     Volume
-            2023-01-03  130.28    130.90     124.17   125.07    111019584
-            2023-01-04  127.13    128.66     125.08   126.36    70790742
-            ...
-        )
-    }
-    
-    Each DataFrame contains columns: Open, High, Low, Close, Volume
+Common Field Names (see fmp_types.py for full reference):
+- Income Statement: Use 'totalRevenue' NOT 'revenue'
+- Balance Sheet: Use 'totalEquity' or 'totalShareholderEquity' NOT 'totalStockholdersEquity'
+- Price History: Use 'Close', 'High', 'Low' (capitalized) NOT 'close', 'high', 'low'
+- Overview: ReturnOnEquityTTM is DECIMAL (0.30 = 30%), NOT percentage
+- Current Ratio: NOT in overview, calculate from balance sheet
 
-get_income_statement:
-    Returns a DataFrame with financial statement data:
-    
-    fiscalDateEnding  symbol  reportedCurrency  cik    fillingDate  acceptedDate    calendarYear  period  revenue        costOfRevenue  grossProfit    totalRevenue   operatingExpenses  operatingIncome  netIncome     ...
-    2022-09-30        AAPL    USD              320193  2022-10-28   2022-10-28      2022         FY      394328000000   223546000000   170782000000   394328000000   48187000000        119800000000     99803000000   ...
-    2021-09-30        AAPL    USD              320193  2021-10-29   2021-10-29      2021         FY      365817000000   212981000000   152836000000   365817000000   43887000000        108949000000     94680000000   ...
-    ...
-
-get_balance_sheet:
-    Returns a DataFrame with balance sheet data:
-    
-    fiscalDateEnding  symbol  reportedCurrency  cik    fillingDate  acceptedDate    calendarYear  period  cashAndCashEquivalents  shortTermInvestments  totalCurrentAssets  totalAssets   totalCurrentLiabilities  totalLiabilities  totalShareholderEquity  ...
-    2022-09-30        AAPL    USD              320193  2022-10-28   2022-10-28      2022         FY      23646000000            24658000000          135405000000       352755000000  153982000000             302083000000      50672000000           ...
-    2021-09-30        AAPL    USD              320193  2021-10-29   2021-10-29      2021         FY      17305000000            27699000000          134836000000       351002000000  125481000000             287912000000      63090000000           ...
-    ...
-
-get_cash_flow:
-    Returns a DataFrame with cash flow data:
-    
-    fiscalDateEnding  symbol  reportedCurrency  cik    fillingDate  acceptedDate    calendarYear  period  netIncome   operatingCashflow  capitalExpenditures  freeCashFlow   dividendPayout  changeInCash  repurchaseOfStock  issuanceOfStock  ...
-    2022-09-30        AAPL    USD              320193  2022-10-28   2022-10-28      2022         FY      99803000000  122151000000      -11085000000        111066000000   14841000000     480000000      89402000000        4800000000       ...
-    2021-09-30        AAPL    USD              320193  2021-10-29   2021-10-29      2021         FY      94680000000  104038000000      -11085000000        92953000000    14467000000     -3860000000    85971000000        1105000000       ...
-    ...
-
-get_company_overview:
-    Returns a dictionary with company information:
-    {
-        'Symbol': 'AAPL', 
-        'Name': 'Apple Inc',
-        'Description': 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide...',
-        'Exchange': 'NASDAQ',
-        'Sector': 'Technology',
-        'Industry': 'Consumer Electronics',
-        'MarketCapitalization': 3019983978000,
-        'PERatio': 31.4,
-        'EPS': 6.14,
-        'Beta': 1.28,
-        '52WeekHigh': '198.23',
-        '52WeekLow': '124.17',
-        'LastDividendDate': '2023-05-12',
-        'PriceToBookRatio': 49.7,
-        'PriceToSalesRatio': 7.65,
-        'SharesOutstanding': 15634232000,
-        'ReturnOnEquityTTM': 1.566,
-        'ReturnOnAssetsTTM': 0.2223,
-        'ProfitMargin': 0.246,
-        'OperatingMarginTTM': 0.3039,
-        'DebtToEquityRatio': 1.86,
-        'EVToEBITDA': 18.4
-    }
+For detailed type definitions and examples, see: data_providers.fmp_types
 """
 from typing import Dict, List, Union, Any
 import pandas as pd
@@ -77,6 +21,15 @@ import functools
 from tqdm import tqdm  # For progress bars
 
 from .base import BaseDataProvider
+from .fmp_types import (
+    FMPCompanyOverview,
+    FMPIncomeStatement,
+    FMPBalanceSheet,
+    FMPCashFlow,
+    FMPHistoricalPrice,
+    FMPPriceTarget,
+    FMPAnalystGrades
+)
 from cache_config import cache, clear_all_cache
 import config
 from utils.logger import get_logger
@@ -212,6 +165,16 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         """
         Get historical price data using Financial Modeling Prep API.
         
+        Returns dict of DataFrames with FMPHistoricalPrice rows.
+        See data_providers.fmp_types.FMPHistoricalPrice for complete field list.
+        
+        ⚠️ CRITICAL: Column names are CAPITALIZED
+        - Use 'Close' NOT 'close'
+        - Use 'High' NOT 'high'
+        - Use 'Low' NOT 'low'
+        - Use 'Open' NOT 'open'
+        - Use 'Volume' NOT 'volume'
+        
         Args:
             symbols: Single symbol or list of stock symbols
             period: Time period to retrieve (e.g., '1y', '6m', '1d')
@@ -220,6 +183,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             
         Returns:
             Dictionary mapping each symbol to its historical price DataFrame
+            Each DataFrame has columns: Date, Open, High, Low, Close, Volume
         """
         # Global cache clearing when force_refresh=True
         if force_refresh:
@@ -301,13 +265,20 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         """
         Get income statement data from Financial Modeling Prep API.
         
+        Returns DataFrame with FMPIncomeStatement rows.
+        See data_providers.fmp_types.FMPIncomeStatement for complete field list.
+        
+        ⚠️ Key Field Names:
+        - Use 'totalRevenue' NOT 'revenue'
+        - 'operatingIncome', 'netIncome', 'costOfRevenue' are correct
+        
         Args:
             symbol: Stock symbol
             annual: If True, get annual data, otherwise quarterly
             force_refresh: Whether to bypass cache and fetch fresh data
             
         Returns:
-            DataFrame containing income statement data
+            DataFrame where each row is an FMPIncomeStatement
         """
         # Global cache clearing when force_refresh=True
         if force_refresh:
@@ -354,13 +325,21 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         """
         Get balance sheet data from Financial Modeling Prep API.
         
+        Returns DataFrame with FMPBalanceSheet rows.
+        See data_providers.fmp_types.FMPBalanceSheet for complete field list.
+        
+        ⚠️ Key Field Names:
+        - Use 'totalEquity' or 'totalShareholderEquity' NOT 'totalStockholdersEquity'
+        - 'totalCurrentAssets' and 'totalCurrentLiabilities' for current ratio
+        - 'totalDebt', 'cash' are correct
+        
         Args:
             symbol: Stock symbol
             annual: If True, get annual data, otherwise quarterly
             force_refresh: Whether to bypass cache and fetch fresh data
             
         Returns:
-            DataFrame containing balance sheet data
+            DataFrame where each row is an FMPBalanceSheet
         """
         # Global cache clearing when force_refresh=True
         if force_refresh:
@@ -408,13 +387,20 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         """
         Get cash flow data from Financial Modeling Prep API.
         
+        Returns DataFrame with FMPCashFlow rows.
+        See data_providers.fmp_types.FMPCashFlow for complete field list.
+        
+        ⚠️ Key Field Names:
+        - Free cash flow may be 'freeCashflow' OR 'freeCashFlow' - check both!
+        - 'operatingCashflow', 'capitalExpenditures' are correct
+        
         Args:
             symbol: Stock symbol
             annual: If True, get annual data, otherwise quarterly
             force_refresh: Whether to bypass cache and fetch fresh data
             
         Returns:
-            DataFrame containing cash flow data
+            DataFrame where each row is an FMPCashFlow
         """
         # Global cache clearing when force_refresh=True
         if force_refresh:
@@ -456,9 +442,18 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         cache, lambda self, symbol, force_refresh=False: f"FinancialModelingPrepProvider.get_company_overview:{symbol}:{force_refresh}"
     ))
     def get_company_overview(self, symbol: str, 
-                            force_refresh: bool = False) -> Dict[str, Any]:
+                            force_refresh: bool = False) -> FMPCompanyOverview:
         """
         Get company overview data from Financial Modeling Prep API.
+        
+        Returns FMPCompanyOverview with all available fields.
+        See data_providers.fmp_types.FMPCompanyOverview for complete field list.
+        
+        ⚠️ Key Fields:
+        - Sector, Name, Industry: Basic info
+        - PERatio, PriceToBookRatio, EVToEBITDA: Valuation
+        - ReturnOnEquityTTM: In DECIMAL format (0.30 = 30%)
+        - CurrentRatio: NOT available, calculate from balance sheet
         
         This method aggregates data from multiple FMP endpoints to ensure
         all required metrics are available:
@@ -473,7 +468,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             force_refresh: Whether to bypass cache and fetch fresh data
             
         Returns:
-            Dictionary containing company profile and metrics
+            FMPCompanyOverview dictionary with company profile and metrics
         """
         # Global cache clearing when force_refresh=True
         if force_refresh:

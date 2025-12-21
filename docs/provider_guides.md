@@ -1,5 +1,32 @@
 # Data Provider Guides
 
+## Quick Reference
+
+- **[FMP Field Reference](provider_guides/fmp_field_reference.md)** ⭐ Quick lookup for FMP API field names
+- [Financial Modeling Prep API Guide](provider_guides/financial_modeling_prep.md) - Complete FMP integration guide
+- **[FMP Type Definitions](../data_providers/fmp_types.py)** - TypedDict definitions for IDE autocomplete
+
+## Using FMP Type Hints
+
+For better IDE support and to avoid field name mistakes, use the type definitions:
+
+```python
+from data_providers.fmp_types import FMPCompanyOverview, FMPBalanceSheet
+import data_providers
+
+provider = data_providers.get_provider('financial_modeling_prep')
+
+# IDE will autocomplete available fields
+overview: FMPCompanyOverview = provider.get_company_overview('AAPL')
+sector = overview['Sector']  # Type-safe!
+roe = overview['ReturnOnEquityTTM']  # Returns decimal (0.30 = 30%)
+
+# For DataFrames
+balance = provider.get_balance_sheet('AAPL')
+latest: FMPBalanceSheet = balance.iloc[0].to_dict()
+equity = latest['totalEquity']  # Type-safe!
+```
+
 ## Provider-Specific Documentation
 
 - [Financial Modeling Prep API Guide](provider_guides/financial_modeling_prep.md) - Complete guide to our FMP API integration

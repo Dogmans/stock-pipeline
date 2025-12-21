@@ -1,11 +1,15 @@
 """
 Stock screeners package for the stock screening pipeline.
 
-This package contains 12 comprehensive screening strategies based on different financial metrics.
+This package contains 13 comprehensive screening strategies based on different financial metrics.
 All screeners use the BaseScreener class-based approach and are accessed through
 the registry system in utils.screener_registry.
 
 Available Screeners:
+    Multi-Factor:
+        - CompositeScoreScreener: Multi-factor scoring across value, quality, growth, 
+                                  momentum, analyst sentiment, and technical factors (RECOMMENDED)
+    
     Value Investing:
         - PERatioScreener: Classic P/E ratio screening
         - PriceToBookScreener: Graham-style book value analysis  
@@ -24,7 +28,7 @@ Available Screeners:
     
     Special Situations:
         - InsiderBuyingScreener: Pre-pump insider activity detection
-        - AnalystSentimentMomentumScreener: Analyst sentiment momentum analysis (NEW)
+        - AnalystSentimentMomentumScreener: Analyst sentiment momentum analysis
 
 Usage:
     from utils import get_screener, list_screeners, run_screener
@@ -32,12 +36,12 @@ Usage:
     # Get available screeners
     screeners = list_screeners()
     
-    # Get a specific screener
-    sentiment = get_screener("analyst_sentiment_momentum")
-    results = sentiment.screen_stocks(universe_df)
+    # Get a specific screener (RECOMMENDED: use composite_score)
+    composite = get_screener("composite_score")
+    results = composite.screen_stocks(universe_df)
     
     # Or run directly via main.py
-    python main.py --universe sp500 --strategies analyst_sentiment_momentum --limit 15
+    python main.py --universe sp500 --strategies composite_score --limit 30
 """
 
 # Import screener classes for direct access if needed
@@ -53,6 +57,7 @@ from .insider_buying import InsiderBuyingScreener
 from .fifty_two_week_lows import FiftyTwoWeekLowsScreener
 from .historic_value import HistoricValueScreener
 from .analyst_sentiment_momentum import AnalystSentimentMomentumScreener
+from .composite_score import CompositeScoreScreener
 
 # Combined screener can be imported separately to avoid circular imports
 # from .combined import run_screeners_with_registry
@@ -69,5 +74,6 @@ __all__ = [
     'InsiderBuyingScreener',
     'FiftyTwoWeekLowsScreener',
     'HistoricValueScreener',
-    'AnalystSentimentMomentumScreener'
+    'AnalystSentimentMomentumScreener',
+    'CompositeScoreScreener'
 ]
