@@ -66,8 +66,17 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         if not self.api_key:
             logger.warning("Financial Modeling Prep API key not provided")
         
-        # Base URL for FMP API
+        # Base URL for FMP API (legacy and stable endpoints)
         self.base_url = "https://financialmodelingprep.com/api/v3"
+        self.stable_base_url = "https://financialmodelingprep.com/stable"
+        self.query_string_endpoints = {
+            "grades",
+            "grades-consensus",
+            "grades-historical",
+            "price-target-summary",
+            "price-target-consensus",
+            "analyst-estimates"
+        }
     
     def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True):
         """
@@ -82,11 +91,17 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         Returns:
             tuple: (success (bool), data (dict/list), error_msg (str or None))
         """
-        url = f"{self.base_url}/{endpoint}/{symbol}"
-        
         # Initialize params dictionary if None
         if params is None:
             params = {}
+
+        # Determine the URL format for this endpoint
+        if endpoint in self.query_string_endpoints:
+            # Stable endpoints use query-string symbol parameters
+            params["symbol"] = symbol
+            url = f"{self.stable_base_url}/{endpoint}"
+        else:
+            url = f"{self.base_url}/{endpoint}/{symbol}"
         
         # Always include API key
         params["apikey"] = self.api_key
@@ -688,7 +703,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         try:
             params = {"limit": limit}
             
-            success, data, error = self._make_api_request("grade", symbol, params)
+            success, data, error = self._make_api_request("grades", symbol, params)
             if not success:
                 logger.error(f"Error fetching analyst grades for {symbol}: {error}")
                 return pd.DataFrame()
@@ -718,10 +733,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             Dictionary with consensus ratings data
         """
         try:
-            # Try analyst-stock-recommendation first
             params = {}
             
-            success, data, error = self._make_api_request("analyst-stock-recommendation", symbol, params)
+            success, data, error = self._make_api_request("grades-consensus", symbol, params)
             if not success:
                 logger.error(f"Error fetching analyst consensus for {symbol}: {error}")
                 return {}
@@ -835,7 +849,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         try:
             params = {"limit": limit}
             
-            success, data, error = self._make_api_request("historical-rating", symbol, params)
+            success, data, error = self._make_api_request("grades-historical", symbol, params)
             if not success:
                 logger.error(f"Error fetching historical analyst ratings for {symbol}: {error}")
                 return pd.DataFrame()
