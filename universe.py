@@ -14,6 +14,7 @@ Functions:
 """
 
 import os
+from urllib import response
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
@@ -117,37 +118,39 @@ def _get_russell2000_symbols_cached():
     logger.info("Falling back to iShares ETF approach for Russell 2000")
     
     # Fallback: iShares Russell 2000 ETF (IWM) holdings CSV URL
-    url = "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund"
+    url = f"https://financialmodelingprep.com/api/v3/etf-holder/IWM"
     
     try:
-        # Download the CSV file directly from iShares
+        # Get cotnents from iShares ETF holdings via FMP API
         import requests
-        import io
         
         logger.info("Fetching Russell 2000 symbols from iShares ETF holdings (fallback)...")
-        response = requests.get(url)
+        response = requests.get(url, params={
+            'apikey': config.FINANCIAL_MODELING_PREP_API_KEY
+            })
         if response.status_code != 200:
             raise ValueError(f"Failed to fetch Russell 2000 data: HTTP {response.status_code}")
         
-        # Read the CSV content (skip header rows)
-        df = pd.read_csv(io.StringIO(response.text), skiprows=9)
+        data = response.json()
+    
+        # 1. Convert the JSON list of assets into a pandas DataFrame
+        df = pd.DataFrame(data)
         
-        logger.info(f"Successfully retrieved {len(df)} rows of Russell 2000 data")
-        
-        # Remove any rows after the holdings (iShares CSVs often have footer information)
-        # Look for the first empty row or rows with NaN values
-        first_empty_row = df[df.iloc[:,0].isna()].index
-        if len(first_empty_row) > 0:
-            df = df.iloc[:first_empty_row[0]]
-        
-        # Keep only the ticker symbol and company name
-        df = df[['Ticker', 'Name']]
-        
-        # Rename columns to match S&P 500 format
+        # 2. Rename FMP's default keys ('asset' -> 'symbol', 'name' -> 'security')
         df = df.rename(columns={
-            'Ticker': 'symbol',
-            'Name': 'security'
+            'asset': 'symbol',
+            'name': 'security'
         })
+        
+        # 3. Filter down to only your requested columns
+        df = df[['symbol', 'security']]
+        
+        # 4. Optional: Remove cash components or missing tickers
+        df = df.dropna(subset=['symbol'])
+        df = df[df['symbol'].str.isalpha()]  # Ensures we only keep standard text tickers
+        
+        # Reset the index for a clean dataframe view
+        df = df.reset_index(drop=True)
         
         # Add empty columns for sector information to match S&P 500 format
         df['gics_sector'] = ''
