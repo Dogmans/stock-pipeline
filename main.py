@@ -106,19 +106,24 @@ def get_universe_filename(base_filename, universe):
     
     Args:
         base_filename (str): The original filename without universe (e.g., 'screening_report.md')
-        universe (str): The universe name (e.g., 'sp500', 'all', 'russell2000')
+        universe (str): The universe name (e.g., 'sp500', 'all', 'russell2000', or 'country:uk')
         
     Returns:
         str: Filename with universe incorporated (e.g., 'screening_report_sp500.md')
     """
+    # Handle country universe format (e.g., 'country:uk' -> 'uk')
+    universe_name = universe
+    if isinstance(universe, str) and universe.lower().startswith('country:'):
+        universe_name = universe.split(':', 1)[1].lower()
+    
     # Split the filename and extension
     name_parts = base_filename.rsplit('.', 1)
     if len(name_parts) == 2:
         base_name, extension = name_parts
-        return f"{base_name}_{universe}.{extension}"
+        return f"{base_name}_{universe_name}.{extension}"
     else:
         # No extension found
-        return f"{base_filename}_{universe}"
+        return f"{base_filename}_{universe_name}"
 
 
 def main():

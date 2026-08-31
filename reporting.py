@@ -236,7 +236,11 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
             f.write("\n")
               # Write table rows using display_results
             for _, row in display_results.iterrows():
-                f.write(f"| {row['symbol']} | {row['company_name']} | {row.get('sector', 'N/A')} |")
+                # Handle missing company_name (use security from ETF holdings as fallback)
+                company_name = row.get('company_name', row.get('security', 'N/A'))
+                # Handle missing sector (use gics_sector as fallback)
+                sector = row.get('sector', row.get('gics_sector', 'N/A'))
+                f.write(f"| {row['symbol']} | {company_name} | {sector} |")
                 for metric in key_metrics:
                     if metric in row:
                         # Special formatting for historic value metrics
