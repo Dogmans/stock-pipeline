@@ -586,6 +586,70 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
         return overview
 
+    @cache.memoize(expire=24*3600)  # Cache for 24 hours
+    @throttler.throttle(cache_check_func=create_cache_checker(
+        cache, lambda self, etf_ticker, force_refresh=False: f"FinancialModelingPrepProvider.get_etf_holdings:{etf_ticker}:{force_refresh}"
+    ))
+    def get_etf_holdings(self, etf_ticker: str, force_refresh: bool = False) -> pd.DataFrame:
+        """
+        Get holdings for a given ETF ticker using the FMP 'etf-holder' endpoint.
+
+        Returns a DataFrame with at least `symbol` and `security` columns and an
+        optional `weight` column when present in the response.
+        """
+        try:
+            if force_refresh:
+                clear_all_cache()
+
+            success, data, error = self._make_api_request("etf-holder", etf_ticker)
+            if not success or not data:
+                logger.error(f"Failed to fetch ETF holdings for {etf_ticker}: {error}")
+                return pd.DataFrame()
+
+            # Data is typically a list of holdings
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                df = pd.DataFrame([data])
+            else:
+                logger.error(f"Unexpected ETF holdings format for {etf_ticker}")
+                return pd.DataFrame()
+
+            # Determine symbol and name columns in a tolerant way
+            possible_symbol_cols = ['ticker', 'symbol', 'asset']
+            possible_name_cols = ['name', 'security']
+
+            symbol_col = next((c for c in possible_symbol_cols if c in df.columns), None)
+            name_col = next((c for c in possible_name_cols if c in df.columns), None)
+
+            if symbol_col:
+                df['symbol'] = df[symbol_col].astype(str)
+            else:
+                df['symbol'] = ''
+
+            if name_col:
+                df['security'] = df[name_col]
+            else:
+                df['security'] = ''
+
+            # Normalize weight if available
+            if 'weight' in df.columns:
+                df['weight'] = pd.to_numeric(df['weight'], errors='coerce')
+            else:
+                df['weight'] = None
+
+            # Keep only relevant columns and drop invalid entries
+            df = df[['symbol', 'security', 'weight']]
+            df = df.dropna(subset=['symbol'])
+            df = df[df['symbol'].astype(str).str.strip() != '']
+            df = df.drop_duplicates(subset=['symbol'])
+            df = df.reset_index(drop=True)
+
+            return df
+        except Exception as e:
+            logger.error(f"Exception fetching ETF holdings for {etf_ticker}: {e}")
+            return pd.DataFrame()
+
     @cache.memoize(expire=4*3600)  # Cache for 4 hours (insider data changes more frequently)
     @throttler.throttle(cache_check_func=create_cache_checker(
         cache, lambda self, symbol, lookback_days=60, force_refresh=False: f"FinancialModelingPrepProvider.get_insider_trading:{symbol}:{lookback_days}:{force_refresh}"

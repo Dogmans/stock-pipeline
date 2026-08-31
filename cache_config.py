@@ -30,6 +30,24 @@ Path(cache_dir).mkdir(parents=True, exist_ok=True)
 # Using FanoutCache for better concurrency with sharded operations
 cache = FanoutCache(cache_dir, shards=8)
 
+# Provide a compatibility shim for code that expects a `delete_memoized` API
+# (from Flask-Caching style). DiskCache doesn't provide this exact method,
+# so we add a simple helper that clears the cache when callers request
+# deletion of memoized entries. This is coarse-grained (clears all cache),
+# but keeps behavior simple and predictable for the current codebase.
+def _delete_memoized(*args, **kwargs):
+    try:
+        cache.clear()
+        logger.info("Cleared cache via delete_memoized shim")
+        return True
+    except Exception as e:
+        logger.error(f"Error in delete_memoized shim: {e}")
+        return False
+
+# Attach the shim to the cache instance so existing code using
+# `cache.delete_memoized(...)` continues to work.
+setattr(cache, 'delete_memoized', _delete_memoized)
+
 def clear_all_cache():
     """
     Clear the entire cache.

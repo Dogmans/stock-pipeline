@@ -94,5 +94,16 @@ class TestUniverse(unittest.TestCase):
         self.assertTrue('symbol' in result.columns)
         self.assertTrue('security' in result.columns)
 
+    def test_get_country_universe_japan(self):
+        """Test building a country universe from ETF holdings (Japan/EWJ)."""
+        # This test uses live FMP data and requires an API key in config
+        result = universe.get_country_universe('japan', force_refresh=True)
+
+        self.assertIsInstance(result, pd.DataFrame)
+        # Should return at least one holding for the ETF
+        self.assertGreater(len(result), 0, "Should return ETF holdings for Japan (EWJ)")
+        self.assertTrue('symbol' in result.columns)
+        self.assertTrue('security' in result.columns)
+
 if __name__ == '__main__':
     unittest.main()

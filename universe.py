@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 import config
 from utils.logger import setup_logging
 from cache_config import cache
+from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 
 # Set up logger for this module
 logger = setup_logging()
@@ -350,8 +351,84 @@ def _get_stock_universe_cached(universe):
         logger.info(f"Combined universe contains {len(combined)} unique symbols")
         return combined
     else:
+        # Support dynamic country universes using ETF holdings mapping
+        try:
+            if isinstance(universe, str) and universe.lower().startswith('country:'):
+                country_key = universe.split(':', 1)[1].lower()
+                return get_country_universe(country_key)
+        except Exception:
+            pass
+
         logger.warning(f"Unknown universe: {universe}, defaulting to S&P 500")
         return get_sp500_symbols()
+
+
+@cache.memoize(expire=CACHE_EXPIRE)
+def _fetch_etf_holdings_cached(etf_ticker: str):
+    """Fetch ETF holdings via Financial Modeling Prep provider (cached wrapper)."""
+    try:
+        provider = FinancialModelingPrepProvider()
+        df = provider.get_etf_holdings(etf_ticker)
+        if df is None or df.empty:
+            return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+
+        # Ensure expected columns
+        if 'gics_sector' not in df.columns:
+            df['gics_sector'] = ''
+        if 'gics_sub-industry' not in df.columns:
+            df['gics_sub-industry'] = ''
+
+        # Some provider responses include only symbol/security/weight; normalize to expected schema
+        result = df.copy()
+        if 'security' not in result.columns and 'name' in result.columns:
+            result['security'] = result['name']
+
+        # Return canonical columns; keep weight if present
+        cols = ['symbol', 'security', 'gics_sector', 'gics_sub-industry']
+        for c in cols:
+            if c not in result.columns:
+                result[c] = ''
+
+        return result[cols]
+    except Exception as e:
+        logger.error(f"Error fetching ETF holdings for {etf_ticker}: {e}")
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+
+
+def get_country_universe(country_key: str, force_refresh: bool = False):
+    """
+    Build a country universe by extracting holdings from a representative ETF.
+
+    The ETF mapping is defined in `config.ETF_COUNTRY_MAPPING` and naming for
+    universes is `country:{lowercase}`. This returns a DataFrame matching the
+    canonical universe schema: `symbol`, `security`, `gics_sector`, `gics_sub-industry`.
+    """
+    if force_refresh:
+        # If forcing refresh, clear the ETF holdings cache for the specific ETF
+        mapped = config.ETF_COUNTRY_MAPPING.get(country_key.lower())
+        if mapped:
+            cache.delete_memoized(_fetch_etf_holdings_cached, mapped)
+
+    etf_ticker = config.ETF_COUNTRY_MAPPING.get(country_key.lower())
+    if not etf_ticker:
+        logger.warning(f"No ETF mapping found for country '{country_key}'")
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+
+    df = _fetch_etf_holdings_cached(etf_ticker)
+    if df is None or df.empty:
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+
+    # Ensure cleanliness: drop empty symbols, remove duplicates
+    df = df[df['symbol'].notna() & (df['symbol'] != '')]
+    df = df.drop_duplicates(subset=['symbol']).reset_index(drop=True)
+
+    # Add placeholder GICS columns if missing
+    if 'gics_sector' not in df.columns:
+        df['gics_sector'] = ''
+    if 'gics_sub-industry' not in df.columns:
+        df['gics_sub-industry'] = ''
+
+    return df[['symbol', 'security', 'gics_sector', 'gics_sub-industry']]
 
 if __name__ == "__main__":
     # Test module functionality

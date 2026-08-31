@@ -48,8 +48,7 @@ def parse_arguments():
     
     # Add command line arguments
     parser.add_argument('--universe', type=str, default=config.DEFAULT_UNIVERSE,
-                        choices=list(config.UNIVERSES.values()),
-                        help='Stock universe to analyze')
+                        help='Stock universe to analyze (e.g. sp500, russell2000, or country:jp)')
     
     # Custom symbol options
     parser.add_argument('--symbols', type=str, default=None,

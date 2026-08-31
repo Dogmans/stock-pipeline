@@ -167,6 +167,23 @@ UNIVERSES = {
     "ALL": "all"
 }
 
+# Mapping of country -> representative ETF ticker (used to derive country universes
+# by extracting ETF holdings via Financial Modeling Prep 'etf-holder' endpoint)
+ETF_COUNTRY_MAPPING = {
+    # Use ISF.L (iShares FTSE 100 UCITS ETF, LSE ticker) for a larger UK holdings universe
+    "uk": "ISF.L",
+    "japan": "EWJ",
+    "germany": "EWG",
+    "france": "EWQ",
+    "india": "INDA",
+    "china": "MCHI",
+    "brazil": "EWZ",
+    "australia": "EWA",
+    "canada": "EWC",
+    "south_korea": "EWY",
+    "taiwan": "EWT",
+}
+
 # Default universe to screen
 DEFAULT_UNIVERSE = UNIVERSES["SP500"]
 
