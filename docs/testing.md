@@ -4,6 +4,34 @@
 
 This document explains how to work with the caching system during testing.
 
+## Offline scoring and reporting regressions
+
+From the repository root, using an environment with the project dependencies:
+
+```powershell
+python scripts/run_offline_regressions.py
+```
+
+The runner executes `tests/test_regressions.py` with temporary cache, log, and
+output storage. It disables `.env` loading, supplies a dummy FMP key, and blocks
+HTTP requests and socket connections. No live API data is required. A successful
+run reports 10 passing tests and exits with status 0.
+
+Coverage includes decimal quality-score thresholds, missing metrics, passing-only
+counts and candidates, zero/unlimited display limits, legacy prefiltered results,
+and a complete pipeline run through the actual quality screener and report writers.
+A separate failure scenario verifies that a failed screener is identified in both
+reports, successful strategies remain available, and the pipeline returns status 1.
+This is a targeted suite; it does not run the existing live provider tests.
+
+For the current Windows checkout, if the `.venv` launcher cannot find its original
+Python installation, this verified command uses installed Python 3.12 with the
+existing Python 3.12 dependencies:
+
+```powershell
+py -3.12 -c "import sys, runpy; sys.path.insert(0, r'D:\Documents\git\stock-pipeline\.venv\Lib\site-packages'); runpy.run_path('scripts/run_offline_regressions.py', run_name='__main__')"
+```
+
 ## Screener Testing
 
 ### Testing Analyst Sentiment Momentum Screener

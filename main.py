@@ -19,9 +19,7 @@ Example:
 
 import os
 import argparse
-from datetime import datetime
 import pandas as pd
-from tqdm import tqdm
 
 # Import pipeline modules
 import config
@@ -31,7 +29,7 @@ from universe import get_stock_universe
 from market_data import get_market_conditions, is_market_in_correction, get_sector_performances
 # Updated import to use new screeners package
 from utils import list_screeners, run_screener
-from reporting import generate_screening_report, generate_metrics_definitions
+from reporting import generate_screening_report, generate_summary_report
 from cache_config import clear_all_cache, clear_old_cache, get_cache_info
 
 # Import data provider abstraction
@@ -97,7 +95,10 @@ def parse_arguments():
     parser.add_argument('--custom-rate-limit', type=int, default=None, metavar='CALLS_PER_MINUTE',
                         help='Override the default rate limit for the selected provider')
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.limit < 0:
+        parser.error('--limit must be zero (all passing stocks) or positive')
+    return args
 
 
 def get_universe_filename(base_filename, universe):
@@ -235,6 +236,7 @@ def main():
     # Run the screening strategies
     logger.info("Running stock screeners")
     screening_results = {}
+    screening_errors = {}
     
     for strategy_name in strategies:
         try:
@@ -247,7 +249,8 @@ def main():
                 logger.warning(f"{strategy_name} screener returned no results")
                 screening_results[strategy_name] = pd.DataFrame()
         except Exception as e:
-            logger.error(f"Error running {strategy_name} screener: {e}")
+            logger.exception(f"Error running {strategy_name} screener")
+            screening_errors[strategy_name] = str(e)
             screening_results[strategy_name] = pd.DataFrame()
       # 7. Generate screening report
     logger.info("Generating screening report")
@@ -286,147 +289,20 @@ def main():
     # Generate comprehensive markdown report with display limit
     report_filename = get_universe_filename('screening_report.md', args.universe)
     report_path = os.path.join(output_dir, report_filename)
-    generate_screening_report(sorted_results, report_path, display_limit)
+    generate_screening_report(sorted_results, report_path, display_limit, screening_errors)
       
-    # Also generate a summary file
     summary_filename = get_universe_filename('summary.txt', args.universe)
     summary_path = os.path.join(output_dir, summary_filename)
-    with open(summary_path, 'w') as f:
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        f.write(f"Stock Screening Pipeline - Summary Report\n")
-        f.write(f"Generated: {current_time}\n\n")
-        
-        # Add universe and market info
-        universe_size = len(universe_df) if universe_df is not None else 0
-        # Include display limit info if specified
-        if display_limit:
-            f.write(f"Universe: {args.universe} ({universe_size} stocks, displaying top {display_limit} for each strategy)\n")
-        else:
-            f.write(f"Universe: {args.universe} ({universe_size} stocks)\n")
-          # Add market conditions if available
-        try:
-            import market_data
-            market_conditions = market_data.get_market_conditions()
-            vix = market_conditions.get('vix', 'N/A')
-            f.write(f"Market Status: {market_conditions.get('status', 'Unknown')} (VIX: {vix})\n")
-        except:
-            pass
-        
-        f.write("\nTop Candidates by Strategy:\n\n")            # Write each strategy's results
-        for strategy_name, results in sorted_results.items():
-            if not isinstance(results, pd.DataFrame) or results.empty:
-                continue
-                
-            readable_name = strategy_name.lower()
-            f.write(f"{readable_name}:\n")
-            
-            # For individual screeners (not combined), use meets_threshold if available, otherwise top N
-            if strategy_name != 'combined' and 'meets_threshold' in results.columns:
-                # Get only stocks meeting the threshold
-                filtered_results = results[results['meets_threshold'] == True]
-                
-                # If fewer than N stocks meet the threshold or it's a combined screener, show top N instead
-                if len(filtered_results) < 5:
-                    # For display, take top 10 from full results
-                    display_results = results.head(10)
-                else:
-                    # Otherwise show all that meet threshold (up to 10)
-                    display_results = filtered_results.head(10)
-            else:
-                # For combined screener or screeners without meets_threshold, just show top results
-                # Apply a lower limit for the combined screener (10) than other screeners (use the display_limit, default 20)
-                # Special case: If limit is 0, show all results
-                if display_limit == 0:
-                    display_count = len(results)
-                    display_results = results
-                elif strategy_name == 'combined':
-                    display_count = min(display_limit if display_limit else 10, len(results))
-                    display_results = results.head(display_count)
-                else:
-                    display_count = min(display_limit, len(results))
-                    display_results = results.head(display_count)
-                
-                for idx in range(display_count):
-                    if idx < len(display_results):
-                        row = display_results.iloc[idx]
-                        symbol = row['symbol']
-                  # Format based on the strategy type
-                if strategy_name == 'pe_ratio' and 'pe_ratio' in row:
-                    f.write(f"  {symbol}:  Low P/E ratio (P/E = {row['pe_ratio']:.2f})\n")
-                elif strategy_name == 'price_to_book' and 'price_to_book' in row:
-                    f.write(f"  {symbol}:  Low price to book ratio (P/B = {row['price_to_book']:.2f})\n")
-                elif strategy_name == 'peg_ratio' and 'peg_ratio' in row:
-                    f.write(f"  {symbol}:  Low PEG ratio ({row['peg_ratio']:.2f}) - P/E: {row['pe_ratio']:.2f}, Growth: {row['growth_rate']:.1f}%\n")
-                elif '52_week_low' in strategy_name and 'pct_above_low' in row:
-                    f.write(f"  {symbol}:  Near 52-week low ({row['pct_above_low']:.2f}% above low)\n")
-                    
-                elif 'fallen_ipo' in strategy_name and 'pct_off_high' in row:
-                    f.write(f"  {symbol}:  Fallen IPO ({row['pct_off_high']:.2f}% off high)\n")
-                elif strategy_name == 'turnaround_candidates' and 'reason' in row:
-                    # Enhanced turnaround display with reason
-                    f.write(f"  {symbol}:  {row['primary_factor']} ({row['reason']})\n")
-                elif strategy_name == 'combined' and 'avg_rank' in row:
-                    # Special format for combined screener results
-                    f.write(f"  {symbol}:  Avg rank: {row['avg_rank']:.2f} across {row['screener_count']} screeners ({row['metrics_summary']})\n")
-                else:
-                    # Generic format for other strategies
-                    f.write(f"  {symbol}\n")
-            
-            f.write("\n")
-        
-        f.write("\nRun 'python main.py --help' for more options.")
-    
-    logger.info(f"Report generated: {report_path}")
-    
-    # 8. Output summary
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    summary_filename = get_universe_filename('summary.txt', args.universe)
-    summary_path = os.path.join(output_dir, summary_filename)
-    
-    with open(summary_path, 'w') as f:
-        f.write(f"Stock Screening Pipeline - Summary Report\n")
-        f.write(f"Generated: {timestamp}\n\n")
-        f.write(f"Universe: {args.universe} ({len(symbols)} stocks)\n")
-        f.write(f"Market Status: {market_status}\n\n")
-        
-        f.write("Top Candidates by Strategy:\n")
-        for strategy_name, results in screening_results.items():
-            if isinstance(results, pd.DataFrame) and not results.empty:
-                f.write(f"\n{strategy_name}:\n")
-                
-                # For individual screeners (not combined), filter by meets_threshold if available
-                if strategy_name != 'combined' and 'meets_threshold' in results.columns:
-                    # Get only stocks meeting the threshold
-                    filtered_results = results[results['meets_threshold'] == True]
-                    
-                    # If fewer than N stocks meet the threshold, show top N instead
-                    if len(filtered_results) < 5:
-                        # For display, apply the display limit to full results (default 20)
-                        display_results = results.head(display_limit)
-                    else:
-                        # Otherwise show all that meet threshold (up to the display limit)
-                        display_results = filtered_results.head(display_limit)
-                else:
-                    # Special case: If limit is 0, show all results
-                    if display_limit == 0:
-                        display_results = results
-                    else:
-                        # For combined screener, use a smaller default limit
-                        if strategy_name == 'combined':
-                            max_display = min(display_limit if display_limit else 10, len(results))
-                        else:
-                            # For non-combined screeners without meets_threshold, use the normal display limit
-                            max_display = display_limit
-                        display_results = results.head(max_display)
-                
-                # Write out the results
-                for i, row in display_results.iterrows():
-                    f.write(f"  {row['symbol']}: {row.get('score', '')} {row.get('reason', '')}\n")
-    
+    generate_summary_report(
+        sorted_results, summary_path, args.universe, universe_size,
+        market_status, display_limit, screening_errors,
+    )
+
     logger.info(f"Pipeline complete. Results saved to {output_dir} with {args.universe} universe")
     logger.info(f"Report available at: {report_path}")
     logger.info(f"Summary report: {summary_path}")
+    return 1 if screening_errors else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

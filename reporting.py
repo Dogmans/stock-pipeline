@@ -10,6 +10,43 @@ import pandas as pd
 from datetime import datetime
 import importlib
 
+def passing_results(results):
+    """Filter scored rows; legacy results without a flag are already screened."""
+    if not isinstance(results, pd.DataFrame):
+        return pd.DataFrame()
+    if 'meets_threshold' in results.columns:
+        return results.loc[results['meets_threshold'].eq(True).fillna(False)]
+    return results
+
+
+def generate_summary_report(screening_results, output_path, universe, universe_size,
+                            market_status, display_limit=20, errors=None):
+    """Write the same passing candidates and display limit as the Markdown report."""
+    if display_limit < 0:
+        raise ValueError('display_limit must be nonnegative')
+    errors = errors or {}
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write('Stock Screening Pipeline - Summary Report\n')
+        f.write(f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S}\n\n")
+        f.write(f'Universe: {universe} ({universe_size} stocks)\n')
+        f.write(f'Market Status: {market_status}\n\n')
+        f.write('Top Candidates by Strategy:\n')
+        for strategy, results in screening_results.items():
+            f.write(f'\n{strategy}:\n')
+            if strategy in errors:
+                f.write('  Screening failed; results are unavailable. See the run log for details.\n')
+                continue
+            passing = passing_results(results)
+            f.write(f'  Stocks passing: {len(passing)}\n')
+            if passing.empty:
+                f.write('  No stocks passed this screener.\n')
+                continue
+            displayed = passing if display_limit == 0 else passing.head(display_limit)
+            for _, row in displayed.iterrows():
+                f.write(f"  {row['symbol']}: {row.get('score', '')} {row.get('reason', '')}\n")
+    return output_path
+
+
 def get_strategy_description(strategy_name):
     """
     Dynamically get strategy description from the appropriate screener module.
@@ -65,7 +102,7 @@ def get_strategy_description(strategy_name):
         # Fallback in case of import or attribute errors
         return f'Analysis results for {strategy_name.replace("_", " ")} screening strategy.'
 
-def generate_screening_report(screening_results, output_path, display_limit=20):
+def generate_screening_report(screening_results, output_path, display_limit=20, errors=None):
     """
     Generate a comprehensive markdown report of screening results.
     
@@ -73,11 +110,23 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
         screening_results: Dictionary of DataFrames with screening results by strategy
         output_path: Path where the markdown report will be saved
         display_limit: Maximum number of stocks to display per strategy (default 20)
+            Zero displays all passing stocks.
+        errors: Optional mapping of failed strategy names to error details.
         
     Returns:
         Path to the generated report
     """
-    with open(output_path, 'w') as f:
+    if display_limit < 0:
+        raise ValueError('display_limit must be nonnegative')
+    errors = errors or {}
+    scored_counts = {
+        name: len(rows) if isinstance(rows, pd.DataFrame) else 0
+        for name, rows in screening_results.items()
+    }
+    screening_results = {
+        name: passing_results(rows) for name, rows in screening_results.items()
+    }
+    with open(output_path, 'w', encoding='utf-8') as f:
         # Write report header
         f.write(f"# Stock Screening Results Report\n\n")
         f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
@@ -92,52 +141,65 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                 
         f.write(f"Total unique stocks passing at least one screener: **{len(total_stocks)}**\n\n")
         
-        f.write("| Strategy | Stocks Passing | Top Stock | Key Metric |\n")
-        f.write("|----------|----------------|-----------|------------|\n")
+        f.write("| Strategy | Stocks Scored | Stocks Passing | Top Stock | Key Metric |\n")
+        f.write("|----------|---------------|----------------|-----------|------------|\n")
         
         for strategy, results in screening_results.items():
+            if strategy in errors:
+                f.write(f"| {strategy} | - | unavailable | - | Failed |\n")
+                continue
             if isinstance(results, pd.DataFrame) and not results.empty:
                 top_stock = results.iloc[0]['symbol']
+                available_metrics = results.iloc[0].dropna().index
                   # Identify key metric based on strategy
                 key_metric = ""
-                if strategy == 'historic_value' and 'pe_discount_pct' in results.columns:
+                if strategy == 'historic_value' and 'pe_discount_pct' in available_metrics:
                     # Special handling for historic value strategy
                     pe_current = results.iloc[0].get('pe_ratio')
                     pe_historic = results.iloc[0].get('pe_historic') 
                     pe_discount = results.iloc[0].get('pe_discount_pct')
                     if pe_current and pe_historic and pe_discount:
                         key_metric = f"P/E: {pe_current:.1f} vs {pe_historic:.1f} ({pe_discount:.0f}% off)"
-                    elif 'pb_discount_pct' in results.columns:
+                    elif 'pb_discount_pct' in available_metrics:
                         pb_discount = results.iloc[0].get('pb_discount_pct')
                         if pb_discount:
                             key_metric = f"Value discount: {pb_discount:.0f}%"
-                elif 'pe_ratio' in results.columns:
+                elif 'pe_ratio' in available_metrics:
                     key_metric = f"P/E: {results.iloc[0]['pe_ratio']:.2f}"
-                elif 'pct_off_high' in results.columns:
+                elif 'pct_off_high' in available_metrics:
                     key_metric = f"{results.iloc[0]['pct_off_high']:.1f}% off high"
-                elif 'price_to_book' in results.columns:
+                elif 'price_to_book' in available_metrics:
                     key_metric = f"P/B: {results.iloc[0]['price_to_book']:.3f}"
-                elif 'dividend_yield' in results.columns:
+                elif 'dividend_yield' in available_metrics:
                     key_metric = f"Yield: {results.iloc[0]['dividend_yield']:.2%}"
-                elif 'peg_ratio' in results.columns:
+                elif 'peg_ratio' in available_metrics:
                     key_metric = f"PEG: {results.iloc[0]['peg_ratio']:.2f}"
-                elif 'growth_rate' in results.columns:
+                elif 'growth_rate' in available_metrics:
                     key_metric = f"Growth: {results.iloc[0]['growth_rate']:.1f}%"
-                elif 'sharpe_ratio' in results.columns:
+                elif 'sharpe_ratio' in available_metrics:
                     key_metric = f"Sharpe: {results.iloc[0]['sharpe_ratio']:.2f}"
-                elif 'momentum_score' in results.columns:
+                elif 'momentum_score' in available_metrics:
                     key_metric = f"Momentum: {results.iloc[0]['momentum_score']:.1f}%"
-                elif 'quality_score' in results.columns:
+                elif 'quality_score' in available_metrics:
                     key_metric = f"Quality: {results.iloc[0]['quality_score']}/10"
-                elif 'fcf_yield' in results.columns:
+                elif 'fcf_yield' in available_metrics:
                     key_metric = f"FCF Yield: {results.iloc[0]['fcf_yield']:.1f}%"
                 
-                f.write(f"| {strategy} | {len(results)} | {top_stock} | {key_metric} |\n")
+                if not key_metric and 'score' in available_metrics:
+                    key_metric = f"Score: {results.iloc[0]['score']:.2f}"
+
+                f.write(f"| {strategy} | {scored_counts[strategy]} | {len(results)} | {top_stock} | {key_metric} |\n")
             else:
-                f.write(f"| {strategy} | 0 | - | - |\n")
+                f.write(f"| {strategy} | {scored_counts[strategy]} | 0 | - | - |\n")
                 
         f.write("\n")
         
+        if errors:
+            f.write("## Failed Screeners\n\n")
+            for strategy in errors:
+                f.write(f"- {strategy}: failed; passing results are unavailable. See the run log for details.\n")
+            f.write("\n")
+
         # Detailed results by strategy
         for strategy, results in screening_results.items():
             f.write(f"## {strategy.replace('_', ' ').title()} Strategy\n\n")
@@ -146,40 +208,17 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
             description = get_strategy_description(strategy)
             f.write(f"{description}\n\n")
             
+            if strategy in errors:
+                f.write("Screening failed; results are unavailable. See the run log for details.\n\n")
+                continue
             if not isinstance(results, pd.DataFrame) or results.empty:
                 f.write("No stocks passed this screener.\n\n")
                 continue
             
-            # Apply the same filtering logic as the text summary
-            # For individual screeners (not combined), filter by meets_threshold if available
-            if strategy != 'combined' and 'meets_threshold' in results.columns:
-                # Get only stocks meeting the threshold
-                filtered_results = results[results['meets_threshold'] == True]
-                
-                # If fewer than 5 stocks meet the threshold, show top N instead
-                if len(filtered_results) < 5:
-                    # For display, apply the display limit to full results
-                    display_results = results.head(display_limit)
-                else:
-                    # Otherwise show all that meet threshold (up to the display limit)
-                    display_results = filtered_results.head(display_limit)
-            else:
-                # Special case: If limit is 0, show all results
-                if display_limit == 0:
-                    display_results = results
-                else:
-                    # For combined screener, use a smaller default limit
-                    if strategy == 'combined':
-                        max_display = min(display_limit if display_limit else 10, len(results))
-                    else:
-                        # For non-combined screeners without meets_threshold, use the normal display limit
-                        max_display = display_limit
-                    display_results = results.head(max_display)
-            
-            # Show filtering info
+            display_results = results if display_limit == 0 else results.head(display_limit)
             if len(display_results) < len(results):
-                f.write(f"**Showing top {len(display_results)} of {len(results)} stocks**\n\n")
-            
+                f.write(f"**Showing top {len(display_results)} of {len(results)} passing stocks**\n\n")
+
             # Determine key metrics based on strategy type
             key_metrics = []
             if 'pe_ratio' in display_results.columns:
@@ -242,7 +281,7 @@ def generate_screening_report(screening_results, output_path, display_limit=20):
                 sector = row.get('sector', row.get('gics_sector', 'N/A'))
                 f.write(f"| {row['symbol']} | {company_name} | {sector} |")
                 for metric in key_metrics:
-                    if metric in row:
+                    if metric in row and pd.notna(row[metric]):
                         # Special formatting for historic value metrics
                         if metric.endswith('_historic'):
                             f.write(f" {row[metric]:.2f} |")

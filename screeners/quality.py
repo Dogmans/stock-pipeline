@@ -36,10 +36,11 @@ class QualityScreener(BaseScreener):
         overview = data.get('overview', data)  # Handle both wrapped and direct data
         
         # Extract key financial metrics (using available fields from FMP API)
-        roe = self.safe_percentage(overview.get('ReturnOnEquityTTM'))
+        # FMP supplies decimal ratios; keep those units for threshold checks.
+        roe = self.safe_float(overview.get('ReturnOnEquityTTM'))
         debt_to_equity = self.safe_float(overview.get('DebtToEquityRatio'))
-        profit_margin = self.safe_percentage(overview.get('ProfitMargin'))
-        operating_margin = self.safe_percentage(overview.get('OperatingMarginTTM'))
+        profit_margin = self.safe_float(overview.get('ProfitMargin'))
+        operating_margin = self.safe_float(overview.get('OperatingMarginTTM'))
         ev_ebitda = self.safe_float(overview.get('EVToEBITDA'))
         
         # Need at least 3 metrics to calculate meaningful score
