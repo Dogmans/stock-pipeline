@@ -47,7 +47,7 @@ def screener_catalog():
 
 
 def validate_workflow(document, catalog=None):
-    """Validate a rooted tree with disjoint outcome branches; merges are not supported."""
+    """Validate a rooted graph with source fan-out and disjoint outcome branches."""
     if not isinstance(document, dict) or document.get('version') != 1:
         raise WorkflowError('Expected a workflow with version 1.')
     nodes, edges = document.get('nodes'), document.get('edges')
@@ -100,8 +100,8 @@ def validate_workflow(document, catalog=None):
             raise WorkflowError('Invalid connection direction or outcome.')
         if by_id[source]['type'] == 'universe' and port != 'passed':
             raise WorkflowError('Connect the universe through its stocks output.')
-        if target in incoming or (source, port) in used_ports:
-            raise WorkflowError('Use one input per node and one connection per outcome; overlapping merges are not supported.')
+        if target in incoming or (by_id[source]['type'] != 'universe' and (source, port) in used_ports):
+            raise WorkflowError('Use one input per node and one connection per screener outcome; overlapping merges are not supported.')
         incoming[target] = edge
         outgoing.setdefault(source, []).append(edge)
         used_ports.add((source, port))

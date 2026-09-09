@@ -21,6 +21,12 @@ test('connections reject duplicate inputs, duplicate outcomes, and cycles', () =
   assert.equal(canConnect({source:'s', target:'o', sourceHandle:'passed'}, graph.nodes, edges), false);
 });
 
+test('universe can fan out to multiple screeners', () => {
+  const graph = fromDocument(doc);
+  const nodes = [...graph.nodes, {id:'s2', type:'workflow', data:{kind:'screener'}}];
+  assert.equal(canConnect({source:'u', target:'s2', sourceHandle:'passed'}, nodes, graph.edges), true);
+});
+
 test('edge width is bounded and CSV protects spreadsheet formulas', () => {
   assert.equal(volumeWidth(0, 100), 1); assert.equal(volumeWidth(100, 100), 48);
   assert.match(csv([{symbol:'=CMD()', score:5}]), /"'=CMD\(\)"/);

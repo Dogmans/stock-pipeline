@@ -76,6 +76,20 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkflowError, 'Unsupported parameter'):
             validate_workflow(invalid, CATALOG)
 
+    def test_universe_can_feed_multiple_screeners(self):
+        fanout = document()
+        fanout['nodes'].extend([
+            {'id':'s2','type':'screener','screener':'fake','params':{},'criterion':{'operator':'default'}},
+            {'id':'o2','type':'output'},
+        ])
+        fanout['edges'].extend([
+            {'id':'d','source':'u','sourceHandle':'passed','target':'s2'},
+            {'id':'e','source':'s2','sourceHandle':'passed','target':'o2'},
+        ])
+        result = self.engine.execute(fanout, catalog=CATALOG)
+        self.assertEqual(result['nodes']['s']['input_count'], 3)
+        self.assertEqual(result['nodes']['s2']['input_count'], 3)
+
     def test_json_records_have_no_nan(self):
         from workflow import json_records
         self.assertEqual(json_records(pd.DataFrame([{'symbol':'A','score':float('nan')}])), [{'symbol':'A','score':None}])

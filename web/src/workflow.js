@@ -27,9 +27,10 @@ export function logicKey(document) {
 
 export function canConnect(connection, nodes, edges) {
   const { source, target } = connection, port = connection.sourceHandle || 'passed';
+  const sourceKind = nodes.find(n => n.id === source)?.data.kind;
   if (source === target || !source || !target) return false;
-  if (nodes.find(n => n.id === source)?.data.kind === 'output' || nodes.find(n => n.id === target)?.data.kind === 'universe') return false;
-  if (edges.some(e => e.target === target || (e.source === source && (e.sourceHandle || 'passed') === port))) return false;
+  if (sourceKind === 'output' || nodes.find(n => n.id === target)?.data.kind === 'universe') return false;
+  if (edges.some(e => e.target === target || (sourceKind !== 'universe' && e.source === source && (e.sourceHandle || 'passed') === port))) return false;
   const pending = [target], seen = new Set();
   while (pending.length) {
     const node = pending.pop();
