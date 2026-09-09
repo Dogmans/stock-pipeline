@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position,
   useNodesState, useEdgesState, useReactFlow, addEdge } from '@xyflow/react';
 import { Play, Square, Download, Upload, Plus, Search, SlidersHorizontal, GitBranch,
-  ArrowUpRight, Layers, Check, CircleHelp, RefreshCw, Trash2, ListFilter, ChevronRight } from 'lucide-react';
+  ArrowUpRight, Layers, Check, CircleHelp, RefreshCw, Trash2, ListFilter, ChevronRight,
+  X, ExternalLink, Newspaper } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import './style.css';
 import example from '../../workflows/value_quality.json';
@@ -19,6 +20,22 @@ async function api(path, options) {
 function download(name, content, type) {
   const link = document.createElement('a'), url = URL.createObjectURL(new Blob([content], { type }));
   link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const metricDefinitions = [
+  ['Price', 'Price', 'currency'], ['Change', 'Change', 'number'], ['ChangesPercentage', 'Today', 'percentValue'],
+  ['MarketCapitalization', 'Market cap', 'compact'], ['PERatio', 'Trailing P/E', 'number'], ['EPS', 'EPS', 'currency'],
+  ['PriceToBookRatio', 'Price / book', 'number'], ['PriceToSalesRatio', 'Price / sales', 'number'],
+  ['ReturnOnEquityTTM', 'Return on equity', 'percent'], ['ProfitMargin', 'Profit margin', 'percent'],
+  ['52WeekLow', '52-week low', 'currency'], ['52WeekHigh', '52-week high', 'currency'],
+];
+function formatMetric(value, kind) {
+  if (value == null || value === '') return '—';
+  const number = Number(value); if (!Number.isFinite(number)) return String(value);
+  if (kind === 'currency') return new Intl.NumberFormat(undefined, {style:'currency', currency:'USD', maximumFractionDigits:2}).format(number);
+  if (kind === 'compact') return new Intl.NumberFormat(undefined, {notation:'compact', maximumFractionDigits:2}).format(number);
+  if (kind === 'percent') return `${(number * 100).toFixed(1)}%`;
+  if (kind === 'percentValue') return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
+  return number.toLocaleString(undefined, {maximumFractionDigits:2});
 }
 
 function WorkflowNode({ id, data, selected }) {
@@ -57,6 +74,7 @@ function Studio() {
   const [catalog, setCatalog] = useState([]), [query, setQuery] = useState(''), [error, setError] = useState('');
   const [run, setRun] = useState(null), [runKey, setRunKey] = useState(''), [starting, setStarting] = useState(false);
   const [selection, setSelection] = useState({ id: 'shortlist', port: 'passed' });
+  const [stockDetail, setStockDetail] = useState(null), [stockLoading, setStockLoading] = useState(''), [stockError, setStockError] = useState('');
   const [weighted, setWeighted] = useState(true), [reuse, setReuse] = useState(true), [searchStocks, setSearchStocks] = useState('');
   const file = useRef(), savedSnapshot = useRef(null), { screenToFlowPosition, fitView } = useReactFlow();
   const busy = starting || ['queued', 'running', 'cancelling'].includes(run?.status);
@@ -125,6 +143,12 @@ function Studio() {
     } catch (err) { setError(err.message); }
     event.target.value = '';
   }
+  async function openStock(symbol) {
+    setStockDetail(null); setStockError(''); setStockLoading(symbol);
+    try { setStockDetail(await api(`/stocks/${encodeURIComponent(symbol)}`)); }
+    catch (err) { setStockError(err.message); }
+    finally { setStockLoading(''); }
+  }
   return <div className="studio">
     <header className="header"><a className="brand" href="/"><span className="brand-mark"><GitBranch size={22}/></span><span>stock<span className="brand-light">pipeline</span></span></a>
       <span className="header-divider"/><span className="workspace-label">Workflow Studio</span><span className="local-badge"><i/> Local workspace</span>
@@ -162,7 +186,7 @@ function Studio() {
       <section className="results"><div className="results-heading"><div><span className="eyebrow">STOCK INSPECTOR</span><h2>{selected?.data.label || byScreener[selected?.data.screener]?.label || 'Select a node'} <span className="count-pill">{allRows.length}</span></h2></div>
         <div className="results-actions"><label className="search"><Search size={14}/><input aria-label="Filter stocks" placeholder="Filter stocks…" value={searchStocks} onChange={e => setSearchStocks(e.target.value)}/></label><button disabled={!rows.length} onClick={() => download('stocks.csv', csv(rows), 'text/csv')}><Download size={14}/> CSV</button></div></div>
         <div className="outcome-tabs">{Object.keys(colors).map(port => <button key={port} className={selection.port === port ? 'chosen' : ''} onClick={() => inspect(selection.id, port)}>{outcomeLabels[port]} <span>{selectedResult?.counts[port] ?? '—'}</span></button>)}</div>
-        {rows.length ? <div className="table-scroll"><table><thead><tr><th>Symbol</th><th>Company</th><th>Score</th><th>Decision / reason</th></tr></thead><tbody>{rows.slice(0, 500).map(row => <tr key={row.symbol}><td><strong>{row.symbol}</strong></td><td>{row.company_name || row.security || '—'}</td><td>{typeof row.score === 'number' ? row.score.toFixed(2) : '—'}</td><td>{row.reason || 'Included in universe'}</td></tr>)}</tbody></table>{rows.length > 500 && <p>Showing 500 rows. CSV includes all {rows.length} matching stocks.</p>}</div> : <div className="empty-state"><ListFilter size={23}/><div><strong>{stale ? 'Results need an update' : result ? 'No stocks in this outcome' : 'Your results will appear here'}</strong><p>{stale ? 'Run this workflow to see results for its current settings.' : result ? 'Select another outcome or connection to explore the run.' : 'Run the workflow, then click a node or connection to explore its stocks.'}</p></div></div>}
+        {rows.length ? <div className="table-scroll"><table><thead><tr><th>Symbol</th><th>Company</th><th>Score</th><th>Decision / reason</th></tr></thead><tbody>{rows.slice(0, 500).map(row => <tr key={row.symbol}><td><button className="stock-link" onClick={() => openStock(row.symbol)} disabled={stockLoading === row.symbol}>{stockLoading === row.symbol ? 'Loading…' : row.symbol}</button></td><td>{row.company_name || row.security || '—'}</td><td>{typeof row.score === 'number' ? row.score.toFixed(2) : '—'}</td><td>{row.reason || 'Included in universe'}</td></tr>)}</tbody></table>{rows.length > 500 && <p>Showing 500 rows. CSV includes all {rows.length} matching stocks.</p>}</div> : <div className="empty-state"><ListFilter size={23}/><div><strong>{stale ? 'Results need an update' : result ? 'No stocks in this outcome' : 'Your results will appear here'}</strong><p>{stale ? 'Run this workflow to see results for its current settings.' : result ? 'Select another outcome or connection to explore the run.' : 'Run the workflow, then click a node or connection to explore its stocks.'}</p></div></div>}
       </section></main>
       <aside className="inspector"><div className="section-heading">Workflow settings <SlidersHorizontal size={16}/></div><label className="field">Universe<select disabled={busy} value={universe.symbols ? 'custom' : universe.name} onChange={e => setUniverse(e.target.value === 'custom' ? {symbols: example.universe.symbols} : {name: e.target.value})}><option value="custom">Custom symbols</option><option value="sp500">S&P 500</option><option value="russell2000">Russell 2000</option><option value="nasdaq100">Nasdaq 100</option></select></label>
         {universe.symbols && <label className="field">Symbols<textarea disabled={busy} aria-label="Symbols" value={universe.symbols.join(', ')} onChange={e => setUniverse({symbols: e.target.value.toUpperCase().split(/[\s,]+/).filter(Boolean)})}/><small>Comma-separated stock symbols</small></label>}
@@ -176,6 +200,17 @@ function Studio() {
         <div className="cli-note"><span className="eyebrow">SAME WORKFLOW. YOUR TERMINAL.</span><p>Save this workflow and run it from the CLI.</p><code>python main.py<br/>--workflow workflow.json</code><ArrowUpRight size={16}/></div>
       </aside>
     </div>
+    {(stockDetail || stockError || stockLoading) && <div className="stock-backdrop" onMouseDown={() => {setStockDetail(null); setStockError(''); setStockLoading('');}}><aside className="stock-drawer" aria-label="Stock details" onMouseDown={e => e.stopPropagation()}>
+      <button className="drawer-close" aria-label="Close stock details" onClick={() => {setStockDetail(null); setStockError(''); setStockLoading('');}}><X size={18}/></button>
+      {stockLoading && <div className="drawer-loading"><RefreshCw className="spin" size={22}/><strong>Loading {stockLoading} from FMP…</strong></div>}
+      {stockError && <div className="drawer-loading"><strong>Details unavailable</strong><p>{stockError}</p></div>}
+      {stockDetail && <><span className="eyebrow">FMP STOCK SNAPSHOT</span><h2>{stockDetail.overview.Name || stockDetail.symbol}</h2><p className="stock-identity">{stockDetail.symbol} · {[stockDetail.overview.Exchange, stockDetail.overview.Sector, stockDetail.overview.Industry].filter(Boolean).join(' · ')}</p>
+        <div className="metric-grid">{metricDefinitions.filter(([key]) => stockDetail.overview[key] != null && stockDetail.overview[key] !== '').map(([key,label,kind]) => <div key={key}><span>{label}</span><strong>{formatMetric(stockDetail.overview[key], kind)}</strong></div>)}</div>
+        {stockDetail.overview.Description && <p className="company-description">{stockDetail.overview.Description}</p>}
+        <div className="news-heading"><Newspaper size={16}/><h3>Recent news</h3><span>{stockDetail.news.length}</span></div>
+        {stockDetail.news.length ? <div className="news-list">{stockDetail.news.map((article,index) => <article key={`${article.url}-${index}`}>{article.image && <img src={article.image} alt=""/>}<div><span>{[article.publisher, article.published_at ? new Date(article.published_at).toLocaleDateString() : ''].filter(Boolean).join(' · ')}</span><h4>{article.title}</h4>{article.summary && <p>{article.summary}</p>}{article.url && <a href={article.url} target="_blank" rel="noreferrer">Read article <ExternalLink size={12}/></a>}</div></article>)}</div> : <p className="no-news">No recent FMP news is available for this stock.</p>}
+      </>}
+    </aside></div>}
     <footer><span><i/> FMP data · local execution</span><span>{busy && run?.progress?.total ? `${run.progress.completed} / ${run.progress.total} stocks` : `${nodes.length} nodes · ${edges.length} connections`}<span className="footer-separator">|</span>Workflow v1</span></footer>
   </div>;
 }

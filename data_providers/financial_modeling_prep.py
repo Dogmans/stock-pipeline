@@ -532,6 +532,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         success, quote_data, _ = self._make_api_request("quote", symbol)
         if success and quote_data:
             quote = quote_data[0]
+            overview['Price'] = quote.get('price', '')
+            overview['Change'] = quote.get('change', '')
+            overview['ChangesPercentage'] = quote.get('changesPercentage', '')
+            overview['Volume'] = quote.get('volume', '')
             overview['MarketCapitalization'] = quote.get('marketCap', overview.get('MarketCapitalization', ''))
             overview['PERatio'] = quote.get('pe', '')
             overview['EPS'] = quote.get('eps', '')
@@ -591,6 +595,25 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 overview['MarketCapitalization'] = market_cap_entry.get('marketCap', '')
         
         return overview
+
+    @cache.memoize(expire=30*60)
+    @throttler.throttle(cache_check_func=create_cache_checker(cache, "get_stock_news"))
+    def get_stock_news(self, symbol: str, limit: int = 8) -> list:
+        """Return recent FMP news for one symbol, cached for 30 minutes."""
+        params = {'symbols': symbol, 'limit': max(1, min(int(limit), 25)), 'apikey': self.api_key}
+        try:
+            fmp_rate_limiter.wait_if_needed()
+            response = fmp_http_session.get(
+                f"{self.stable_base_url}/news/stock", params=params, timeout=(5, 20)
+            )
+            if response.status_code != 200:
+                logger.warning("Stock news unavailable for %s: HTTP %s", symbol, response.status_code)
+                return []
+            data = response.json()
+            return data if isinstance(data, list) else []
+        except Exception as exc:
+            logger.warning("Stock news unavailable for %s: %s", symbol, exc)
+            return []
 
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
     @throttler.throttle(cache_check_func=create_cache_checker(

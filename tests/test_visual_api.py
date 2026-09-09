@@ -16,10 +16,16 @@ class FakeManager:
     def close(self): self.closed = True
 
 
+class FakeStockService:
+    def get(self, symbol):
+        return {'symbol': symbol, 'overview': {'Price': 123.45},
+                'news': [{'title': 'Example', 'url': 'https://example.com'}]}
+
+
 class ApiTests(unittest.TestCase):
     def test_catalog_run_validation_origin_and_shutdown(self):
         manager = FakeManager()
-        with TestClient(create_app(manager)) as client:
+        with TestClient(create_app(manager, FakeStockService())) as client:
             catalog = client.get('/api/screeners')
             self.assertEqual(catalog.status_code, 200)
             self.assertGreaterEqual(len(catalog.json()), 10)
@@ -29,4 +35,8 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(client.post('/api/runs/run-1/cancel').json()['status'], 'cancelling')
             self.assertEqual(client.post('/api/runs', json={'workflow': {}}).status_code, 422)
             self.assertEqual(client.get('/api/screeners', headers={'Origin': 'https://example.com'}).status_code, 403)
+            detail = client.get('/api/stocks/aapl')
+            self.assertEqual(detail.json()['symbol'], 'AAPL')
+            self.assertEqual(detail.json()['overview']['Price'], 123.45)
+            self.assertEqual(client.get('/api/stocks/bad!symbol').status_code, 422)
         self.assertTrue(manager.closed)

@@ -13,6 +13,7 @@ class FMPCacheTests(unittest.TestCase):
         provider = fmp.FinancialModelingPrepProvider(api_key='offline-cache-check')
         calls = [
             ('get_company_overview', ('CACHE_TEST',), {}),
+            ('get_stock_news', ('CACHE_TEST',), {'limit': 8}),
             ('get_historical_prices', (['CACHE_TEST'],), {'period': '1y'}),
             ('get_income_statement', ('CACHE_TEST',), {'annual': False}),
             ('get_balance_sheet', (), {'symbol': 'CACHE_TEST', 'annual': True}),

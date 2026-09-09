@@ -50,6 +50,10 @@ class FMPCompanyOverview(TypedDict):
     Industry: str
     
     # Market Data
+    Price: NotRequired[float]
+    Change: NotRequired[float]
+    ChangesPercentage: NotRequired[float]
+    Volume: NotRequired[int]
     MarketCapitalization: float  # Market cap in dollars
     SharesOutstanding: float
     Beta: NotRequired[float]

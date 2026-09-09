@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from copy import deepcopy
 import logging
 from pathlib import Path
+import re
 from threading import Event, Lock
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 
 import main as pipeline  # Keep initialization consistent with the existing CLI.
 from workflow import WorkflowEngine, WorkflowError, Cancelled, screener_catalog, validate_workflow
+from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 
 
 class RunRequest(BaseModel):
@@ -92,8 +94,30 @@ class RunManager:
         self.executor.shutdown(wait=True, cancel_futures=True)
 
 
-def create_app(manager=None):
+class StockDetailService:
+    def __init__(self, provider=None):
+        self.provider = provider or FinancialModelingPrepProvider()
+
+    def get(self, symbol):
+        overview = self.provider.get_company_overview(symbol) or {}
+        news = self.provider.get_stock_news(symbol, limit=8)
+        articles = []
+        for item in news:
+            url = item.get('url') or item.get('link')
+            articles.append({
+                'title': item.get('title') or 'Untitled article',
+                'publisher': item.get('publisher') or item.get('site') or '',
+                'published_at': item.get('publishedDate') or item.get('published_at') or '',
+                'summary': item.get('text') or item.get('summary') or '',
+                'url': url if isinstance(url, str) and url.startswith(('https://', 'http://')) else None,
+                'image': item.get('image') if isinstance(item.get('image'), str) and item['image'].startswith(('https://', 'http://')) else None,
+            })
+        return {'symbol': symbol, 'overview': overview, 'news': articles}
+
+
+def create_app(manager=None, stock_service=None):
     manager = manager or RunManager()
+    stock_service = stock_service or StockDetailService()
 
     @asynccontextmanager
     async def lifespan(app):
@@ -115,6 +139,13 @@ def create_app(manager=None):
     @app.get('/api/screeners')
     def screeners():
         return screener_catalog()
+
+    @app.get('/api/stocks/{symbol}')
+    def stock_detail(symbol: str):
+        symbol = symbol.upper()
+        if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', symbol):
+            raise HTTPException(422, 'Invalid stock symbol.')
+        return stock_service.get(symbol)
 
     @app.post('/api/workflows/validate')
     def validate(body: RunRequest):
