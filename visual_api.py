@@ -37,7 +37,8 @@ class RunManager:
             while len(self.runs) >= 10:
                 del self.runs[next(iter(self.runs))]
             run_id = uuid4().hex
-            self.runs[run_id] = {'id': run_id, 'status': 'queued', 'progress': {'message': 'Queued'},
+            self.runs[run_id] = {'id': run_id, 'status': 'queued',
+                                 'progress': {'message': 'Queued', 'overall_percent': 0},
                                  'result': None, 'error': None, 'cancel': Event()}
         self.executor.submit(self._execute, run_id, deepcopy(document), snapshot_id)
         return run_id

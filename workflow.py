@@ -156,8 +156,12 @@ class WorkflowEngine:
             while len(self.snapshots) > 5:
                 self.snapshots.popitem(last=False)
         universe_spec = document['universe']
+        screener_ids = [node_id for node_id in order if nodes[node_id]['type'] == 'screener']
+        screener_position = {node_id: index for index, node_id in enumerate(screener_ids)}
+        overall_total = len(screener_ids)
         universe_key = json.dumps(universe_spec, sort_keys=True)
-        progress({'message': 'Loading universe', 'completed': 0, 'total': 0})
+        progress({'message': 'Loading universe', 'completed': 0, 'total': 0,
+                  'overall_completed': 0, 'overall_total': overall_total, 'overall_percent': 0})
         if cancel.is_set():
             raise Cancelled()
         if universe_key not in snapshot['universes']:
@@ -199,7 +203,12 @@ class WorkflowEngine:
                     if cancel.is_set():
                         raise Cancelled()
                     symbol = upstream['symbol']
+                    stage_progress = index / len(records) if records else 1
+                    overall_completed = screener_position[node_id] + stage_progress
+                    overall_percent = round(overall_completed / overall_total * 100, 1) if overall_total else 100
                     progress({'node_id': node_id, 'completed': index, 'total': len(records),
+                              'overall_completed': overall_completed, 'overall_total': overall_total,
+                              'overall_percent': overall_percent,
                               'message': f"{node['screener']} · {symbol}"})
                     key = (score_key, symbol)
                     if key in snapshot['scores']:
@@ -240,7 +249,11 @@ class WorkflowEngine:
                 for row in scored:
                     if row['outcome'] in ('unavailable', 'error'):
                         outcomes[row['outcome']].append(row)
-                progress({'node_id': node_id, 'completed': len(records), 'total': len(records), 'message': f"{node['screener']} complete"})
+                overall_completed = screener_position[node_id] + 1
+                overall_percent = round(overall_completed / overall_total * 100, 1) if overall_total else 100
+                progress({'node_id': node_id, 'completed': len(records), 'total': len(records),
+                          'overall_completed': overall_completed, 'overall_total': overall_total,
+                          'overall_percent': overall_percent, 'message': f"{node['screener']} complete"})
             result['nodes'][node_id] = {'input_count': len(records), 'outcomes': outcomes,
                                         'counts': {key: len(rows) for key, rows in outcomes.items()}}
             result['errors'] += len(outcomes['error']) if node['type'] == 'screener' else 0

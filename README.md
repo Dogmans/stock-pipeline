@@ -54,6 +54,8 @@ pass/fail/unavailable outcomes, inspect the stocks on each connection, and save 
 same workflow for CLI execution. See [Visual workflow editor](docs/visual_editor.md)
 for installation and usage.
 
+![Stock Pipeline visual workflow editor](docs/images/workflow-editor.png)
+
 ### Install and run on Windows
 
 The editor uses a small local Python API and a React frontend. From the repository

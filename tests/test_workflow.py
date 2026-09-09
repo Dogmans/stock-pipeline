@@ -59,6 +59,14 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(second['nodes']['s']['counts']['passed'], 0)
         self.assertEqual(second['nodes']['s']['counts']['failed'], 2)
 
+    def test_overall_progress_is_monotonic_and_completes(self):
+        updates = []
+        self.engine.execute(document(), catalog=CATALOG, progress=updates.append)
+        percentages = [update['overall_percent'] for update in updates]
+        self.assertEqual(percentages[0], 0)
+        self.assertEqual(percentages[-1], 100)
+        self.assertEqual(percentages, sorted(percentages))
+
     def test_validation_rejects_merges_cycles_and_bad_parameters(self):
         invalid = document()
         invalid['edges'].append({'id':'merge','source':'u','sourceHandle':'failed','target':'pass'})

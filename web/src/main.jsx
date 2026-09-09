@@ -63,6 +63,7 @@ function Studio() {
   const document = useMemo(() => toDocument(name, universe, nodes, edges), [name, universe, nodes, edges]);
   const currentKey = logicKey(document), stale = !!run?.result && runKey !== currentKey;
   const result = !stale ? run?.result : null;
+  const overallPercent = Math.max(0, Math.min(100, Math.round(run?.progress?.overall_percent || 0)));
   const byScreener = useMemo(() => Object.fromEntries(catalog.map(c => [c.id, c])), [catalog]);
   const universeLabel = universe.symbols ? `${universe.symbols.length} custom symbols` : universe.name;
   useEffect(() => { api('/screeners').then(setCatalog).catch(() => setError('The Python API is not available. Start visual_api.py and reload this page.')); }, []);
@@ -111,7 +112,7 @@ function Studio() {
     setError(''); setStarting(true);
     try {
       const value = await api('/runs', { method: 'POST', body: JSON.stringify({ workflow: document, snapshot_id: reuse ? savedSnapshot.current : null }) });
-      setRunKey(currentKey); setRun({ ...value, status: 'queued', progress: { message: 'Starting workflow' } });
+      setRunKey(currentKey); setRun({ ...value, status: 'queued', progress: { message: 'Starting workflow', overall_percent: 0 } });
     } catch (err) { setError(err.message); } finally { setStarting(false); }
   }
   async function load(event) {
@@ -145,7 +146,8 @@ function Studio() {
         <button className="add-shortlist" disabled={busy} onClick={() => add('output')}><ListFilter size={16}/> Add shortlist <Plus size={14}/></button>
         <div className="library-note"><GitBranch size={19}/><strong>Follow the decisions.</strong><p>Connect an outcome to the next screen. Select any line to see the stocks flowing through it.</p></div>
       </aside>
-      <main className="main-pane"><div className="canvas-bar"><span><i className="status-dot"/>{busy ? run?.progress?.message : stale ? 'Workflow changed · run to update' : run?.status === 'completed' ? 'Run complete' : run?.status === 'cancelled' ? 'Run cancelled' : 'Build your screening path'}</span>
+      <main className="main-pane"><div className="canvas-bar"><div className="canvas-run-status"><span><i className="status-dot"/>{busy ? run?.progress?.message : stale ? 'Workflow changed · run to update' : run?.status === 'completed' ? 'Run complete' : run?.status === 'cancelled' ? 'Run cancelled' : 'Build your screening path'}</span>
+        {busy && <div className="overall-progress" role="progressbar" aria-label="Overall workflow progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={overallPercent}><span><i style={{width: `${overallPercent}%`}}/></span><b>{overallPercent}% overall</b></div>}</div>
         <label><input type="checkbox" checked={weighted} onChange={e => setWeighted(e.target.checked)}/> Volume widths</label>
       </div>
       <div className="canvas" onDragOver={e => {e.preventDefault(); e.dataTransfer.dropEffect = 'copy';}} onDrop={event => {event.preventDefault(); const id = event.dataTransfer.getData('application/screener'); if (byScreener[id]) add('screener', id, screenToFlowPosition({ x: event.clientX, y: event.clientY }));}}>
