@@ -157,7 +157,7 @@ python main.py --force-refresh     # Bypass cache and fetch fresh data
 python main.py --clear-old-cache 24  # Clear cache older than 24 hours
 ```
 
-See the `scripts.md` file for additional examples and command combinations.
+See [PowerShell commands](docs/powershell_commands.md) for additional examples.
 
 ### Cache Management
 

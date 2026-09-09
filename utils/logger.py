@@ -7,6 +7,7 @@ retrieved throughout the application.
 """
 
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import config
 
@@ -40,7 +41,9 @@ def setup_logging():
         root_logger.removeHandler(handler)
     
     # Add a file handler
-    file_handler = logging.FileHandler("stock_pipeline.log")
+    file_handler = RotatingFileHandler(
+        "stock_pipeline.log", maxBytes=10 * 1024 * 1024, backupCount=2, encoding="utf-8"
+    )
     file_handler.setFormatter(logging.Formatter(log_format))
     root_logger.addHandler(file_handler)
     

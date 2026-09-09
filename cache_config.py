@@ -8,6 +8,7 @@ for use throughout the application.
 import os
 from diskcache import FanoutCache
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 # Set up logger
@@ -15,7 +16,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("stock_pipeline.log"),
+        RotatingFileHandler("stock_pipeline.log", maxBytes=10 * 1024 * 1024,
+                            backupCount=2, encoding="utf-8"),
         logging.StreamHandler()
     ]
 )

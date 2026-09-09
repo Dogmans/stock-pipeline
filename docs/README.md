@@ -8,6 +8,7 @@ This directory contains documentation for the stock pipeline project:
 - [`powershell_commands.md`](powershell_commands.md): Useful PowerShell commands for the pipeline
 - [`provider_guides.md`](provider_guides.md): API provider-specific guidance
 - [`testing.md`](testing.md): Testing procedures and patterns
+- [`visual_editor.md`](visual_editor.md): Visual workflow editor setup and usage
 - [`sector_corrections.md`](sector_corrections.md): Sector assignment fixes
 - [`screener_methods.md`](screener_methods.md): Stock screener methods and implementations
 
