@@ -47,6 +47,46 @@ Pre-configured debug configurations are available:
 python main.py --universe sp500 --strategies all --limit 20
 ```
 
+## Visual Workflow Editor
+
+Build screening paths by dragging existing screeners onto a canvas, connect their
+pass/fail/unavailable outcomes, inspect the stocks on each connection, and save the
+same workflow for CLI execution. See [Visual workflow editor](docs/visual_editor.md)
+for installation and usage.
+
+### Install and run on Windows
+
+The editor uses a small local Python API and a React frontend. From the repository
+root, run the following once:
+
+```powershell
+py -3.12 -m venv .venv-ui
+.venv-ui\Scripts\python.exe -m pip install -r requirements.txt
+.venv-ui\Scripts\python.exe -m pip install -r requirements-ui.txt
+Set-Location web
+npm install
+npm run build
+Set-Location ..
+```
+
+Add `FINANCIAL_MODELING_PREP_API_KEY` to `.env`, then start the editor:
+
+```powershell
+.\scripts\start_visual_editor.ps1
+```
+
+Open <http://127.0.0.1:8765> in a browser. Keep the PowerShell window running while
+using the editor; press `Ctrl+C` there to stop it.
+
+After saving a workflow from the editor, the same workflow can run without the UI:
+
+```powershell
+.venv-ui\Scripts\python.exe main.py --workflow workflows\value_quality.json
+```
+
+The API and editor deliberately listen only on the local computer. Re-run
+`npm run build` in `web` after changing frontend source files.
+
 ## Pipeline Components
 
 - Data Collection:

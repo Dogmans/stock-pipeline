@@ -43,6 +43,7 @@ def parse_arguments():
         argparse.Namespace: Parsed command line arguments
     """
     parser = argparse.ArgumentParser(description='Stock Screening Pipeline')
+    parser.add_argument('--workflow', help='Run a JSON workflow saved by the visual editor')
     
     # Add command line arguments
     parser.add_argument('--universe', type=str, default=config.DEFAULT_UNIVERSE,
@@ -132,6 +133,9 @@ def main():
     Main function to run the stock screening pipeline.
     """    # Parse command line arguments
     args = parse_arguments()
+    if args.workflow:
+        from workflow import run_workflow_cli
+        return run_workflow_cli(args.workflow, args.output, args.limit)
     
     # Setup logging - only here in main.py since this is the entry point
     setup_logging()

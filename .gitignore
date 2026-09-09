@@ -54,3 +54,8 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+node_modules/
+.venv-ui/
+web/dist/
+web/test-results/
+web/playwright-report/

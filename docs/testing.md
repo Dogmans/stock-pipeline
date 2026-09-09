@@ -15,7 +15,7 @@ python scripts/run_offline_regressions.py
 The runner executes `tests/test_regressions.py` and `tests/test_fmp_transport.py` with temporary cache, log, and
 output storage. It disables `.env` loading, supplies a dummy FMP key, and blocks
 HTTP requests and socket connections. No live API data is required. A successful
-run reports 14 passing tests and exits with status 0.
+run reports 20 passing tests and exits with status 0.
 
 Coverage includes decimal quality-score thresholds, missing metrics, passing-only
 counts and candidates, zero/unlimited display limits, legacy prefiltered results,

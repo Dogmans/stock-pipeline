@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "Quality at a fair price",
+  "universe": {"symbols": ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "JNJ", "JPM", "XOM"]},
+  "nodes": [
+    {"id": "universe", "type": "universe", "label": "Starting universe", "position": {"x": 30, "y": 100}},
+    {"id": "quality", "type": "screener", "screener": "quality", "params": {}, "criterion": {"operator": "default"}, "position": {"x": 360, "y": 100}},
+    {"id": "value", "type": "screener", "screener": "pe_ratio", "params": {}, "criterion": {"operator": "lte", "value": 20}, "position": {"x": 690, "y": 100}},
+    {"id": "shortlist", "type": "output", "label": "My shortlist", "position": {"x": 1020, "y": 100}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "universe", "sourceHandle": "passed", "target": "quality"},
+    {"id": "e2", "source": "quality", "sourceHandle": "passed", "target": "value"},
+    {"id": "e3", "source": "value", "sourceHandle": "passed", "target": "shortlist"}
+  ]
+}

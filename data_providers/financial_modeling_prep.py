@@ -118,7 +118,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 fmp_rate_limiter.wait_if_needed()
                 
             # Make the request
-            response = fmp_http_session.get(url, params=params)
+            response = fmp_http_session.get(url, params=params, timeout=(5, 20))
             
             # Check if response is successful
             if response.status_code == 200:
