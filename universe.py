@@ -30,6 +30,10 @@ logger = setup_logging()
 # Cache timeout constant (24 hours in seconds)
 CACHE_EXPIRE = 24 * 3600
 
+
+class UniverseUnavailableError(RuntimeError):
+    """Raised internally so a failed universe lookup is not memoized."""
+
 def _fetch_fmp_constituents(endpoint, index_name):
     """
     Common helper function to fetch index constituents from Financial Modeling Prep API.
@@ -93,10 +97,13 @@ def get_sp500_symbols(force_refresh=False):
         # Clear cache for both possible call signatures
         cache.delete_memoized(_get_sp500_symbols_cached)
         
-    return _get_sp500_symbols_cached()
+    try:
+        return _get_sp500_symbols_cached(cache_version=2)
+    except UniverseUnavailableError:
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
 @cache.memoize(expire=24*3600)  # Cache for 24 hours  
-def _get_sp500_symbols_cached():
+def _get_sp500_symbols_cached(cache_version=2):
     """Internal cached function for S&P 500 symbols."""
     result = _fetch_fmp_constituents('sp500_constituent', 'S&P 500')
     
@@ -104,7 +111,9 @@ def _get_sp500_symbols_cached():
         return result
     else:
         logger.error("Failed to fetch S&P 500 symbols from Financial Modeling Prep")
-        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
+        # diskcache.memoize does not cache exceptions. Returning an empty frame here
+        # would make a transient FMP failure look like a valid universe for 24 hours.
+        raise UniverseUnavailableError('S&P 500 constituents are temporarily unavailable')
 
 @cache.memoize(expire=CACHE_EXPIRE)
 def _get_russell2000_symbols_cached():
@@ -323,21 +332,24 @@ def get_stock_universe(universe=None, force_refresh=False):
     if universe is None:
         universe = config.DEFAULT_UNIVERSE
     
-    return _get_stock_universe_cached(universe)
+    try:
+        return _get_stock_universe_cached(universe, cache_version=2)
+    except UniverseUnavailableError:
+        return pd.DataFrame(columns=['symbol', 'security', 'gics_sector', 'gics_sub-industry'])
 
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
-def _get_stock_universe_cached(universe):
+def _get_stock_universe_cached(universe, cache_version=2):
     """Internal cached function for stock universe selection."""
     if universe == config.UNIVERSES["SP500"]:
-        return get_sp500_symbols()
+        result = get_sp500_symbols()
     elif universe == config.UNIVERSES["RUSSELL2000"]:
-        return get_russell2000_symbols()
+        result = get_russell2000_symbols()
     elif universe == config.UNIVERSES["NASDAQ100"]:
-        return get_nasdaq100_symbols()
+        result = get_nasdaq100_symbols()
     elif universe == config.UNIVERSES["NASDAQ"]:
-        return get_nasdaq_symbols()
+        result = get_nasdaq_symbols()
     elif universe == config.UNIVERSES["DOWJONES"]:
-        return get_dowjones_symbols()
+        result = get_dowjones_symbols()
     elif universe == config.UNIVERSES["ALL"]:
         # Combine all universes
         sp500 = get_sp500_symbols()
@@ -349,18 +361,25 @@ def _get_stock_universe_cached(universe):
         combined = pd.concat([sp500, russell, nasdaq, dowjones])
         combined = combined.drop_duplicates(subset=['symbol'])
         logger.info(f"Combined universe contains {len(combined)} unique symbols")
-        return combined
+        result = combined
     else:
         # Support dynamic country universes using ETF holdings mapping
         try:
             if isinstance(universe, str) and universe.lower().startswith('country:'):
                 country_key = universe.split(':', 1)[1].lower()
-                return get_country_universe(country_key)
+                result = get_country_universe(country_key)
+            else:
+                result = None
         except Exception:
-            pass
+            result = None
 
-        logger.warning(f"Unknown universe: {universe}, defaulting to S&P 500")
-        return get_sp500_symbols()
+        if result is None:
+            logger.warning(f"Unknown universe: {universe}, defaulting to S&P 500")
+            result = get_sp500_symbols()
+
+    if result is None or result.empty:
+        raise UniverseUnavailableError(f"Universe {universe} returned no symbols")
+    return result
 
 
 @cache.memoize(expire=CACHE_EXPIRE)

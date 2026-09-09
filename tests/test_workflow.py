@@ -2,11 +2,14 @@ import json
 import tempfile
 import time
 import unittest
+import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
 from workflow import WorkflowEngine, WorkflowError, run_workflow_cli, validate_workflow
+import universe
 
 
 def document(threshold=10):
@@ -80,3 +83,12 @@ class WorkflowTests(unittest.TestCase):
             result = json.loads((Path(temporary) / 'workflow_results.json').read_text(encoding='utf-8'))
             self.assertEqual([row['symbol'] for row in result['shortlist']], ['AAPL', 'MSFT'])
             self.assertTrue((Path(temporary) / 'workflow_report.md').exists())
+
+    def test_failed_sp500_lookup_is_not_cached(self):
+        available = pd.DataFrame([{'symbol': 'AAPL', 'name': 'Apple', 'sector': 'Technology'}])
+        version = uuid.uuid4().hex
+        with patch.object(universe, '_fetch_fmp_constituents', side_effect=[None, available]):
+            with self.assertRaises(universe.UniverseUnavailableError):
+                universe._get_sp500_symbols_cached(cache_version=version)
+            result = universe._get_sp500_symbols_cached(cache_version=version)
+        self.assertEqual(result['symbol'].tolist(), ['AAPL'])
