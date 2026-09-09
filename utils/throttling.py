@@ -82,23 +82,18 @@ class CacheAwareThrottler:
 # Global throttler instance with more aggressive limits for FMP
 throttler = CacheAwareThrottler(calls_per_minute=300, calls_per_second=5)
 
-def create_cache_checker(cache_instance, cache_key_func):
+def create_cache_checker(cache_instance, method_name):
+    """Check the actual DiskCache key for a memoized instance method.
+
+    Resolve the decorated method at call time, after class construction. Forward
+    arguments unchanged so positional and keyword forms match memoization exactly.
     """
-    Create a cache checking function for a specific cache and key generation function.
-    
-    Args:
-        cache_instance: The cache instance to check
-        cache_key_func: Function that generates cache key from args/kwargs
-        
-    Returns:
-        Function that checks if data is cached
-    """
-    def check_cache(*args, **kwargs):
+    def check_cache(instance, *args, **kwargs):
         try:
-            cache_key = cache_key_func(*args, **kwargs)
-            # Check if the key exists in cache
-            cached_value = cache_instance.get(cache_key)
-            return cached_value is not None
+            method = getattr(instance, method_name)
+            cache_key = method.__cache_key__(instance, *args, **kwargs)
+            # Membership also recognizes cached None/empty results and expiry.
+            return cache_key in cache_instance
         except Exception as e:
             logger.debug(f"Cache check failed: {e}")
             return False

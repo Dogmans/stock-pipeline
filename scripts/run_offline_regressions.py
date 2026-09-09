@@ -23,7 +23,9 @@ def main():
                                'curl_cffi.requests.Session.request',
                                'socket.socket.connect'):
                     stack.enter_context(patch(target, side_effect=AssertionError('Network access is forbidden in offline tests')))
-                suite = unittest.defaultTestLoader.loadTestsFromName('tests.test_regressions')
+                suite = unittest.defaultTestLoader.loadTestsFromNames([
+                    'tests.test_regressions', 'tests.test_fmp_transport',
+                ])
                 result = unittest.TextTestRunner(verbosity=2).run(suite)
                 return 0 if result.wasSuccessful() else 1
         finally:

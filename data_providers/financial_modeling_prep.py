@@ -17,6 +17,7 @@ For detailed type definitions and examples, see: data_providers.fmp_types
 from typing import Dict, List, Union, Any
 import pandas as pd
 import requests
+import atexit
 import functools
 from tqdm import tqdm  # For progress bars
 
@@ -41,6 +42,11 @@ logger = get_logger(__name__)
 
 # Get rate limiter instance for Financial Modeling Prep
 fmp_rate_limiter = RateLimiter.get_instance("financial_modeling_prep")
+
+# Share the connection pool across screeners without adding mutable transport state
+# to provider instances, which DiskCache serializes as part of memoization keys.
+fmp_http_session = requests.Session()
+atexit.register(fmp_http_session.close)
 
 class FinancialModelingPrepProvider(BaseDataProvider):
     """
@@ -112,7 +118,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 fmp_rate_limiter.wait_if_needed()
                 
             # Make the request
-            response = requests.get(url, params=params)
+            response = fmp_http_session.get(url, params=params)
             
             # Check if response is successful
             if response.status_code == 200:
@@ -171,7 +177,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         return df
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, symbols, period="1y", interval="1d", force_refresh=False: f"FinancialModelingPrepProvider.get_historical_prices:{symbols}:{period}:{interval}:{force_refresh}"
+        cache, "get_historical_prices"
     ))
     def get_historical_prices(self, symbols: Union[str, List[str]], 
                              period: str = "1y", 
@@ -272,7 +278,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         return result
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, symbol, annual=True, force_refresh=False: f"FinancialModelingPrepProvider.get_income_statement:{symbol}:{annual}:{force_refresh}"
+        cache, "get_income_statement"
     ))
     def get_income_statement(self, symbol: str, 
                             annual: bool = True,
@@ -332,7 +338,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         return self._process_financial_statement(data, column_mapping)
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, symbol, annual=True, force_refresh=False: f"FinancialModelingPrepProvider.get_balance_sheet:{symbol}:{annual}:{force_refresh}"
+        cache, "get_balance_sheet"
     ))
     def get_balance_sheet(self, symbol: str, 
                          annual: bool = True,
@@ -394,7 +400,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         return self._process_financial_statement(data, column_mapping)
     @cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, symbol, annual=True, force_refresh=False: f"FinancialModelingPrepProvider.get_cash_flow:{symbol}:{annual}:{force_refresh}"
+        cache, "get_cash_flow"
     ))
     def get_cash_flow(self, symbol: str, 
                      annual: bool = True,
@@ -454,7 +460,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, symbol, force_refresh=False: f"FinancialModelingPrepProvider.get_company_overview:{symbol}:{force_refresh}"
+        cache, "get_company_overview"
     ))
     def get_company_overview(self, symbol: str, 
                             force_refresh: bool = False) -> FMPCompanyOverview:
@@ -588,7 +594,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
 
     @cache.memoize(expire=24*3600)  # Cache for 24 hours
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, etf_ticker, force_refresh=False: f"FinancialModelingPrepProvider.get_etf_holdings:{etf_ticker}:{force_refresh}"
+        cache, "get_etf_holdings"
     ))
     def get_etf_holdings(self, etf_ticker: str, force_refresh: bool = False) -> pd.DataFrame:
         """
@@ -652,7 +658,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
 
     @cache.memoize(expire=4*3600)  # Cache for 4 hours (insider data changes more frequently)
     @throttler.throttle(cache_check_func=create_cache_checker(
-        cache, lambda self, symbol, lookback_days=60, force_refresh=False: f"FinancialModelingPrepProvider.get_insider_trading:{symbol}:{lookback_days}:{force_refresh}"
+        cache, "get_insider_trading"
     ))
     def get_insider_trading(self, symbol: str, lookback_days: int = 60, force_refresh: bool = False) -> List[dict]:
         """
@@ -689,7 +695,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 'apikey': self.api_key
             }
             
-            response = requests.get(url, params=params, timeout=15)
+            response = fmp_http_session.get(url, params=params, timeout=15)
             
             if response.status_code != 200:
                 logger.error(f"Error fetching insider trading data for {symbol}: {response.status_code}")
