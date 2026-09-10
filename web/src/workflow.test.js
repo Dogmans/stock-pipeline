@@ -1,5 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { defaultRuleText } from './workflow.js';
+
+test('default rule description follows parameter overrides and constructor fallback', () => {
+  const catalog = {default_rule: {metric: 'P/E', operator: 'lte', value: 15, parameter: 'max_pe', zero_uses_default: true}};
+  assert.equal(defaultRuleText(catalog), 'P/E ≤ 15');
+  assert.equal(defaultRuleText(catalog, {max_pe: 9}), 'P/E ≤ 9');
+  assert.equal(defaultRuleText(catalog, {max_pe: 0}), 'P/E ≤ 15');
+  catalog.default_rule.zero_uses_default = false;
+  assert.equal(defaultRuleText(catalog, {max_pe: 0}), 'P/E ≤ 0');
+  assert.equal(defaultRuleText({default_rule: {metric: 'Sentiment score', operator: 'gte', value: 1, unit: ' / 100'}}), 'Sentiment score ≥ 1 / 100');
+  assert.equal(defaultRuleText(null), 'Default rule details unavailable.');
+});
 import { canConnect, csv, fromDocument, logicKey, toDocument, volumeWidth } from './workflow.js';
 
 const doc = { version: 1, name: 'Test', universe: { symbols: ['AAPL'] },

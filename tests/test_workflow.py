@@ -8,7 +8,8 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from workflow import WorkflowEngine, WorkflowError, run_workflow_cli, validate_workflow
+from workflow import WorkflowEngine, WorkflowError, run_workflow_cli, validate_workflow, screener_catalog
+from utils import get_screener
 import universe
 
 
@@ -39,6 +40,25 @@ class FakeScreener:
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_catalog_rules_match_screener_boundaries(self):
+        for entry in screener_catalog():
+            with self.subTest(screener=entry['id']):
+                rule = entry['default_rule']
+                self.assertIsNotNone(rule)
+                screener = get_screener(entry['id'])
+                boundary = rule['value']
+                for offset in (-0.01, 0, 0.01):
+                    value = boundary + offset
+                    expected = value >= boundary if rule['operator'] == 'gte' else value <= boundary
+                    if entry['id'] == 'fifty_two_week_lows':
+                        prices = pd.DataFrame({'Low': [100.0], 'Close': [100.0 + value]})
+                        actual = screener.meets_threshold('TEST', {}, 0, prices)
+                    elif entry['id'] == 'insider_buying':
+                        actual = screener.meets_threshold('TEST', {}, value)
+                    else:
+                        actual = screener.meets_threshold(value)
+                    self.assertEqual(bool(actual), expected)
+
     def setUp(self):
         FakeScreener.calls = 0
         self.engine = WorkflowEngine(factory=lambda name, **kwargs: FakeScreener())

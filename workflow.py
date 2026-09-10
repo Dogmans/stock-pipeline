@@ -11,6 +11,7 @@ from threading import Event
 from uuid import uuid4
 
 import pandas as pd
+import config
 from utils import get_screener, list_screeners
 from universe import get_stock_universe
 
@@ -24,6 +25,38 @@ class WorkflowError(ValueError):
 
 class Cancelled(Exception):
     pass
+
+
+def default_rule(name, instance):
+    """Describe the default pass condition, including editable threshold parameters."""
+    parameter_rules = {
+        'pe_ratio': ('P/E', 'lte', 'max_pe', '', True),
+        'peg_ratio': ('PEG ratio', 'lte', 'max_peg_ratio', '', False),
+        'price_to_book': ('Price / book', 'lte', 'max_pb_ratio', '', True),
+        'sharpe_ratio': ('Sharpe ratio', 'gte', 'min_sharpe_ratio', '', True),
+        'momentum': ('Momentum score', 'gte', 'min_momentum_score', '%', True),
+        'quality': ('Quality score', 'gte', 'min_quality_score', '', True),
+        'fcf_yield': ('Free cash flow yield', 'gte', 'min_fcf_yield', '%', True),
+        'historic_value': ('Historic value score', 'gte', 'min_historic_value_score', '', True),
+    }
+    if name in parameter_rules:
+        metric, operator, parameter, unit, zero_uses_default = parameter_rules[name]
+        return dict(metric=metric, operator=operator, value=getattr(instance, parameter),
+                    parameter=parameter, unit=unit, zero_uses_default=zero_uses_default)
+    fixed_rules = {
+        'enhanced_quality': ('Quality score', 'gte', getattr(config.ScreeningThresholds, 'MIN_ENHANCED_QUALITY_SCORE', 50.0), ' / 100'),
+        'insider_buying': ('Insider buying score', 'gte', getattr(config.ScreeningThresholds, 'MIN_INSIDER_BUYING_SCORE', 65.0), ' / 100'),
+        'fifty_two_week_lows': ('Price above 52-week low', 'lte', getattr(config.ScreeningThresholds, 'MAX_PERCENT_OFF_52_WEEK_LOW', 20.0), '%'),
+        'analyst_sentiment_momentum': ('Sentiment score', 'gte', 1.0, ' / 100'),
+        'composite_score': ('Composite score', 'gte', 60.0, ' / 100'),
+    }
+    if name in fixed_rules:
+        metric, operator, value, unit = fixed_rules[name]
+        rule = dict(metric=metric, operator=operator, value=value, unit=unit)
+        if name == 'analyst_sentiment_momentum':
+            rule['note'] = 'Testing threshold; even a small positive score can pass.'
+        return rule
+    return None
 
 
 def screener_catalog():
@@ -42,7 +75,8 @@ def screener_catalog():
             parameters.append({'name': key, 'default': default,
                                'type': 'text' if isinstance(default, str) else 'number'})
         catalog.append({'id': name, 'label': instance.get_strategy_name(),
-                        'description': description, 'parameters': parameters})
+                        'description': description, 'parameters': parameters,
+                        'default_rule': default_rule(name, instance)})
     return catalog
 
 

@@ -1,6 +1,14 @@
 export const colors = { passed: '#258564', failed: '#c8786e', unavailable: '#c5993f', error: '#aa4c75' };
 export const outcomeLabels = { passed: 'Pass', failed: 'Fail', unavailable: 'Unavailable', error: 'Error' };
 
+export function defaultRuleText(catalog, params = {}) {
+  const rule = catalog?.default_rule;
+  if (!rule) return 'Default rule details unavailable.';
+  const override = params[rule.parameter];
+  const value = override == null || (rule.zero_uses_default && override === 0) ? rule.value : override;
+  return `${rule.metric} ${rule.operator === 'gte' ? '≥' : '≤'} ${value}${rule.unit || ''}`;
+}
+
 export function fromDocument(doc) {
   if (doc?.version !== 1 || !Array.isArray(doc.nodes) || !Array.isArray(doc.edges)) throw Error('Choose a version 1 workflow JSON file.');
   return {
