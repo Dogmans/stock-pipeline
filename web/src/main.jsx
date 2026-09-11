@@ -66,9 +66,6 @@ function WorkflowNode({ id, data, selected }) {
       {data.criterion.operator !== 'default' && <input type="number" step="any" aria-label="Score threshold" value={data.criterion.value ?? ''} disabled={data.busy}
         onChange={event => data.onUpdate(id, { criterion: { ...data.criterion, value: event.target.value === '' ? null : Number(event.target.value) } })}/>}
     </div>}
-    {isScreener && data.criterion.operator === 'default' && <p className="default-rule">Pass when {defaultRuleText(data.catalog, data.params)}
-      {data.catalog?.default_rule?.note && <span className="default-rule-note">{data.catalog.default_rule.note}</span>}
-    </p>}
     {data.kind === 'output' && <p>Inspect, compare & export</p>}
     <div className="node-count"><strong>{result ? result.input_count.toLocaleString() : '—'}</strong><span>{data.kind === 'output' ? 'stocks selected' : 'stocks incoming'}</span></div>
     {data.kind !== 'output' && <div className="node-ports">
