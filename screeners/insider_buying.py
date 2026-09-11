@@ -96,11 +96,10 @@ class InsiderBuyingScreener(BaseScreener):
                 company_data = provider.get_company_overview(symbol)
                 
                 # Calculate score using standard interface
-                score = self.calculate_score(symbol, company_data, trades)
+                detailed_metrics = self.get_detailed_metrics(symbol, company_data, None, trades, provider)
+                score = self._total_score(detailed_metrics)
                 meets_threshold = self.meets_threshold(symbol, company_data, score, trades)
                 
-                # Get detailed metrics
-                detailed_metrics = self.get_detailed_metrics(symbol, company_data, score, trades)
                 
                 # Get company info from universe and provider data
                 company_info = universe_df[universe_df['symbol'] == symbol]
@@ -149,30 +148,14 @@ class InsiderBuyingScreener(BaseScreener):
         Returns:
             Pre-pump score (0-100)
         """
-        if not trades:
-            return 0.0
-            
-        # Calculate insider buying analysis
-        insider_metrics = self._analyze_insider_activity(trades)
-        
-        # CRITICAL: If there are NO insider buys, the score must be 0
-        # This is an insider buying screener - without insider buying, it's irrelevant
-        if insider_metrics['buy_trades'] == 0:
-            return 0.0
-        
-        # 1. INSIDER ACTIVITY SCORE (40 points max)
-        insider_score = min(40, insider_metrics['activity_score'])
-        
-        # 2. ACCELERATION SCORE (25 points max) 
-        acceleration_score = min(25, insider_metrics['acceleration_score'])
-        
-        # 3. TECHNICAL SCORE (35 points max)
-        technical_score = self._calculate_technical_score(symbol, trades)
-        
-        total_score = insider_score + acceleration_score + technical_score
-        
-        return min(100.0, total_score)
-    
+        metrics = self.get_detailed_metrics(symbol, company_data, None, trades)
+        return self._total_score(metrics)
+
+    @staticmethod
+    def _total_score(metrics):
+        return min(100.0, metrics['insider_activity_score'] +
+                   metrics['acceleration_score'] + metrics['technical_score'])
+
     def meets_threshold(self, symbol: str, company_data: dict, score: float, trades=None) -> bool:
         """
         Check if stock meets insider buying threshold.
@@ -189,33 +172,22 @@ class InsiderBuyingScreener(BaseScreener):
         min_score = getattr(config.ScreeningThresholds, 'MIN_INSIDER_BUYING_SCORE', 65.0)
         return score >= min_score
     
-    def get_detailed_metrics(self, symbol: str, company_data: dict, score: float, trades=None) -> dict:
-        """Get detailed insider buying metrics for a stock."""
-        if not trades:
-            return {
-                'total_trades': 0,
-                'buy_trades': 0,
-                'sell_trades': 0,
-                'net_shares': 0,
-                'buy_value': 0,
-                'sell_value': 0,
-                'unique_insiders': 0
-            }
-        
-        insider_metrics = self._analyze_insider_activity(trades)
-        
-        return {
-            'total_trades': insider_metrics['total_trades'],
-            'buy_trades': insider_metrics['buy_trades'],
-            'sell_trades': insider_metrics['sell_trades'],
-            'net_shares': insider_metrics['net_shares'],
-            'buy_value': insider_metrics['buy_value'],
-            'sell_value': insider_metrics['sell_value'],
-            'unique_insiders': insider_metrics['unique_insiders'],
-            'acceleration_score': insider_metrics['acceleration_score'],
-            'consolidation_detected': insider_metrics.get('consolidation_detected', False)
-        }
-    
+    def get_detailed_metrics(self, symbol: str, company_data: dict, score: float,
+                             trades=None, provider=None) -> dict:
+        """Return raw insider metrics and the exact contributions to the score."""
+        insider = self._analyze_insider_activity(trades or [])
+        metrics = {key: insider[key] for key in (
+            'total_trades', 'buy_trades', 'sell_trades', 'net_shares',
+            'buy_value', 'sell_value', 'unique_insiders')}
+        eligible = insider['buy_trades'] > 0
+        metrics.update(
+            insider_activity_score=insider['activity_score'] if eligible else 0.0,
+            acceleration_score=insider['acceleration_score'] if eligible else 0.0,
+            **self._empty_technical_metrics('Not evaluated: no insider purchases'))
+        if eligible:
+            metrics.update(self._technical_metrics(symbol, provider))
+        return metrics
+
     def _create_reason_string(self, symbol: str, company_data: dict, score: float, metrics: dict) -> str:
         """Create descriptive reason string for the screening result."""
         if metrics.get('buy_trades', 0) == 0:
@@ -224,8 +196,12 @@ class InsiderBuyingScreener(BaseScreener):
         reason = f"Pre-pump score: {score:.1f}/100"
         if metrics.get('total_trades', 0) > 0:
             reason += f" - {metrics['buy_trades']} buy trades vs {metrics['sell_trades']} sells"
-        if 'consolidation_detected' in metrics:
-            reason += f" - Consolidation: {'Yes' if metrics['consolidation_detected'] else 'No'}"
+        reason += (f" - Activity {metrics['insider_activity_score']:.1f}/40"
+                   f", acceleration {metrics['acceleration_score']:.1f}/25"
+                   f", consolidation {metrics['consolidation_score']:.1f}/20"
+                   f", volume {metrics['volume_score']:.1f}/15")
+        if metrics['technical_status'] != 'Available':
+            reason += f" - Technical data: {metrics['technical_status']}"
         
         return reason
     
@@ -348,77 +324,47 @@ class InsiderBuyingScreener(BaseScreener):
         
         return min(25, score)
     
-    def _calculate_technical_score(self, symbol, trades):
-        """Analyze technical consolidation patterns (0-35 points)."""
-        try:
-            provider = FinancialModelingPrepProvider()
-            
-            # Get 90 days of price data for technical analysis
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=90)
-            
-            # Get historical price data
-            price_data = provider.get_historical_prices(
-                symbol, 
-                start_date.strftime('%Y-%m-%d'), 
-                end_date.strftime('%Y-%m-%d')
-            )
-            
-            if not price_data or len(price_data) < 30:
-                return 0
-            
-            # Convert to DataFrame for analysis
-            df = pd.DataFrame(price_data)
-            if 'close' not in df.columns:
-                return 0
-            
-            # Calculate consolidation score (0-20 points)
-            consolidation_score = self._calculate_consolidation_score(df)
-            
-            # Calculate volume pattern score (0-15 points)
-            volume_score = self._calculate_volume_pattern_score(df)
-            
-            return min(35, consolidation_score + volume_score)
-            
-        except Exception as e:
-            logger.debug(f"Technical analysis failed for {symbol}: {e}")
-            return 0
-    
-    def _calculate_consolidation_score(self, df):
-        """Calculate price consolidation score."""
-        try:
-            # Calculate 30-day rolling volatility
-            df['returns'] = df['close'].pct_change()
-            recent_volatility = df['returns'].tail(30).std() * np.sqrt(252)  # Annualized
-            
-            # Low volatility indicates consolidation
-            if recent_volatility < 0.15:  # Less than 15% annualized volatility
-                return max(0, 20 - (recent_volatility * 100))
-            else:
-                return 0
-                
-        except Exception:
-            return 0
-    
-    def _calculate_volume_pattern_score(self, df):
-        """Calculate volume pattern score."""
-        try:
-            if 'volume' not in df.columns:
-                return 0
-            
-            # Calculate average volume over different periods
-            recent_volume = df['volume'].tail(10).mean()
-            historical_volume = df['volume'].mean()
-            
-            # Higher recent volume relative to historical average
-            if recent_volume > historical_volume * 1.2:
-                volume_ratio = recent_volume / historical_volume
-                return min(15, volume_ratio * 5)
-            
-            return 0
-            
-        except Exception:
-            return 0
+    @staticmethod
+    def _empty_technical_metrics(status):
+        return dict(technical_score=0.0, consolidation_score=0.0, volume_score=0.0,
+                    consolidation_detected=None, annualized_volatility=None,
+                    relative_volume=None, technical_status=status)
 
+    def _calculate_technical_score(self, symbol, trades=None):
+        return self._technical_metrics(symbol)['technical_score']
 
-
+    def _technical_metrics(self, symbol, provider=None):
+        """Use the provider's symbol-keyed, chronological OHLCV frames."""
+        metrics = self._empty_technical_metrics('Unavailable: insufficient price history')
+        try:
+            provider = provider if provider is not None else FinancialModelingPrepProvider()
+            history = provider.get_historical_prices(symbol, period='3mo', interval='1d')
+            df = history.get(symbol)
+            if df is None or len(df) < 30 or 'Close' not in df:
+                return metrics
+            df = df.sort_index()
+            closes = pd.to_numeric(df['Close'], errors='coerce')
+            if not np.isfinite(closes).all() or (closes <= 0).any():
+                metrics['technical_status'] = 'Unavailable: invalid closing prices'
+                return metrics
+            volatility = closes.pct_change(fill_method=None).tail(30).std() * np.sqrt(252)
+            consolidation = max(0.0, 20 - volatility * 100) if volatility < 0.15 else 0.0
+            metrics.update(annualized_volatility=float(volatility),
+                           consolidation_detected=bool(volatility < 0.15),
+                           consolidation_score=float(consolidation),
+                           technical_score=float(consolidation),
+                           technical_status='Partial: volume unavailable')
+            if 'Volume' not in df:
+                return metrics
+            volumes = pd.to_numeric(df['Volume'], errors='coerce')
+            if not np.isfinite(volumes).all() or (volumes < 0).any() or volumes.mean() <= 0:
+                return metrics
+            ratio = volumes.tail(10).mean() / volumes.mean()
+            volume_score = min(15.0, ratio * 5) if ratio > 1.2 else 0.0
+            metrics.update(relative_volume=float(ratio), volume_score=float(volume_score),
+                           technical_score=float(min(35, consolidation + volume_score)),
+                           technical_status='Available')
+            return metrics
+        except Exception as exc:
+            logger.debug(f"Technical analysis failed for {symbol}: {exc}")
+            return self._empty_technical_metrics('Unavailable: price data error')
