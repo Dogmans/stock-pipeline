@@ -9,6 +9,31 @@ export function defaultRuleText(catalog, params = {}) {
   return `${rule.metric} ${rule.operator === 'gte' ? '≥' : '≤'} ${value}${rule.unit || ''}`;
 }
 
+export function stockScreeningPath(symbol, selection, nodes, edges, result, catalog) {
+  if (!result) return [];
+  const steps = [], seen = new Set();
+  let id = selection.id, outcome = selection.port;
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    const node = nodes.find(n => n.id === id);
+    if (!node) break;
+    if (node.data.kind === 'screener') {
+      const row = result.nodes[id]?.outcomes[outcome]?.find(row => row.symbol === symbol);
+      const definition = catalog[node.data.screener];
+      const criterion = node.data.criterion || { operator: 'default' };
+      steps.unshift({ id, label: node.data.label || definition?.label || node.data.screener,
+        outcome: row ? outcome : 'unavailable', row: row || {},
+        rule: criterion.operator === 'default' ? defaultRuleText(definition, node.data.params)
+          : `Score ${criterion.operator === 'gte' ? '≥' : '≤'} ${criterion.value}`,
+        note: criterion.operator === 'default' ? definition?.default_rule?.note : null });
+    }
+    const edge = edges.find(e => e.target === id);
+    id = edge?.source;
+    outcome = edge?.sourceHandle || 'passed';
+  }
+  return steps;
+}
+
 export function fromDocument(doc) {
   if (doc?.version !== 1 || !Array.isArray(doc.nodes) || !Array.isArray(doc.edges)) throw Error('Choose a version 1 workflow JSON file.');
   return {

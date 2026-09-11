@@ -1,6 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultRuleText } from './workflow.js';
+import { defaultRuleText, stockScreeningPath } from './workflow.js';
+
+test('stock explanation follows the selected branch in execution order with its actual outcomes', () => {
+  const nodes = [
+    {id:'u', data:{kind:'universe'}},
+    {id:'a', data:{kind:'screener', screener:'pe', params:{max_pe:12}, criterion:{operator:'default'}}},
+    {id:'b', data:{kind:'screener', screener:'quality', criterion:{operator:'gte', value:7}}},
+    {id:'other', data:{kind:'screener', screener:'unrelated'}},
+    {id:'o', data:{kind:'output'}},
+  ];
+  const edges = [{source:'u',target:'a'}, {source:'a',target:'b',sourceHandle:'failed'}, {source:'b',target:'o',sourceHandle:'unavailable'}, {source:'u',target:'other'}];
+  const result = {nodes:{a:{outcomes:{failed:[{symbol:'ABC',score:19,reason:'Too expensive'}]}}, b:{outcomes:{unavailable:[{symbol:'ABC',reason:'Missing financials'}]}}}};
+  const catalog = {pe:{label:'P/E',default_rule:{metric:'P/E',operator:'lte',value:15,parameter:'max_pe'}}};
+  const steps = stockScreeningPath('ABC',{id:'o',port:'passed'},nodes,edges,result,catalog);
+  assert.deepEqual(steps.map(s => s.id), ['a','b']);
+  assert.deepEqual(steps.map(s => s.outcome), ['failed','unavailable']);
+  assert.equal(steps[0].rule,'P/E ≤ 12');
+  assert.equal(steps[0].row.score,19);
+  assert.equal(steps[1].rule,'Score ≥ 7');
+  assert.equal(steps[1].row.reason,'Missing financials');
+  assert.deepEqual(stockScreeningPath('ABC',{id:'o',port:'passed'},nodes,edges,null,catalog),[]);
+  assert.deepEqual(stockScreeningPath('ABC',{id:'u',port:'passed'},nodes,edges,result,catalog),[]);
+  const selected = stockScreeningPath('ABC',{id:'a',port:'failed'},nodes,edges,result,catalog);
+  assert.equal(selected.length,1);
+  assert.equal(selected[0].outcome,'failed');
+  assert.equal(stockScreeningPath('UNKNOWN',{id:'a',port:'passed'},nodes,edges,result,catalog)[0].outcome,'unavailable');
+});
 
 test('default rule description follows parameter overrides and constructor fallback', () => {
   const catalog = {default_rule: {metric: 'P/E', operator: 'lte', value: 15, parameter: 'max_pe', zero_uses_default: true}};

@@ -8,7 +8,26 @@ import { Play, Square, Download, Upload, Plus, Search, SlidersHorizontal, GitBra
 import '@xyflow/react/dist/style.css';
 import './style.css';
 import example from '../../workflows/value_quality.json';
-import { colors, outcomeLabels, fromDocument, toDocument, logicKey, canConnect, volumeWidth, csv, defaultRuleText } from './workflow.js';
+import { colors, outcomeLabels, fromDocument, toDocument, logicKey, canConnect, volumeWidth, csv, defaultRuleText, stockScreeningPath } from './workflow.js';
+
+function ScreeningPath({ context }) {
+  const passed = context.steps.filter(step => step.outcome === 'passed').length;
+  return <section className="screening-path" aria-label="Why this stock?">
+    <span className="eyebrow">WORKFLOW EVIDENCE</span><h2>Why this stock?</h2>
+    <p>{context.symbol} · {context.label}</p>
+    <p>{context.steps.length ? `${passed} of ${context.steps.length} screens passed on this path.` : 'This path contains no screening steps.'}</p>
+    {context.createdAt && <p className="muted">Run snapshot started {new Date(context.createdAt).toLocaleString()}. These are screening results; the stock snapshot below may be newer.</p>}
+    <ol>{context.steps.map(step => <li key={step.id}>
+      <div className="screening-step-heading"><strong>{step.label}</strong><span style={{color: colors[step.outcome]}}>{outcomeLabels[step.outcome]}</span></div>
+      <p>Pass condition: {step.rule}</p>
+      <p>Recorded score: {typeof step.row.score === 'number' ? step.row.score.toLocaleString(undefined, {maximumFractionDigits: 4}) : 'Unavailable'}</p>
+      <p>{step.row.reason || 'No decision explanation was recorded.'}</p>
+      {step.note && <p className="default-rule-note">{step.note}</p>}
+      <ScoreBreakdown row={step.row}/>
+    </li>)}</ol>
+    {context.steps.some(step => step.outcome !== 'passed') && <p className="screening-caution">This route includes a failed screen or unavailable evaluation. Inclusion here does not mean every screen passed.</p>}
+  </section>;
+}
 
 function ScoreBreakdown({ row }) {
   if (typeof row.insider_activity_score !== 'number') return null;
@@ -86,6 +105,8 @@ function Studio() {
   const [run, setRun] = useState(null), [runKey, setRunKey] = useState(''), [starting, setStarting] = useState(false);
   const [selection, setSelection] = useState({ id: 'shortlist', port: 'passed' });
   const [stockDetail, setStockDetail] = useState(null), [stockLoading, setStockLoading] = useState(''), [stockError, setStockError] = useState('');
+  const [stockContext, setStockContext] = useState(null);
+  const stockRequest = useRef(0);
   const [weighted, setWeighted] = useState(true), [reuse, setReuse] = useState(true), [searchStocks, setSearchStocks] = useState('');
   const file = useRef(), savedSnapshot = useRef(null), { screenToFlowPosition, fitView } = useReactFlow();
   const busy = starting || ['queued', 'running', 'cancelling'].includes(run?.status);
@@ -155,10 +176,18 @@ function Studio() {
     event.target.value = '';
   }
   async function openStock(symbol) {
+    const request = ++stockRequest.current;
+    setStockContext({symbol, label: selected?.data.label || byScreener[selected?.data.screener]?.label || 'Selected path',
+      createdAt: result?.snapshot_created_at,
+      steps: stockScreeningPath(symbol, selection, nodes, edges, result, byScreener)});
     setStockDetail(null); setStockError(''); setStockLoading(symbol);
-    try { setStockDetail(await api(`/stocks/${encodeURIComponent(symbol)}`)); }
-    catch (err) { setStockError(err.message); }
-    finally { setStockLoading(''); }
+    try { const detail = await api(`/stocks/${encodeURIComponent(symbol)}`); if (request === stockRequest.current) setStockDetail(detail); }
+    catch (err) { if (request === stockRequest.current) setStockError(err.message); }
+    finally { if (request === stockRequest.current) setStockLoading(''); }
+  }
+  function closeStock() {
+    stockRequest.current++;
+    setStockContext(null); setStockDetail(null); setStockError(''); setStockLoading('');
   }
   return <div className="studio">
     <header className="header"><a className="brand" href="/"><span className="brand-mark"><GitBranch size={22}/></span><span>stock<span className="brand-light">pipeline</span></span></a>
@@ -214,8 +243,9 @@ function Studio() {
         <div className="cli-note"><span className="eyebrow">SAME WORKFLOW. YOUR TERMINAL.</span><p>Save this workflow and run it from the CLI.</p><code>python main.py<br/>--workflow workflow.json</code><ArrowUpRight size={16}/></div>
       </aside>
     </div>
-    {(stockDetail || stockError || stockLoading) && <div className="stock-backdrop" onMouseDown={() => {setStockDetail(null); setStockError(''); setStockLoading('');}}><aside className="stock-drawer" aria-label="Stock details" onMouseDown={e => e.stopPropagation()}>
-      <button className="drawer-close" aria-label="Close stock details" onClick={() => {setStockDetail(null); setStockError(''); setStockLoading('');}}><X size={18}/></button>
+    {stockContext && <div className="stock-backdrop" onMouseDown={closeStock}><aside className="stock-drawer" aria-label="Stock details" onMouseDown={e => e.stopPropagation()}>
+      <button className="drawer-close" aria-label="Close stock details" onClick={closeStock}><X size={18}/></button>
+      <ScreeningPath context={stockContext}/>
       {stockLoading && <div className="drawer-loading"><RefreshCw className="spin" size={22}/><strong>Loading {stockLoading} from FMP…</strong></div>}
       {stockError && <div className="drawer-loading"><strong>Details unavailable</strong><p>{stockError}</p></div>}
       {stockDetail && <><span className="eyebrow">FMP STOCK SNAPSHOT</span><h2>{stockDetail.overview.Name || stockDetail.symbol}</h2><p className="stock-identity">{stockDetail.symbol} · {[stockDetail.overview.Exchange, stockDetail.overview.Sector, stockDetail.overview.Industry].filter(Boolean).join(' · ')}</p>
