@@ -1,321 +1,154 @@
-# Stock Screening Pipeline
+# Stock Pipeline
 
-This pipeline implements a comprehensive stock screening system based on the value investing strategies outlined in the "15 Tools for Stock Picking" series.
+A local stock-screening and research workspace built with Python and React. Create a visual screening workflow, follow each stock's decisions, compare the shortlist, and run the same workflow from the command line.
 
-## Key Screening Criteria
+![Workflow Studio with a ranked shortlist and screening paths](docs/images/workflow-editor.png)
 
-1. **Book Value Analysis**: Identify stocks trading close to or below book value
-2. **P/E Ratio Filtering**: Focus on stocks with low P/E ratios (ideally < 10)
-3. **52-Week Low Detection**: Find quality stocks near their 52-week lows, especially during market downturns
-4. **IPO Analysis**: Target fallen IPOs that have stabilized and are approaching profitability
-5. **Debt & Cash Analysis**: Evaluate debt levels, cash runway, and burn rate
-6. **Catalyst Detection**: Identify upcoming catalysts that could drive price movements
-7. **Market & Sector Analysis**: Identify sector-specific downturns for targeted investments
+*Workflow Studio with illustrative demo data, not live market results.*
 
-## Setup Instructions
+## What you can do
 
-### 1. Environment Setup
-```bash
-# Create virtual environment (optional but recommended)
-python -m venv venv
-venv\Scripts\activate  # Windows
-# or source venv/bin/activate  # Linux/Mac
+- **Build screening paths:** connect Pass, Fail, Unavailable and Error outcomes; inspect stocks at each step and export CSV.
+- **Understand each stock:** see its screening path, recorded values, applied thresholds, decision reasons and sector-sample comparisons.
+- **Research a shortlist:** adjust ranking weights, compare 2–5 stocks, inspect near misses, and load up to five annual financial reporting periods.
+- **Follow changes:** restore completed runs and compare entrants, departures and updated decisions.
+- **Track forward performance:** compare a saved shortlist's subsequent price returns with a benchmark you choose.
+- **Control the universe:** use custom symbols, S&P 500, Nasdaq 100 or Russell 2000 in the editor, with optional exchange, market-cap and average-volume filters.
 
-# Install requirements
-pip install -r requirements.txt
-```
-Note: TA-Lib may require additional setup steps. See [TA-Lib Installation Guide](https://github.com/mrjbq7/ta-lib#installation)
+Rankings describe the selected sample; they do not predict returns. Missing data remains visible.
 
-### 2. API Configuration
-1. Copy the `.env` template and configure your API keys:
-   ```bash
-   # Edit .env file with your API keys
-   FINANCIAL_MODELING_PREP_API_KEY=your_key_here
-   ```
+## Quick start
 
-2. **Required API Keys:**
-   - **Financial Modeling Prep** (Primary): [Get API Key](https://financialmodelingprep.com/developer/docs) - Paid tier recommended (300 calls/minute)
+You need Python (3.12 is the documented setup), Node.js with npm, and a Financial Modeling Prep API key. Data availability depends on your FMP access and the endpoints each screener uses.
 
-### 3. VS Code Setup (Optional)
-Pre-configured debug configurations are available:
-- **Debug SP500 All Strategies**: Run all screeners on S&P 500
-- **Debug Russell2000 All Strategies**: Run all screeners on Russell 2000  
-- Press `F5` or use Run and Debug panel
+### 1. Install
 
-### 4. Quick Start
-```bash
-python main.py --universe sp500 --strategies all --limit 20
-```
-
-## Visual Workflow Editor
-
-Build screening paths by dragging existing screeners onto a canvas, connect their
-pass/fail/unavailable outcomes, inspect the stocks on each connection, and save the
-same workflow for CLI execution. See [Visual workflow editor](docs/visual_editor.md)
-for installation and usage.
-
-![Stock Pipeline visual workflow editor](docs/images/workflow-editor.png)
-
-### Install and run on Windows
-
-The editor uses a small local Python API and a React frontend. From the repository
-root, run the following once:
+From the repository root on Windows:
 
 ```powershell
 py -3.12 -m venv .venv-ui
 .venv-ui\Scripts\python.exe -m pip install -r requirements.txt
 .venv-ui\Scripts\python.exe -m pip install -r requirements-ui.txt
-Set-Location web
-npm install
+cd web
+npm ci
 npm run build
-Set-Location ..
+cd ..
 ```
 
-Add `FINANCIAL_MODELING_PREP_API_KEY` to `.env`, then start the editor:
+Install the Python requirements files separately in that order: the editor requirements upgrade the shared typing dependency. On macOS or Linux, create the environment with `python3 -m venv .venv-ui` and use `.venv-ui/bin/python` in place of the Windows Python path.
+
+### 2. Configure FMP
+
+Create `.env` in the repository root:
+
+```dotenv
+FINANCIAL_MODELING_PREP_API_KEY=your_key_here
+```
+
+`.env`, cached data, generated outputs and saved-run history are excluded from Git. Screening defaults and provider settings live in [`config.py`](config.py).
+
+### 3. Start the editor
 
 ```powershell
 .\scripts\start_visual_editor.ps1
 ```
 
-Open <http://127.0.0.1:8765> in a browser. Keep the PowerShell window running while
-using the editor; press `Ctrl+C` there to stop it.
+Open **http://127.0.0.1:8765**. Keep the terminal running; `Ctrl+C` stops the server. The API reference is at http://127.0.0.1:8765/docs.
 
-After saving a workflow from the editor, the same workflow can run without the UI:
+Alternatively, start the API directly with `.venv-ui\Scripts\python.exe visual_api.py` (use `.venv-ui/bin/python visual_api.py` on macOS/Linux). The server listens only on the local computer and executes one workflow at a time.
+
+## Using Workflow Studio
+
+1. Choose a universe. The example starts with eight symbols; select an index for broader discovery.
+2. Drag screeners onto the canvas and connect outcomes to other screens or a shortlist.
+3. Set thresholds and parameters, then select **Run workflow**.
+4. Select a node or connection to inspect its stocks. Click a symbol for **Why this stock?**, company details and financial history.
+5. Use **Rank**, **Compare**, **Near misses**, **Changes**, **Saved runs** and **Performance** in the results panel. **Expand results** gives tables more room.
+6. Select **Save workflow** to download reusable workflow JSON, or **CSV** to export the current stock table.
+
+Each node has one input, and each screener outcome has one outgoing connection. The universe can feed multiple branches. Cycles and merges are not supported. Changing screening logic marks results stale until you run again.
+
+See the [editor guide](docs/visual_editor.md) for workflow mechanics and the [research guide](docs/stock-research.md) for calculations, comparison fields and performance methodology.
+
+## Command line
+
+Run the supplied workflow using the same screening engine:
 
 ```powershell
-.venv-ui\Scripts\python.exe main.py --workflow workflows\value_quality.json
+.venv-ui\Scripts\python.exe main.py --workflow workflows/value_quality.json --output output --limit 20
 ```
 
-The API and editor deliberately listen only on the local computer. Re-run
-`npm run build` in `web` after changing frontend source files.
+This writes `workflow_results.json`, `workflow_report.md` and `workflow_summary.txt` to the chosen output directory.
 
-## Pipeline Components
+Or run individual registered screeners:
 
-- Data Collection:
-  - `universe.py`: Stock universe selection (S&P 500, Russell 2000, custom lists)
-  - `market_data.py`: Market-level data collection (indices, VIX, sectors)
-  - `cache_config.py`: Caching system to reduce redundant API calls
-  - `data_providers/`: Modular data provider architecture for financial data
-
-- Core Processing:
-  - `screeners/`: Package containing modular stock screening strategies
-    - `__init__.py`: Package exports
-    - `common.py`: Common screening utilities
-    - `utils.py`: Helper functions for running screeners
-    
-    **Value Screening:**
-    - `pe_ratio.py`: P/E ratio screener (classic value metric)
-    - `price_to_book.py`: Book value screener (Graham-style value)
-    - `peg_ratio.py`: PEG ratio screener (growth at reasonable price)
-    
-    **Technical & Market Timing:**
-    - `fifty_two_week_lows.py`: 52-week low detection
-    - `momentum.py`: Momentum screener (6M/3M performance analysis)
-    - `sharpe_ratio.py`: Risk-adjusted return screener
-    
-    **Quality & Fundamental:**
-    - `quality.py`: Basic quality screener (financial strength)
-    - `enhanced_quality.py`: Enhanced quality screener (0-100 granular scoring)
-    - `free_cash_flow_yield.py`: Free cash flow yield screener
-    - `historic_value.py`: Historic value screener (trading below historical averages)
-    
-    **Special Situations:**
-    - `fallen_ipos.py`: IPO analysis (stabilized post-IPO opportunities)
-    - `turnaround_candidates.py`: Turnaround candidate detection
-    - `insider_buying.py`: Pre-pump insider buying patterns
-    - `sector_corrections.py`: Sector correction detection
-    
-    **Combined Strategies:**
-    - `combined.py`: Multiple combined screening approaches
-  - `visualization.py`: Functions to visualize screening results
-
-- Orchestration:
-  - `main.py`: Main script to run the complete pipeline
-  - `utils/`: Package containing common utilities and helper functions
-    - `logger.py`: Logging setup
-    - `filesystem.py`: Directory and file operations
-    - `rate_limiter.py`: API rate limiting
-
-## Running the Pipeline
-
-The main script for running the pipeline is `main.py`:
-
-### Running the Pipeline with main.py
-The core implementation with all available options and fine-grained control:
-
-```
-python main.py --universe sp500 --strategies value,growth --limit 100
+```powershell
+.venv-ui\Scripts\python.exe main.py --universe sp500 --strategies quality,pe_ratio,fcf_yield --limit 20
+.venv-ui\Scripts\python.exe main.py --symbols AAPL,MSFT,GOOGL --strategies enhanced_quality
+.venv-ui\Scripts\python.exe main.py --help
 ```
 
-Use main.py directly when you need detailed control over specific parameters or for advanced customizations.
+Comma-separated `--strategies` runs the specified screeners; use workflow JSON to define a sequential filtering path. `--limit` controls displayed/report results, not the number of stocks fetched and screened.
 
-Cache management options:
-```
-python main.py --cache-info        # Display cache information
-python main.py --clear-cache       # Clear all cache before running
-python main.py --force-refresh     # Bypass cache and fetch fresh data
-python main.py --clear-old-cache 24  # Clear cache older than 24 hours
-```
+### Registered screeners
 
-See [PowerShell commands](docs/powershell_commands.md) for additional examples.
+| Focus | CLI strategy IDs |
+| --- | --- |
+| Valuation | `pe_ratio`, `price_to_book`, `peg_ratio`, `fcf_yield`, `historic_value` |
+| Quality | `quality`, `enhanced_quality` |
+| Price and risk | `momentum`, `sharpe_ratio`, `fifty_two_week_lows` |
+| Insider and analyst activity | `insider_buying`, `analyst_sentiment_momentum` |
+| Multiple factors | `composite_score` |
 
-### Cache Management
+Use `--strategies all` to run all registered screeners. Scores and defaults differ between strategies; the editor shows the applicable rule rather than treating every score as a 0–100 scale.
 
-The pipeline includes a caching system to reduce redundant API calls:
+## Data, caching and saved runs
 
-```bash
-python main.py --cache-info        # Show cache statistics
-python main.py --clear-cache       # Clear all cache files
-python main.py --clear-old-cache 48  # Clear cache files older than 48 hours
-python main.py --force-refresh     # Force refresh all data ignoring cache
-```
+FMP provides company and market data. Other providers support parts of the existing CLI. Cache expiry varies by data type; a new workflow run does not necessarily fetch fresh market data.
 
-For more options, see:
-```bash
-python main.py --help
-```
+- **Reusable scores:** the editor keeps bounded in-memory score snapshots. Threshold changes can reuse calculations; restarting the API clears those snapshots.
+- **Saved runs:** completed editor runs are stored in `output/workflow_history/`, including workflow, results and applied thresholds. They survive restarts. Reopening one does not rerun it.
+- **Freshness and coverage:** quote time, financial period, retrieval time and missing fields are shown when available. Older cache entries may lack newer metadata.
+- **Performance:** forward tracking supports shortlists of up to 100 stocks. It uses matching dates after the saved run and raw price returns, excluding dividends and trading costs. It is not a historical strategy backtest.
 
-## Configuration
+Use `main.py --cache-info` to inspect the cache and `main.py --help` for refresh and cache-clearing options.
 
-Edit `config.py` to adjust:
-- API keys
-- Screening thresholds
-- Market indexes to watch
-- Stock universes to scan
+## Development and tests
 
-For detailed documentation on all components, see [DOCUMENTATION.md](DOCUMENTATION.md)
+Run the Python API, then start Vite in another terminal:
 
-## Available Screening Strategies
-
-The pipeline includes comprehensive screening strategies across multiple investment approaches:
-
-### Value Investing
-- **P/E Ratio Screening**: Classic low P/E ratio detection (< 10 default)
-- **Price-to-Book Screening**: Graham-style book value analysis (< 1.2 default)
-- **PEG Ratio Screening**: Growth at reasonable price analysis
-
-### Quality & Fundamental Analysis
-- **Quality Screening**: Basic financial strength assessment (10-point scale)
-- **Enhanced Quality Screening**: Advanced quality analysis (0-100 granular scoring)
-  - ROE Analysis (0-25 points)
-  - Profitability Analysis (0-25 points) 
-  - Financial Strength (0-25 points)
-  - Growth Quality (0-25 points)
-- **Free Cash Flow Yield**: Uses API's pre-calculated FCF yield for accurate valuation screening
-- **Historic Value Screening**: Identifies stocks trading below historical averages (0-100 scoring)
-  - Valuation Discount Analysis (40% weight): P/E, P/B, EV/EBITDA vs historical norms
-  - Quality Filters (35% weight): ROE, profit margins, financial stability
-  - Market Structure Analysis (25% weight): Market cap, volatility, trading patterns
-  - Distress Avoidance: Minimum market cap, debt limits, profitability requirements
-
-### Technical & Momentum
-- **Momentum Screening**: 6-month/3-month performance analysis
-- **Sharpe Ratio Screening**: Risk-adjusted return analysis
-- **52-Week Low Detection**: Quality stocks near yearly lows
-
-### Sentiment Analysis
-- **Analyst Sentiment Momentum**: Professional analyst sentiment analysis (0-100 scoring)
-  - Rating Changes Analysis (30% weight): Upgrade/downgrade momentum over 90 days
-  - Price Target Analysis (25% weight): Target revision patterns (limited data availability)
-  - Estimate Revisions (20% weight): Earnings estimate trends (limited data availability)
-  - Consensus Quality (15% weight): Analyst agreement strength
-  - Coverage Analysis (10% weight): Active analyst coverage patterns
-  - **Data Source**: Financial Modeling Prep analyst grades (50+ ratings per stock)
-
-### Special Situations
-- **Fallen IPO Analysis**: Post-IPO stabilization opportunities
-- **Turnaround Candidates**: Financial recovery pattern detection
-- **Insider Buying Patterns**: Pre-pump insider activity detection (0-100 scoring)
-  - **Requires actual insider purchases** - Stocks with zero insider buying automatically get 0 score
-  - Insider Activity Analysis (0-40 points)
-  - Technical Consolidation (0-35 points)
-  - Acceleration Analysis (0-25 points)
-- **Sector Corrections**: Sector-wide downturn opportunities
-
-### Combined Strategies
-- **Traditional Value**: P/E + P/B + PEG combined
-- **High Performance**: Momentum + Quality + FCF Yield
-- **Comprehensive**: All strategies combined
-- **Distressed Value**: Specialized distressed situation analysis
-
-### Usage Examples
-```bash
-# Quick start - all strategies on SP500 (limited results)
-python main.py --universe sp500 --strategies all --limit 20
-
-# Individual screeners
-python main.py --universe sp500 --strategies pe_ratio
-python main.py --universe sp500 --strategies enhanced_quality  
-python main.py --universe russell2000 --strategies insider_buying
-python main.py --universe sp500 --strategies historic_value
-
-# Combined strategies (pre-configured)
-python main.py --universe sp500 --strategies traditional_value
-python main.py --universe sp500 --strategies high_performance
-python main.py --universe sp500 --strategies comprehensive
-
-# Custom combinations
-python main.py --universe russell2000 --strategies momentum,enhanced_quality,insider_buying
-python main.py --universe sp500 --strategies peg_ratio,fcf_yield,quality --limit 30
-python main.py --universe sp500 --strategies historic_value,quality,fcf_yield --limit 15
-
-# Cache management
-python main.py --cache-info                    # Show cache statistics  
-python main.py --clear-cache                   # Clear all cache
-python main.py --force-refresh --limit 10      # Fresh data (testing)
+```powershell
+cd web
+npm run dev
 ```
 
-## Performance & Rate Limiting
+Vite serves http://127.0.0.1:5173 and proxies API calls to port 8765. For the built editor on port 8765, rebuild with `npm run build` after frontend changes. Restart the Python API after backend changes.
 
-- **Financial Modeling Prep**: 300 calls/minute (paid tier recommended)
-- **Caching System**: 24-hour data expiry reduces API usage
-- **Intelligent Throttling**: Cache-aware rate limiting
-- **Progress Tracking**: Real-time progress bars for long operations
+```powershell
+# From the repository root
+.venv-ui\Scripts\python.exe -m unittest tests.test_research tests.test_workflow tests.test_visual_api tests.test_fmp_transport
 
-## Recent Updates
+# Frontend checks
+cd web
+npm test
+npm run build
+npx playwright install chromium
+npx playwright test
+```
 
-### October 2025 - Historic Value Screener & Major Improvements  
-- **NEW: Historic Value Screener**: Comprehensive value screening based on mean reversion theory
-  - Multi-factor scoring: Valuation discount (40%), Quality (35%), Market structure (25%)
-  - Historic P/E, P/B, EV/EBITDA analysis using 5-year financial data
-  - Quality filters to avoid distressed situations (debt ratios, profitability, market cap)
-  - Distress avoidance mechanisms with minimum thresholds
-- **Fixed All Screener Issues**: Resolved sector display, field mapping, and method signature problems
-  - Quality screener: Fixed field name mismatches (DebtToEquityRatio vs DebtToEquity)
-  - FCF Yield screener: Improved API integration and calculation logic  
-  - Enhanced Quality screener: Standardized BaseScreener method signatures
-  - Momentum/Sharpe screeners: Fixed sector information display issues
-- **Enhanced Data Processing**: Improved data structure flattening for BaseScreener compatibility
-- **Updated Configuration**: Added historic value threshold settings (MIN_HISTORIC_VALUE_SCORE)
-- **Comprehensive Testing**: All 11 screeners now working correctly with proper stock discovery
+These focused tests use mocked market data. Browser tests cover desktop and mobile research flows. To use installed Edge instead of downloading Chromium, set `$env:STOCK_UI_BROWSER_CHANNEL='msedge'` before running Playwright.
 
-### September 2025 - Documentation & Screener Updates  
-- **Updated Documentation**: Comprehensive README and screener method documentation
-- **Enhanced Quality Screener**: 0-100 granular scoring system for better differentiation
-- **Insider Buying Screener**: Advanced pre-pump pattern detection with technical analysis
-- **Rate Limiting**: Properly configured for Financial Modeling Prep (300 calls/minute)
+To refresh the README screenshot after building the frontend, run `node scripts/capture-readme.mjs` from `web/`. The script serves the build temporarily, supplies labelled demo data and closes the browser and server when finished.
 
-### June 2025 - Architecture Improvements
-- Updated data provider architecture to allow API-specific method naming
-- Removed redundant test files and improved test organization
-- Enhanced documentation for the new architecture
+## Project layout
 
-## Key Features
-
-1. **Comprehensive Screening**: 15+ screening strategies across value, quality, momentum, and special situations
-2. **Advanced Scoring**: Granular 0-100 point systems for quality and insider buying analysis
-3. **API Integration**: Optimized for Financial Modeling Prep with proper rate limiting (300 calls/minute)
-4. **Caching System**: Intelligent caching reduces API usage and improves performance
-5. **VS Code Integration**: Pre-configured debug setups for efficient development and testing
-6. **Flexible Output**: Detailed reports with proper metric formatting and threshold indicators
-
-## Modules
-
-- `main.py` - Main entry point and orchestrator
-- `run_pipeline.py` - Command-line wrapper with common presets
-- `universe.py` - Stock universe selection
-- `market_data.py` - Market condition assessment
-- `data_providers/` - Modular data provider architecture
-- `screeners/` - Individual screening strategy modules
-- `visualization.py` - Reporting and visualization
-- `cache_config.py` - API response caching system
+| Path | Purpose |
+| --- | --- |
+| `web/` | React workflow editor and browser tests |
+| `visual_api.py` | Local API and run management |
+| `workflow.py` | Shared graph validation and execution |
+| `research.py` | Saved runs, annual financial history and forward returns |
+| `screeners/`, `utils/screener_registry.py` | Screener implementations and registration |
+| `data_providers/`, `cache_config.py` | Provider access and caching |
+| `main.py`, `universe.py` | CLI entry point and universe selection |
+| `workflows/` | Example workflow definitions |
