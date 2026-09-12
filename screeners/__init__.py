@@ -1,7 +1,7 @@
 """
 Stock screeners package for the stock screening pipeline.
 
-This package contains 13 comprehensive screening strategies based on different financial metrics.
+This package contains screening strategies based on different financial metrics.
 All screeners use the BaseScreener class-based approach and are accessed through
 the registry system in utils.screener_registry.
 
@@ -49,6 +49,7 @@ from .pe_ratio import PERatioScreener
 from .peg_ratio import PEGRatioScreener
 from .price_to_book import PriceToBookScreener
 from .sharpe_ratio import SharpeRatioScreener
+from .price_change import PriceChangeScreener
 from .momentum import MomentumScreener
 from .quality import QualityScreener
 from .return_on_equity import ReturnOnEquityScreener
@@ -69,6 +70,7 @@ __all__ = [
     'PriceToBookScreener',
     'SharpeRatioScreener',
     'MomentumScreener',
+    'PriceChangeScreener',
     'QualityScreener',
     'ReturnOnEquityScreener',
     'FCFYieldScreener',

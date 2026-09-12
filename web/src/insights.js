@@ -10,6 +10,7 @@ export function ruleFor(node, catalog, savedNode) {
   if (!rule) return null;
   const override = node.data.params?.[rule.parameter];
   return {...rule, value: override == null || (rule.zero_uses_default && override === 0) ? rule.value : override,
+    upper_value: node.data.params?.[rule.upper_parameter] ?? rule.upper_value,
     field: node.data.screener === 'fifty_two_week_lows' ? 'pct_above_low' : 'score'};
 }
 
@@ -61,11 +62,13 @@ export function nearMisses(path, result, catalog, tolerance = 10) {
     return (result?.nodes[node.id]?.outcomes.failed || []).flatMap(row => {
       const value = row[rule.field];
       if (!numeric(value)) return [];
-      const gap = rule.operator === 'gte' ? rule.value-value : value-rule.value;
-      const percent = rule.value === 0 ? null : gap / Math.abs(rule.value)*100;
+      if (rule.operator === 'between' && value >= rule.value && value <= rule.upper_value) return [];
+      const threshold = rule.operator === 'between' && value > rule.upper_value ? rule.upper_value : rule.value;
+      const gap = rule.operator === 'between' ? Math.abs(value-threshold) : rule.operator === 'gte' ? threshold-value : value-threshold;
+      const percent = threshold === 0 ? null : gap / Math.abs(threshold)*100;
       if (gap < 0 || (percent == null ? gap !== 0 : percent > tolerance)) return [];
       return [{...row, nodeId:node.id, label:node.data.label || catalog[node.data.screener]?.label || node.data.screener,
-        value, threshold:rule.value, gap, percent}];
+        value, threshold, gap, percent}];
     });
   }).sort((a,b) => (a.percent ?? 0)-(b.percent ?? 0));
 }

@@ -29,6 +29,10 @@ class Cancelled(Exception):
 
 def default_rule(name, instance):
     """Describe the default pass condition, including editable threshold parameters."""
+    if name == 'price_change':
+        return dict(metric='Price change', operator='between', value=instance.min_change,
+                    upper_value=instance.max_change, parameter='min_change', upper_parameter='max_change', unit='%',
+                    note=f'{instance.trading_days} trading sessions; split-adjusted closes before today, excluding dividends. Higher changes rank higher, not necessarily better value.')
     parameter_rules = {
         'pe_ratio': ('P/E', 'lte', 'max_pe', '', True),
         'peg_ratio': ('PEG ratio', 'lte', 'max_peg_ratio', '', False),
@@ -78,6 +82,12 @@ def screener_catalog():
                 default = getattr(instance, key, None)
             parameters.append({'name': key, 'default': default,
                                'type': 'text' if isinstance(default, str) else 'number'})
+        if name == 'price_change':
+            next(p for p in parameters if p['name'] == 'period')['options'] = [
+                {'value': value, 'label': label} for value, label in [
+                    ('1w', '1 week (5 sessions)'), ('1mo', '1 month (21 sessions)'),
+                    ('3mo', '3 months (63 sessions)'), ('6mo', '6 months (126 sessions)'),
+                    ('1y', '1 year (252 sessions)'), ('custom', 'Custom sessions')]]
         catalog.append({'id': name, 'label': instance.get_strategy_name(),
                         'description': description, 'parameters': parameters,
                         'default_rule': default_rule(name, instance)})

@@ -24,6 +24,14 @@ It requires matching annual statement dates, matching known currencies, positive
 
 Open **ROE history and equity checks** in the results or stock sidebar for annual values, equity-base checks and a three-year average when three consecutive valid years exist. Five annual balance sheets typically support four annual ROE calculations. Sector comparisons and percentile ranking work through the existing research views. Quality and Enhanced Quality already use ROE, so giving all three ranking weight increases its influence.
 
+## Price change
+
+The `price_change` node checks an inclusive minimum/maximum percentage change (defaults: 0% to 100%). Choose 1 week, 1/3/6 months or 1 year, approximated as 5/21/63/126/252 trading sessions, or 1-1260 custom sessions. Negative bounds can screen for declines.
+
+The calculation is `(end close / start close - 1) * 100`, using FMP stable daily split-adjusted closes, excluding dividends and today's potentially incomplete bar. Each result records the actual endpoint dates and prices in its calculation details. A period needs N+1 observations; insufficient history, invalid prices, duplicate dates or gaps exceeding 10 calendar days produce Unavailable. Periods count observed sessions, not exact calendar months; smaller missing-data gaps cannot be distinguished from exchange closures.
+
+Near misses check both range boundaries; distributions show both limits. Higher returns receive higher percentile ranks, which measures price strength rather than valuation.
+
 ## Validation
 
 ```powershell

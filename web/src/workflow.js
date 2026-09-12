@@ -6,6 +6,7 @@ export function defaultRuleText(catalog, params = {}) {
   if (!rule) return 'Default rule details unavailable.';
   const override = params[rule.parameter];
   const value = override == null || (rule.zero_uses_default && override === 0) ? rule.value : override;
+  if (rule.operator === 'between') return `${rule.metric} ${value}${rule.unit || ''} to ${params[rule.upper_parameter] ?? rule.upper_value}${rule.unit || ''} (inclusive)`;
   return `${rule.metric} ${rule.operator === 'gte' ? '≥' : '≤'} ${value}${rule.unit || ''}`;
 }
 

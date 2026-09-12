@@ -90,6 +90,7 @@ def auto_register_screeners():
         from screeners.peg_ratio import PEGRatioScreener
         from screeners.price_to_book import PriceToBookScreener
         from screeners.sharpe_ratio import SharpeRatioScreener
+        from screeners.price_change import PriceChangeScreener
         from screeners.momentum import MomentumScreener
         from screeners.quality import QualityScreener
         from screeners.return_on_equity import ReturnOnEquityScreener
@@ -106,6 +107,7 @@ def auto_register_screeners():
         register_screener("peg_ratio", PEGRatioScreener)
         register_screener("price_to_book", PriceToBookScreener)
         register_screener("sharpe_ratio", SharpeRatioScreener)
+        register_screener("price_change", PriceChangeScreener)
         register_screener("momentum", MomentumScreener)
         register_screener("quality", QualityScreener)
         register_screener("return_on_equity", ReturnOnEquityScreener)

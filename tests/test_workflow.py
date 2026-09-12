@@ -50,6 +50,8 @@ class WorkflowTests(unittest.TestCase):
                 for offset in (-0.01, 0, 0.01):
                     value = boundary + offset
                     expected = value >= boundary if rule['operator'] == 'gte' else value <= boundary
+                    if rule['operator'] == 'between':
+                        expected = boundary <= value <= rule['upper_value']
                     if entry['id'] == 'fifty_two_week_lows':
                         prices = pd.DataFrame({'Low': [100.0], 'Close': [100.0 + value]})
                         actual = screener.meets_threshold('TEST', {}, 0, prices)

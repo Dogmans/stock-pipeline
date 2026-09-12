@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {defaultRuleText} from './workflow.js';
 import {numeric, pathNodes, rankRows, nearMisses, ruleFor, runChanges} from './insights.js';
 
 const display = value => numeric(value) ? value.toLocaleString(undefined,{maximumFractionDigits:2}) : 'Unavailable';
@@ -18,16 +19,17 @@ export function ThresholdDistribution({node, result, catalog}) {
   if (!rule || !result) return null;
   const rows = Object.values(result.outcomes).flat(), values = rows.map(r => r[rule.field]).filter(numeric);
   if (!values.length) return <p className="muted">No numeric values available for this threshold.</p>;
-  const min = Math.min(...values,rule.value), max = Math.max(...values,rule.value), span = max-min || 1;
+  const bounds = rule.operator === 'between' ? [...new Set([rule.value, rule.upper_value])] : [rule.value];
+  const min = Math.min(...values,...bounds), max = Math.max(...values,...bounds), span = max-min || 1;
   const bins = Array.from({length:12},() => 0);
   values.forEach(v => bins[Math.min(11,Math.floor((v-min)/span*12))]++);
-  const peak = Math.max(...bins,1), x = 10+(rule.value-min)/span*200;
+  const peak = Math.max(...bins,1);
   return <section className="threshold-distribution"><h4>{rule.metric} distribution</h4>
-    <svg viewBox="0 0 220 92" role="img" aria-label={`${values.length} values, range ${min} to ${max}, threshold ${rule.value}`}>
+    <svg viewBox="0 0 220 92" role="img" aria-label={`${values.length} values, range ${min} to ${max}, thresholds ${bounds.join(' to ')}`}>
       {bins.map((count,i) => <rect key={i} x={10+i*200/12} y={65-count/peak*50} width={14} height={count/peak*50} fill="#7faf96"><title>{count} stocks</title></rect>)}
-      <line x1={x} x2={x} y1="8" y2="68" stroke="#94652e" strokeWidth="2"/>
+      {bounds.map(bound => <line key={bound} x1={10+(bound-min)/span*200} x2={10+(bound-min)/span*200} y1="8" y2="68" stroke="#94652e" strokeWidth="2"/>)}
       <text x="10" y="84">{display(min)}</text><text x="210" y="84" textAnchor="end">{display(max)}</text>
-    </svg><p>Threshold {rule.operator === 'gte' ? '≥' : '≤'} {display(rule.value)}{rule.unit || ''} · {values.length}/{rows.length} numeric values</p>
+    </svg><p>{defaultRuleText({default_rule:rule})} - {values.length}/{rows.length} numeric values</p>
     <p>{result.counts.passed} passed · {result.counts.failed} failed · {result.counts.unavailable + result.counts.error} unavailable or errors</p>
   </section>;
 }

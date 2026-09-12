@@ -116,3 +116,14 @@ test('edge width is bounded and CSV protects spreadsheet formulas', () => {
   assert.equal(volumeWidth(0, 100), 1); assert.equal(volumeWidth(100, 100), 48);
   assert.match(csv([{symbol:'=CMD()', score:5}]), /"'=CMD\(\)"/);
 });
+
+test('price change ranges preserve both bounds and find misses on either side', () => {
+  const catalog = {price_change:{default_rule:{metric:'Price change',operator:'between',value:0,upper_value:100,parameter:'min_change',upper_parameter:'max_change',unit:'%'}}};
+  const node = {id:'s',data:{screener:'price_change',params:{min_change:10,max_change:20}}};
+  assert.equal(defaultRuleText(catalog.price_change,node.data.params),'Price change 10% to 20% (inclusive)');
+  assert.equal(ruleFor(node,catalog).upper_value,20);
+  const result = {nodes:{s:{outcomes:{failed:[{symbol:'A',score:9.5},{symbol:'B',score:21},{symbol:'C',score:15},{symbol:'D',score:40}]}}}};
+  const misses=nearMisses([node],result,catalog);
+  assert.deepEqual(misses.map(r=>r.symbol),['A','B']);
+  assert.deepEqual(misses.map(r=>r.threshold),[10,20]);
+});

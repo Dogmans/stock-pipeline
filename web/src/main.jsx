@@ -33,6 +33,11 @@ function ScreeningPath({ context }) {
 }
 
 function ScoreBreakdown({ row }) {
+  if (row.price_basis) return <details className="score-breakdown"><summary>Price change calculation</summary>
+    <p>{row.trading_days} trading sessions / {row.currency || 'Currency unavailable'}</p>
+    <p>{row.start_date || 'Unavailable'}: {row.start_price ?? 'Unavailable'} to {row.end_date || 'Unavailable'}: {row.end_price ?? 'Unavailable'}</p>
+    <p>{row.price_basis}. Change = (end close / start close - 1) * 100.</p>
+  </details>;
   if (Array.isArray(row.roe_history)) return <details className="score-breakdown"><summary>ROE history and equity checks</summary>
     <p>Latest annual period: {row.period || 'Unavailable'} · Statement currency: {row.currency || 'Unavailable'}</p>
     <p>Three-year average ROE: {typeof row.roe_three_year_average === 'number' ? `${row.roe_three_year_average.toFixed(2)}%` : 'Unavailable (three consecutive valid years required)'}</p>
@@ -281,8 +286,13 @@ function Studio() {
             {byScreener[selected.data.screener]?.default_rule?.note && <span className="default-rule-note">{byScreener[selected.data.screener].default_rule.note}</span>}
           </p>}
           {selected.data.kind === 'screener' && <ThresholdDistribution node={selected} result={selectedResult} catalog={byScreener}/>}
-          {(byScreener[selected.data.screener]?.parameters || []).map(param => <label className="field" key={param.name}>{param.name.replaceAll('_', ' ')}<input disabled={busy} type={param.type === 'number' ? 'number' : 'text'} step="any" placeholder={param.default == null ? 'Default' : String(param.default)} value={selected.data.params?.[param.name] ?? ''}
-            onChange={e => { const params = {...selected.data.params}; if (e.target.value === '') delete params[param.name]; else params[param.name] = param.type === 'number' ? Number(e.target.value) : e.target.value; update(selected.id, {params}); }}/></label>)}
+          {(byScreener[selected.data.screener]?.parameters || []).filter(param => selected.data.screener !== 'price_change' || param.name !== 'custom_days' || selected.data.params?.period === 'custom').map(param => {
+            const change = e => { const params = {...selected.data.params}; if (e.target.value === '') delete params[param.name]; else params[param.name] = param.type === 'number' ? Number(e.target.value) : e.target.value; update(selected.id, {params}); };
+            return <label className="field" key={param.name}>{param.name.replaceAll('_', ' ')}
+              {param.options ? <select disabled={busy} value={selected.data.params?.[param.name] ?? param.default} onChange={change}>{param.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+                : <input disabled={busy} type={param.type === 'number' ? 'number' : 'text'} step="any" placeholder={param.default == null ? 'Default' : String(param.default)} value={selected.data.params?.[param.name] ?? ''} onChange={change}/>}
+            </label>;
+          })}
           {selected.data.kind !== 'universe' && <button className="delete-node" disabled={busy} onClick={() => {setNodes(current => current.filter(n => n.id !== selected.id)); setEdges(current => current.filter(e => e.source !== selected.id && e.target !== selected.id));}}><Trash2 size={14}/> Remove node</button>}
         </>}
         <div className="cli-note"><span className="eyebrow">SAME WORKFLOW. YOUR TERMINAL.</span><p>Save this workflow and run it from the CLI.</p><code>python main.py<br/>--workflow workflow.json</code><ArrowUpRight size={16}/></div>

@@ -77,6 +77,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         self.base_url = "https://financialmodelingprep.com/api/v3"
         self.stable_base_url = "https://financialmodelingprep.com/stable"
         self.query_string_endpoints = {
+            "historical-price-eod/full",
             "grades",
             "grades-consensus",
             "grades-historical",
@@ -145,6 +146,20 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.error(f"Exception during API call to {url}: {error_msg}")
             return False, None, error_msg
     
+    @cache.memoize(expire=24*3600)
+    def get_price_change_history(self, symbol, from_date, to_date):
+        """Daily split-adjusted closes from FMP's stable EOD endpoint.
+
+        Kept separate from legacy price consumers; no dividend adjustment is applied.
+        https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-full
+        """
+        success, data, error = self._make_api_request('historical-price-eod/full', symbol,
+                                                     {'from':from_date, 'to':to_date})
+        if not success or not isinstance(data,list):
+            # Do not cache transient failures as an empty history.
+            raise RuntimeError('FMP daily price history is unavailable.')
+        return pd.DataFrame(data).rename(columns={'date':'Date','close':'Close'})
+
     def _process_financial_statement(self, data, column_mapping=None):
         """
         Process financial statement data into standardized DataFrame.

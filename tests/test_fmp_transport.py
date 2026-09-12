@@ -101,3 +101,22 @@ class FMPTransportTests(unittest.TestCase):
                 self.assertEqual(calls[2].kwargs['timeout'], 15)
         finally:
             cache.delete(key)
+
+    def test_price_history_uses_stable_split_adjusted_close_and_cache(self):
+        provider = fmp.FinancialModelingPrepProvider(api_key='offline-price-change')
+        args = ('PRICE_TEST', '2026-01-01', '2026-01-08')
+        key = provider.get_price_change_history.__cache_key__(provider, *args)
+        cache.delete(key)
+        response = Mock(status_code=200)
+        response.json.return_value = [{'date':'2026-01-05','close':100,'adjClose':99,'unadjustedClose':200}]
+        try:
+            with patch.object(fmp.fmp_http_session, 'get', return_value=response) as get, patch.object(fmp.fmp_rate_limiter, 'wait_if_needed'):
+                frame = provider.get_price_change_history(*args)
+                self.assertEqual(frame.iloc[0]['Close'],100)
+                self.assertIn('/stable/historical-price-eod/full',get.call_args.args[0])
+                self.assertEqual(get.call_args.kwargs['params']['symbol'],'PRICE_TEST')
+                self.assertEqual(get.call_args.kwargs['params']['to'],'2026-01-08')
+                provider.get_price_change_history(*args)
+                self.assertEqual(get.call_count,1)
+        finally:
+            cache.delete(key)
