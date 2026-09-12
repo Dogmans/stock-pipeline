@@ -17,6 +17,7 @@ from pydantic import BaseModel
 import main as pipeline  # Keep initialization consistent with the existing CLI.
 from workflow import WorkflowEngine, WorkflowError, Cancelled, screener_catalog, validate_workflow
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+from research import RunArchive, financial_history, forward_performance
 
 
 class RunRequest(BaseModel):
@@ -25,8 +26,9 @@ class RunRequest(BaseModel):
 
 
 class RunManager:
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, archive=None):
         self.engine = engine or WorkflowEngine()
+        self.archive = archive or RunArchive(Path(__file__).parent / 'output' / 'workflow_history')
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='workflow')
         self.lock = Lock()
         self.runs = {}
@@ -59,6 +61,12 @@ class RunManager:
         try:
             result = self.engine.execute(document, snapshot_id=snapshot_id,
                                          cancel=run['cancel'], progress=update)
+            if not run['cancel'].is_set():
+                try:
+                    self.archive.save(run_id, document, result)
+                except (OSError, ValueError):
+                    logging.getLogger(__name__).exception('Could not save workflow history')
+                    result['history_warning'] = 'Run completed, but its history could not be saved.'
             with self.lock:
                 run['result'] = result
                 run['status'] = 'cancelled' if run['cancel'].is_set() else 'completed'
@@ -146,6 +154,36 @@ def create_app(manager=None, stock_service=None):
         if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', symbol):
             raise HTTPException(422, 'Invalid stock symbol.')
         return stock_service.get(symbol)
+
+    @app.get('/api/stocks/{symbol}/financial-history')
+    def stock_history(symbol: str):
+        symbol = symbol.upper()
+        if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', symbol):
+            raise HTTPException(422, 'Invalid stock symbol.')
+        return financial_history(stock_service.provider, symbol)
+
+    @app.get('/api/history')
+    def history():
+        return manager.archive.list()
+
+    @app.get('/api/history/{run_id}')
+    def history_detail(run_id: str):
+        try:
+            return manager.archive.get(run_id)
+        except KeyError as exc:
+            raise HTTPException(404, 'Saved run not found.') from exc
+
+    @app.get('/api/history/{run_id}/performance')
+    def performance(run_id: str, output_id: str, benchmark: str = 'SPY'):
+        if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', benchmark):
+            raise HTTPException(422, 'Invalid benchmark symbol.')
+        try:
+            record = manager.archive.get(run_id)
+            return forward_performance(stock_service.provider, record, output_id, benchmark)
+        except KeyError as exc:
+            raise HTTPException(404, 'Saved run not found.') from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.post('/api/workflows/validate')
     def validate(body: RunRequest):

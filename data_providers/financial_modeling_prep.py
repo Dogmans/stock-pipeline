@@ -15,6 +15,7 @@ Common Field Names (see fmp_types.py for full reference):
 For detailed type definitions and examples, see: data_providers.fmp_types
 """
 from typing import Dict, List, Union, Any
+from datetime import datetime, timezone
 import pandas as pd
 import requests
 import atexit
@@ -500,6 +501,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         overview = {
             'Symbol': symbol,
             'DataCompleteness': 'partial',
+            'OverviewFetchedAt': datetime.now(timezone.utc).isoformat(),
         }
         
         # Step 1: Get profile data (basic company info)
@@ -513,6 +515,8 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         overview['Name'] = profile.get('companyName', '')
         overview['Description'] = profile.get('description', '')
         overview['Exchange'] = profile.get('exchange', '')
+        overview['ExchangeShortName'] = profile.get('exchangeShortName', '')
+        overview['Currency'] = profile.get('currency', '')
         overview['Sector'] = profile.get('sector', '')
         overview['Industry'] = profile.get('industry', '')
         overview['MarketCapitalization'] = profile.get('mktCap', '')
@@ -536,6 +540,8 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             overview['Change'] = quote.get('change', '')
             overview['ChangesPercentage'] = quote.get('changesPercentage', '')
             overview['Volume'] = quote.get('volume', '')
+            overview['AverageVolume'] = quote.get('avgVolume', '')
+            overview['QuoteTimestamp'] = quote.get('timestamp')
             overview['MarketCapitalization'] = quote.get('marketCap', overview.get('MarketCapitalization', ''))
             overview['PERatio'] = quote.get('pe', '')
             overview['EPS'] = quote.get('eps', '')
@@ -552,6 +558,9 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         
         if success and metrics_data:
             metrics = metrics_data[0]
+            overview['FinancialPeriod'] = metrics.get('date')
+            overview['FreeCashFlowYield'] = metrics.get('freeCashFlowYield')
+            overview['DebtToEquityRatio'] = metrics.get('debtToEquity')
             overview['PriceToBookRatio'] = metrics.get('priceToBookRatio', '')
             overview['PriceToSalesRatio'] = metrics.get('priceToSalesRatio', '')
             
@@ -568,6 +577,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             
             if success and ratios_data:
                 ratio = ratios_data[0]
+                overview['RatiosPeriod'] = ratio.get('date')
                 
                 # Fill in missing ratios
                 if not overview.get('PERatio'):

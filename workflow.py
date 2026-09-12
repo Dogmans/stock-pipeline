@@ -159,6 +159,14 @@ def validate_workflow(document, catalog=None):
             raise WorkflowError('Invalid stock symbol.')
     elif not isinstance(universe.get('name'), str) or not re.fullmatch(r'[a-zA-Z0-9_:.-]{1,60}', universe['name']):
         raise WorkflowError('Choose a named universe or provide symbols.')
+    filters = universe.get('filters', {})
+    if not isinstance(filters, dict) or set(filters) - {'exchange', 'min_market_cap', 'min_average_volume'}:
+        raise WorkflowError('Invalid universe filters.')
+    if 'exchange' in filters and (not isinstance(filters['exchange'], str) or len(filters['exchange']) > 60):
+        raise WorkflowError('Exchange must be a short name.')
+    for field in ('min_market_cap', 'min_average_volume'):
+        if field in filters and (isinstance(filters[field], bool) or not isinstance(filters[field], (int, float)) or not math.isfinite(filters[field]) or filters[field] < 0):
+            raise WorkflowError('Universe size and volume minimums must be finite, nonnegative numbers.')
     return order, by_id, incoming
 
 
@@ -169,10 +177,11 @@ def json_records(frame):
 
 class WorkflowEngine:
     """Serial executor with bounded, explicit reusable score snapshots."""
-    def __init__(self, factory=get_screener, resolver=get_stock_universe):
+    def __init__(self, factory=get_screener, resolver=get_stock_universe, overview_provider=None):
         self.factory = factory
         self.resolver = resolver
         self.snapshots = OrderedDict()
+        self.overview_provider = overview_provider
 
     def execute(self, document, *, snapshot_id=None, cancel=None, progress=None, catalog=None):
         order, nodes, incoming = validate_workflow(document, catalog)
@@ -185,7 +194,7 @@ class WorkflowEngine:
             self.snapshots.move_to_end(snapshot_id)
         else:
             snapshot_id = uuid4().hex
-            snapshot = {'created_at': datetime.now(timezone.utc).isoformat(), 'scores': {}, 'universes': {}}
+            snapshot = {'created_at': datetime.now(timezone.utc).isoformat(), 'scores': {}, 'universes': {}, 'universe_exclusions': {}}
             self.snapshots[snapshot_id] = snapshot
             while len(self.snapshots) > 5:
                 self.snapshots.popitem(last=False)
@@ -210,6 +219,41 @@ class WorkflowEngine:
                 raise WorkflowError('This editor supports up to 10,000 symbols per run.')
             if 'security' not in frame:
                 frame['security'] = frame['symbol']
+            filters = universe_spec.get('filters', {})
+            exclusions = {'failed': [], 'unavailable': []}
+            if any(filters.values()):
+                from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+                from research import number
+                provider = self.overview_provider or FinancialModelingPrepProvider()
+                retained = []
+                for index, (_, row) in enumerate(frame.iterrows()):
+                    if cancel.is_set():
+                        raise Cancelled()
+                    progress({'message': f"Universe eligibility · {row['symbol']}", 'completed': index,
+                              'total': len(frame), 'overall_percent': 0})
+                    try:
+                        overview = provider.get_company_overview(row['symbol']) or {}
+                    except Exception:
+                        logger.exception('Universe eligibility data unavailable for %s', row['symbol'])
+                        overview = {}
+                    reasons, missing = [], []
+                    exchange = filters.get('exchange', '').strip().upper()
+                    if exchange:
+                        actual = [str(overview.get(key) or '').upper() for key in ('Exchange', 'ExchangeShortName')]
+                        if not any(actual): missing.append('exchange')
+                        elif exchange not in actual: reasons.append(f'Exchange does not match {exchange}')
+                    for field, metric in [('min_market_cap', 'MarketCapitalization'), ('min_average_volume', 'AverageVolume')]:
+                        if filters.get(field, 0) > 0:
+                            value = number(overview.get(metric))
+                            if value is None: missing.append(metric)
+                            elif value < filters[field]: reasons.append(f'{metric} {value:g} < {filters[field]:g}')
+                    if reasons or missing:
+                        outcome = 'unavailable' if missing else 'failed'
+                        exclusions[outcome].append({'symbol': row['symbol'], 'outcome': outcome,
+                            'reason': '; '.join(reasons + (['Missing: ' + ', '.join(missing)] if missing else []))})
+                    else: retained.append(row['symbol'])
+                frame = frame[frame['symbol'].isin(retained)].copy()
+            snapshot.setdefault('universe_exclusions', {})[universe_key] = exclusions
             snapshot['universes'][universe_key] = frame
         universe_frame = snapshot['universes'][universe_key]
         by_symbol = universe_frame.set_index('symbol', drop=False)
@@ -219,6 +263,7 @@ class WorkflowEngine:
             if cancel.is_set():
                 raise Cancelled()
             node = nodes[node_id]
+            applied_rule = None
             if node['type'] == 'universe':
                 records = json_records(universe_frame)
             else:
@@ -227,10 +272,20 @@ class WorkflowEngine:
             outcomes = {key: [] for key in OUTCOMES}
             if node['type'] != 'screener':
                 outcomes['passed'] = records
+                if node['type'] == 'universe':
+                    for key, rows in snapshot.get('universe_exclusions', {}).get(universe_key, {}).items():
+                        outcomes[key] = deepcopy(rows)
             else:
                 screener = self.factory(node['screener'], **node.get('params', {}))
                 if screener is None:
                     raise WorkflowError(f"Could not create screener {node['screener']}.")
+                criterion = node.get('criterion', {'operator': 'default'})
+                if criterion['operator'] == 'default':
+                    applied_rule = default_rule(node['screener'], screener)
+                    if applied_rule:
+                        applied_rule = {**applied_rule, 'field': 'pct_above_low' if node['screener'] == 'fifty_two_week_lows' else 'score'}
+                else:
+                    applied_rule = {**criterion, 'metric': 'Score', 'field': 'score'}
                 score_key = json.dumps([node['screener'], node.get('params', {})], sort_keys=True)
                 scored = []
                 for index, upstream in enumerate(records):
@@ -290,6 +345,10 @@ class WorkflowEngine:
                           'overall_percent': overall_percent, 'message': f"{node['screener']} complete"})
             result['nodes'][node_id] = {'input_count': len(records), 'outcomes': outcomes,
                                         'counts': {key: len(rows) for key, rows in outcomes.items()}}
+            if applied_rule:
+                result['nodes'][node_id]['rule'] = applied_rule
+            if node['type'] == 'universe':
+                result['nodes'][node_id]['input_count'] = sum(len(rows) for rows in outcomes.values())
             result['errors'] += len(outcomes['error']) if node['type'] == 'screener' else 0
             if node['type'] == 'output':
                 result['shortlist'].extend(records)

@@ -1,6 +1,53 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultRuleText, stockScreeningPath } from './workflow.js';
+import {percentile, rankRows, nearMisses, ruleFor, runChanges, peerContext} from './insights.js';
+
+test('percentile ranking respects direction, ties and missing active factors', () => {
+  assert.equal(percentile(10,[10,20,30],true),100);
+  assert.equal(percentile(20,[10,20,20,30]),50);
+  assert.equal(percentile(10,[10]),50);
+  const path = [{id:'s',data:{kind:'screener',screener:'pe',criterion:{operator:'lte',value:20}}}];
+  const result = {nodes:{s:{outcomes:{passed:[{symbol:'A',score:10},{symbol:'B',score:15}],unavailable:[{symbol:'C'}]}}}};
+  const ranked = rankRows([{symbol:'A'},{symbol:'B'},{symbol:'C'}],path,result,{});
+  assert.equal(ranked[0].symbol,'A');
+  assert.equal(ranked[0].rank,100);
+  assert.equal(ranked[2].rank,null);
+  assert.equal(ranked[2].coverage,'0/1');
+  assert.equal(rankRows([{symbol:'A'}],path,result,{}, {s:0})[0].rank,null);
+});
+
+test('near misses use the threshold metric rather than the inverted 52-week-low score', () => {
+  const node = {id:'s',data:{kind:'screener',screener:'fifty_two_week_lows',criterion:{operator:'default'}}};
+  const catalog = {fifty_two_week_lows:{default_rule:{metric:'Distance',operator:'lte',value:20}}};
+  const result = {nodes:{s:{outcomes:{failed:[{symbol:'A',score:80,pct_above_low:21},{symbol:'B',score:99,pct_above_low:30},{symbol:'C',score:5}]}}}};
+  assert.equal(ruleFor(node,catalog).field,'pct_above_low');
+  assert.equal(ruleFor(node,catalog,{rule:{field:'pct_above_low',value:18,operator:'lte'}}).value,18);
+  const misses = nearMisses([node],result,catalog,10);
+  assert.equal(misses.length,1);
+  assert.equal(misses[0].symbol,'A');
+  assert.equal(misses[0].percent,5);
+});
+
+test('run differences include entrants, departures and updated retained stocks', () => {
+  const workflow = {nodes:[{id:'s',type:'screener',screener:'quality'},{id:'o',type:'output'}],edges:[{source:'s',target:'o'}]};
+  const make = rows => ({workflow,result:{nodes:{o:{outcomes:{passed:rows}},s:{outcomes:{passed:rows}}}}});
+  const before = make([{symbol:'A',score:10},{symbol:'B',score:20}]);
+  const after = make([{symbol:'B',score:21},{symbol:'C',score:30}]);
+  const changes = runChanges(after,before,{id:'o',port:'passed'});
+  assert.deepEqual(changes.map(r => [r.symbol,r.change]),[['C','Entered'],['A','Departed'],['B','Updated']]);
+  assert.equal(changes[2].before[0].score,20);
+  assert.equal(changes[2].after[0].score,21);
+});
+
+test('sector comparisons require a known sector and exclude other sectors', () => {
+  const node = {id:'s',data:{kind:'screener',screener:'quality',criterion:{operator:'gte',value:1}}};
+  const result = {nodes:{s:{outcomes:{passed:[{symbol:'A',sector:'Tech',score:10},{symbol:'B',sector:'Tech',score:20},{symbol:'C',sector:'Energy',score:30}]}}}};
+  const step = peerContext('A',{id:'s',port:'passed'},[node],[],result,{})[0];
+  assert.equal(step.peerCount,2);
+  assert.equal(step.percentile,0);
+  assert.equal(peerContext('C',{id:'s',port:'passed'},[node],[],result,{})[0].percentile,null);
+});
 
 test('stock explanation follows the selected branch in execution order with its actual outcomes', () => {
   const nodes = [

@@ -46,6 +46,14 @@ class FMPCompanyOverview(TypedDict):
     Name: str
     Description: str
     Exchange: str
+    ExchangeShortName: NotRequired[str]
+    Currency: NotRequired[str]
+    QuoteTimestamp: NotRequired[int]
+    OverviewFetchedAt: NotRequired[str]
+    FinancialPeriod: NotRequired[str]
+    RatiosPeriod: NotRequired[str]
+    AverageVolume: NotRequired[float]
+    FreeCashFlowYield: NotRequired[float]
     Sector: str
     Industry: str
     

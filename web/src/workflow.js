@@ -21,11 +21,12 @@ export function stockScreeningPath(symbol, selection, nodes, edges, result, cata
       const row = result.nodes[id]?.outcomes[outcome]?.find(row => row.symbol === symbol);
       const definition = catalog[node.data.screener];
       const criterion = node.data.criterion || { operator: 'default' };
+      const savedRule = result.nodes[id]?.rule;
       steps.unshift({ id, label: node.data.label || definition?.label || node.data.screener,
         outcome: row ? outcome : 'unavailable', row: row || {},
-        rule: criterion.operator === 'default' ? defaultRuleText(definition, node.data.params)
+        rule: savedRule ? defaultRuleText({default_rule:savedRule}) : criterion.operator === 'default' ? defaultRuleText(definition, node.data.params)
           : `Score ${criterion.operator === 'gte' ? '≥' : '≤'} ${criterion.value}`,
-        note: criterion.operator === 'default' ? definition?.default_rule?.note : null });
+        note: savedRule ? savedRule.note : criterion.operator === 'default' ? definition?.default_rule?.note : null });
     }
     const edge = edges.find(e => e.target === id);
     id = edge?.source;

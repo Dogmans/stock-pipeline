@@ -8,7 +8,9 @@ import { Play, Square, Download, Upload, Plus, Search, SlidersHorizontal, GitBra
 import '@xyflow/react/dist/style.css';
 import './style.css';
 import example from '../../workflows/value_quality.json';
-import { colors, outcomeLabels, fromDocument, toDocument, logicKey, canConnect, volumeWidth, csv, defaultRuleText, stockScreeningPath } from './workflow.js';
+import { colors, outcomeLabels, fromDocument, toDocument, logicKey, canConnect, volumeWidth, csv, defaultRuleText } from './workflow.js';
+import ResearchPanel, {ThresholdDistribution, FinancialHistory} from './ResearchPanel.jsx';
+import {peerContext} from './insights.js';
 
 function ScreeningPath({ context }) {
   const passed = context.steps.filter(step => step.outcome === 'passed').length;
@@ -23,6 +25,7 @@ function ScreeningPath({ context }) {
       <p>Recorded score: {typeof step.row.score === 'number' ? step.row.score.toLocaleString(undefined, {maximumFractionDigits: 4}) : 'Unavailable'}</p>
       <p>{step.row.reason || 'No decision explanation was recorded.'}</p>
       {step.note && <p className="default-rule-note">{step.note}</p>}
+      <p>{step.percentile == null ? 'Sector comparison unavailable: fewer than two comparable stocks.' : `${step.percentile.toFixed(0)} percentile among ${step.peerCount} evaluated ${step.sector} stocks. Higher is better.`}</p>
       <ScoreBreakdown row={step.row}/>
     </li>)}</ol>
     {context.steps.some(step => step.outcome !== 'passed') && <p className="screening-caution">This route includes a failed screen or unavailable evaluation. Inclusion here does not mean every screen passed.</p>}
@@ -80,7 +83,7 @@ function WorkflowNode({ id, data, selected }) {
     {isScreener && <div className="node-rule nodrag">
       <select aria-label={`${data.catalog?.label || data.screener} rule`} value={data.criterion.operator} disabled={data.busy}
         onChange={event => data.onUpdate(id, { criterion: { operator: event.target.value, value: data.criterion.value ?? 10 } })}>
-        <option value="default">Screener’s default rule</option><option value="gte">Score ≥</option><option value="lte">Score ≤</option>
+        <option value="default">{defaultRuleText(data.catalog, data.params)}</option><option value="gte">Score ≥</option><option value="lte">Score ≤</option>
       </select>
       {data.criterion.operator !== 'default' && <input type="number" step="any" aria-label="Score threshold" value={data.criterion.value ?? ''} disabled={data.busy}
         onChange={event => data.onUpdate(id, { criterion: { ...data.criterion, value: event.target.value === '' ? null : Number(event.target.value) } })}/>}
@@ -107,6 +110,8 @@ function Studio() {
   const [stockDetail, setStockDetail] = useState(null), [stockLoading, setStockLoading] = useState(''), [stockError, setStockError] = useState('');
   const [stockContext, setStockContext] = useState(null);
   const stockRequest = useRef(0);
+  const [history, setHistory] = useState([]), [record, setRecord] = useState(null);
+  const [expandedResults, setExpandedResults] = useState(false);
   const [weighted, setWeighted] = useState(true), [reuse, setReuse] = useState(true), [searchStocks, setSearchStocks] = useState('');
   const file = useRef(), savedSnapshot = useRef(null), { screenToFlowPosition, fitView } = useReactFlow();
   const busy = starting || ['queued', 'running', 'cancelling'].includes(run?.status);
@@ -117,6 +122,7 @@ function Studio() {
   const byScreener = useMemo(() => Object.fromEntries(catalog.map(c => [c.id, c])), [catalog]);
   const universeLabel = universe.symbols ? `${universe.symbols.length} custom symbols` : universe.name;
   useEffect(() => { api('/screeners').then(setCatalog).catch(() => setError('The Python API is not available. Start visual_api.py and reload this page.')); }, []);
+  useEffect(() => {api('/history').then(setHistory).catch(() => {});},[]);
   useEffect(() => {
     if (!run?.id || !['queued', 'running', 'cancelling'].includes(run.status)) return;
     let stopped = false;
@@ -126,6 +132,13 @@ function Studio() {
         if (stopped) return;
         setRun(value);
         if (value.result) savedSnapshot.current = value.result.snapshot_id;
+        if (value.status === 'completed' && value.result) {
+          if (value.result.history_warning) setError(value.result.history_warning);
+          else {
+            api(`/history/${value.id}`).then(setRecord).catch(err => setError(err.message));
+            api('/history').then(setHistory).catch(err => setError(err.message));
+          }
+        }
         if (value.error) setError(value.error);
       } catch (err) { if (!stopped) { setError(err.message); setRun(r => ({ ...r, status: 'failed' })); } }
     }, 500);
@@ -162,6 +175,7 @@ function Studio() {
     setError(''); setStarting(true);
     try {
       const value = await api('/runs', { method: 'POST', body: JSON.stringify({ workflow: document, snapshot_id: reuse ? savedSnapshot.current : null }) });
+      setRecord(null);
       setRunKey(currentKey); setRun({ ...value, status: 'queued', progress: { message: 'Starting workflow', overall_percent: 0 } });
     } catch (err) { setError(err.message); } finally { setStarting(false); }
   }
@@ -171,15 +185,29 @@ function Studio() {
       await api('/workflows/validate', { method: 'POST', body: JSON.stringify({ workflow: doc }) });
       const graph = fromDocument(doc); setNodes(graph.nodes); setEdges(graph.edges);
       setName(doc.name || 'Untitled workflow'); setUniverse(doc.universe); setRun(null); setError('');
+      setRecord(null);
       savedSnapshot.current = null; setTimeout(() => fitView({ padding: .2 }), 100);
     } catch (err) { setError(err.message); }
     event.target.value = '';
   }
-  async function openStock(symbol) {
+  async function restoreRun(id) {
+    if (busy) {setError('Finish or stop the active run before opening a saved run.');return;}
+    try {
+      const saved = await api(`/history/${id}`), graph = fromDocument(saved.workflow);
+      setNodes(graph.nodes);setEdges(graph.edges);setName(saved.workflow.name || 'Untitled workflow');setUniverse(saved.workflow.universe);
+      setRun({id:saved.id,status:'completed',result:saved.result});setRunKey(logicKey(toDocument(saved.workflow.name,saved.workflow.universe,graph.nodes,graph.edges)));setRecord(saved);
+      savedSnapshot.current = null;
+      const output = graph.nodes.find(n => n.data.kind === 'output');
+      inspect(output?.id || graph.nodes[0].id);
+      setTimeout(() => fitView({padding:.2}),100);
+    } catch(err) {setError(err.message);}
+  }
+  async function openStock(symbol, sourceSelection = selection) {
     const request = ++stockRequest.current;
-    setStockContext({symbol, label: selected?.data.label || byScreener[selected?.data.screener]?.label || 'Selected path',
+    const sourceNode = nodes.find(n => n.id === sourceSelection.id);
+    setStockContext({symbol, label: sourceNode?.data.label || byScreener[sourceNode?.data.screener]?.label || 'Selected path',
       createdAt: result?.snapshot_created_at,
-      steps: stockScreeningPath(symbol, selection, nodes, edges, result, byScreener)});
+      steps: peerContext(symbol, sourceSelection, nodes, edges, result, byScreener)});
     setStockDetail(null); setStockError(''); setStockLoading(symbol);
     try { const detail = await api(`/stocks/${encodeURIComponent(symbol)}`); if (request === stockRequest.current) setStockDetail(detail); }
     catch (err) { if (request === stockRequest.current) setStockError(err.message); }
@@ -223,19 +251,29 @@ function Studio() {
         </ReactFlow>
         <div className="legend">{Object.entries(colors).map(([key, color]) => <span key={key}><i style={{ background: color }}/>{outcomeLabels[key]}</span>)}</div>
       </div>
-      <section className="results"><div className="results-heading"><div><span className="eyebrow">STOCK INSPECTOR</span><h2>{selected?.data.label || byScreener[selected?.data.screener]?.label || 'Select a node'} <span className="count-pill">{allRows.length}</span></h2></div>
+      <section className={`results ${expandedResults ? 'expanded-results' : ''}`}><div className="results-heading"><div><span className="eyebrow">STOCK INSPECTOR</span><h2>{selected?.data.label || byScreener[selected?.data.screener]?.label || 'Select a node'} <span className="count-pill">{allRows.length}</span></h2></div>
+        <button className="expand-results" aria-expanded={expandedResults} onClick={() => setExpandedResults(!expandedResults)}>{expandedResults ? 'Back to canvas' : 'Expand results'}</button>
         <div className="results-actions"><label className="search"><Search size={14}/><input aria-label="Filter stocks" placeholder="Filter stocks…" value={searchStocks} onChange={e => setSearchStocks(e.target.value)}/></label><button disabled={!rows.length} onClick={() => download('stocks.csv', csv(rows), 'text/csv')}><Download size={14}/> CSV</button></div></div>
+        <ResearchPanel key={`${selection.id}-${selection.port}-${run?.id || 'draft'}-${stale}`} rows={allRows} selection={selection} nodes={nodes} edges={edges} result={result} catalog={byScreener} api={api} openStock={openStock} record={stale ? null : record} history={history} onRestore={restoreRun}>
         <div className="outcome-tabs">{Object.keys(colors).map(port => <button key={port} className={selection.port === port ? 'chosen' : ''} onClick={() => inspect(selection.id, port)}>{outcomeLabels[port]} <span>{selectedResult?.counts[port] ?? '—'}</span></button>)}</div>
         {rows.length ? <div className="table-scroll"><table><thead><tr><th>Symbol</th><th>Company</th><th>Score</th><th>Decision / reason</th></tr></thead><tbody>{rows.slice(0, 500).map(row => <tr key={row.symbol}><td><button className="stock-link" onClick={() => openStock(row.symbol)} disabled={stockLoading === row.symbol}>{stockLoading === row.symbol ? 'Loading…' : row.symbol}</button></td><td>{row.company_name || row.security || '—'}</td><td>{typeof row.score === 'number' ? row.score.toFixed(2) : '—'}</td><td>{row.reason || 'Included in universe'}<ScoreBreakdown row={row}/></td></tr>)}</tbody></table>{rows.length > 500 && <p>Showing 500 rows. CSV includes all {rows.length} matching stocks.</p>}</div> : <div className="empty-state"><ListFilter size={23}/><div><strong>{stale ? 'Results need an update' : result ? 'No stocks in this outcome' : 'Your results will appear here'}</strong><p>{stale ? 'Run this workflow to see results for its current settings.' : result ? 'Select another outcome or connection to explore the run.' : 'Run the workflow, then click a node or connection to explore its stocks.'}</p></div></div>}
+        </ResearchPanel>
       </section></main>
-      <aside className="inspector"><div className="section-heading">Workflow settings <SlidersHorizontal size={16}/></div><label className="field">Universe<select disabled={busy} value={universe.symbols ? 'custom' : universe.name} onChange={e => setUniverse(e.target.value === 'custom' ? {symbols: example.universe.symbols} : {name: e.target.value})}><option value="custom">Custom symbols</option><option value="sp500">S&P 500</option><option value="russell2000">Russell 2000</option><option value="nasdaq100">Nasdaq 100</option></select></label>
-        {universe.symbols && <label className="field">Symbols<textarea disabled={busy} aria-label="Symbols" value={universe.symbols.join(', ')} onChange={e => setUniverse({symbols: e.target.value.toUpperCase().split(/[\s,]+/).filter(Boolean)})}/><small>Comma-separated stock symbols</small></label>}
+      <aside className="inspector"><div className="section-heading">Workflow settings <SlidersHorizontal size={16}/></div><label className="field">Universe<select disabled={busy} value={universe.symbols ? 'custom' : universe.name} onChange={e => setUniverse(e.target.value === 'custom' ? {symbols: example.universe.symbols, filters: universe.filters} : {name: e.target.value, filters: universe.filters})}><option value="custom">Custom symbols</option><option value="sp500">S&P 500</option><option value="russell2000">Russell 2000</option><option value="nasdaq100">Nasdaq 100</option></select></label>
+        {universe.symbols && <label className="field">Symbols<textarea disabled={busy} aria-label="Symbols" value={universe.symbols.join(', ')} onChange={e => setUniverse({...universe, symbols: e.target.value.toUpperCase().split(/[\s,]+/).filter(Boolean)})}/><small>Comma-separated stock symbols</small></label>}
+        <details className="universe-filters"><summary>Universe eligibility filters</summary>
+          <p className="muted">Applied before screening. Missing eligibility data appears under the source node’s Unavailable outcome. Filters require company data for each candidate.</p>
+          <label className="field">Exchange<input disabled={busy} placeholder="Any, e.g. NASDAQ" value={universe.filters?.exchange || ''} onChange={e => setUniverse({...universe,filters:{...universe.filters,exchange:e.target.value.toUpperCase()}})}/></label>
+          {[['min_market_cap','Minimum market cap (quote currency)'],['min_average_volume','Minimum average daily volume (shares)']].map(([key,label]) => <label className="field" key={key}>{label}<input disabled={busy} type="number" min="0" step="any" value={universe.filters?.[key] ?? ''} placeholder="No minimum" onChange={e => setUniverse({...universe,filters:{...universe.filters,[key]:e.target.value === '' ? 0 : Number(e.target.value)}})}/></label>)}
+          <p className="muted">Use the Universe selector above to explore an index instead of the eight example symbols.</p>
+        </details>
         <div className="setting-divider"/><label className="reuse-option"><input type="checkbox" checked={reuse} disabled={busy} onChange={e => setReuse(e.target.checked)}/><span>Reuse calculated scores<small>Fast comparisons with your last run.</small></span></label>
         <p className="snapshot-note">{result?.snapshot_created_at ? `Snapshot started ${new Date(result.snapshot_created_at).toLocaleString()}.` : 'New scores use the existing FMP data cache.'} Changing a threshold reuses scores. Changing screener parameters may need more data.</p>
         {selected && <><div className="setting-divider"/><span className="eyebrow">SELECTED NODE</span><h3>{selected.data.label || byScreener[selected.data.screener]?.label}</h3><p className="description">{byScreener[selected.data.screener]?.description || 'Connect this node to build your screening path.'}</p>
           {selected.data.kind === 'screener' && <p className="default-rule">Default pass condition: {defaultRuleText(byScreener[selected.data.screener], selected.data.params)}
             {byScreener[selected.data.screener]?.default_rule?.note && <span className="default-rule-note">{byScreener[selected.data.screener].default_rule.note}</span>}
           </p>}
+          {selected.data.kind === 'screener' && <ThresholdDistribution node={selected} result={selectedResult} catalog={byScreener}/>}
           {(byScreener[selected.data.screener]?.parameters || []).map(param => <label className="field" key={param.name}>{param.name.replaceAll('_', ' ')}<input disabled={busy} type={param.type === 'number' ? 'number' : 'text'} step="any" placeholder={param.default == null ? 'Default' : String(param.default)} value={selected.data.params?.[param.name] ?? ''}
             onChange={e => { const params = {...selected.data.params}; if (e.target.value === '') delete params[param.name]; else params[param.name] = param.type === 'number' ? Number(e.target.value) : e.target.value; update(selected.id, {params}); }}/></label>)}
           {selected.data.kind !== 'universe' && <button className="delete-node" disabled={busy} onClick={() => {setNodes(current => current.filter(n => n.id !== selected.id)); setEdges(current => current.filter(e => e.source !== selected.id && e.target !== selected.id));}}><Trash2 size={14}/> Remove node</button>}
@@ -249,7 +287,10 @@ function Studio() {
       {stockLoading && <div className="drawer-loading"><RefreshCw className="spin" size={22}/><strong>Loading {stockLoading} from FMP…</strong></div>}
       {stockError && <div className="drawer-loading"><strong>Details unavailable</strong><p>{stockError}</p></div>}
       {stockDetail && <><span className="eyebrow">FMP STOCK SNAPSHOT</span><h2>{stockDetail.overview.Name || stockDetail.symbol}</h2><p className="stock-identity">{stockDetail.symbol} · {[stockDetail.overview.Exchange, stockDetail.overview.Sector, stockDetail.overview.Industry].filter(Boolean).join(' · ')}</p>
-        <div className="metric-grid">{metricDefinitions.filter(([key]) => stockDetail.overview[key] != null && stockDetail.overview[key] !== '').map(([key,label,kind]) => <div key={key}><span>{label}</span><strong>{formatMetric(stockDetail.overview[key], kind)}</strong></div>)}</div>
+        <p className="muted">Source: FMP (may be cached). Fetched: {stockDetail.overview.OverviewFetchedAt ? new Date(stockDetail.overview.OverviewFetchedAt).toLocaleString() : 'Unavailable'}. Quote time: {stockDetail.overview.QuoteTimestamp ? new Date(stockDetail.overview.QuoteTimestamp*1000).toLocaleString() : 'Unavailable'}. Financial period: {stockDetail.overview.FinancialPeriod || 'Unavailable'}. Ratios period: {stockDetail.overview.RatiosPeriod || 'Unavailable'}.</p>
+        <p className="muted">Coverage: {metricDefinitions.filter(([key]) => stockDetail.overview[key] != null && stockDetail.overview[key] !== '').length}/{metricDefinitions.length} displayed metrics. Quote currency: {stockDetail.overview.Currency || 'Unavailable'}.</p>
+        <div className="metric-grid">{metricDefinitions.map(([key,label,kind]) => <div key={key}><span>{label}</span><strong>{stockDetail.overview[key] == null || stockDetail.overview[key] === '' ? 'Unavailable' : formatMetric(stockDetail.overview[key], kind === 'currency' ? 'number' : kind)}</strong></div>)}</div>
+        <FinancialHistory key={stockDetail.symbol} symbol={stockDetail.symbol} api={api}/>
         {stockDetail.overview.Description && <p className="company-description">{stockDetail.overview.Description}</p>}
         <div className="news-heading"><Newspaper size={16}/><h3>Recent news</h3><span>{stockDetail.news.length}</span></div>
         {stockDetail.news.length ? <div className="news-list">{stockDetail.news.map((article,index) => <article key={`${article.url}-${index}`}>{article.image && <img src={article.image} alt=""/>}<div><span>{[article.publisher, article.published_at ? new Date(article.published_at).toLocaleDateString() : ''].filter(Boolean).join(' · ')}</span><h4>{article.title}</h4>{article.summary && <p>{article.summary}</p>}{article.url && <a href={article.url} target="_blank" rel="noreferrer">Read article <ExternalLink size={12}/></a>}</div></article>)}</div> : <p className="no-news">No recent FMP news is available for this stock.</p>}
