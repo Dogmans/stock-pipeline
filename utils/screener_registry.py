@@ -92,6 +92,7 @@ def auto_register_screeners():
         from screeners.sharpe_ratio import SharpeRatioScreener
         from screeners.momentum import MomentumScreener
         from screeners.quality import QualityScreener
+        from screeners.return_on_equity import ReturnOnEquityScreener
         from screeners.free_cash_flow_yield import FCFYieldScreener
         from screeners.enhanced_quality import EnhancedQualityScreener
         from screeners.insider_buying import InsiderBuyingScreener
@@ -107,6 +108,7 @@ def auto_register_screeners():
         register_screener("sharpe_ratio", SharpeRatioScreener)
         register_screener("momentum", MomentumScreener)
         register_screener("quality", QualityScreener)
+        register_screener("return_on_equity", ReturnOnEquityScreener)
         register_screener("fcf_yield", FCFYieldScreener)
         register_screener("enhanced_quality", EnhancedQualityScreener)
         register_screener("insider_buying", InsiderBuyingScreener)

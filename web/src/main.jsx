@@ -33,6 +33,13 @@ function ScreeningPath({ context }) {
 }
 
 function ScoreBreakdown({ row }) {
+  if (Array.isArray(row.roe_history)) return <details className="score-breakdown"><summary>ROE history and equity checks</summary>
+    <p>Latest annual period: {row.period || 'Unavailable'} · Statement currency: {row.currency || 'Unavailable'}</p>
+    <p>Three-year average ROE: {typeof row.roe_three_year_average === 'number' ? `${row.roe_three_year_average.toFixed(2)}%` : 'Unavailable (three consecutive valid years required)'}</p>
+    <p>ROE = annual net income / average opening and closing shareholders’ equity. This is not TTM ROE.</p>
+    <div className="table-scroll"><table><thead><tr><th>Year end</th><th>ROE</th><th>Equity / assets</th><th>Decision / data checks</th></tr></thead><tbody>{row.roe_history.map(year => <tr key={year.period}><td>{year.period}</td><td>{typeof year.roe === 'number' ? `${year.roe.toFixed(2)}%` : 'Unavailable'}</td><td>{typeof year.equity_ratio === 'number' ? `${year.equity_ratio.toFixed(2)}%` : 'Unavailable'}</td><td>{year.reason}</td></tr>)}</tbody></table></div>
+    <p>ROE also contributes to Quality and Enhanced Quality; weighting them together increases its influence.</p>
+  </details>;
   if (typeof row.insider_activity_score !== 'number') return null;
   return <details className="score-breakdown"><summary>Score breakdown</summary>
     <dl>{[['Insider activity', 'insider_activity_score', 40], ['Activity acceleration', 'acceleration_score', 25], ['Price consolidation', 'consolidation_score', 20], ['Volume expansion', 'volume_score', 15]].map(([label, key, max]) =>

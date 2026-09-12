@@ -16,6 +16,14 @@ Selecting a screener shows its numeric distribution and applied threshold. Its c
 
 The universe selector supports the existing S&P 500, Nasdaq 100 and Russell 2000 sources. Optional exchange, minimum market-cap and average daily share-volume filters run before screening. Exchange matches the provider's full or short exchange name. Market-cap minimums are in the quote currency. Excluded and unavailable candidates remain inspectable in the source node's outcome tabs. Filtering needs company data for every candidate, so a broad universe can take longer.
 
+## Return on equity
+
+The `return_on_equity` screener calculates **annual net income / average opening and closing shareholders’ equity × 100**. Its score and editable `min_roe` parameter are percentage points (15 means 15%). The initial minimum is 15%; this is a configurable research threshold, not a universal quality benchmark.
+
+It requires matching annual statement dates, matching known currencies, positive opening and closing shareholders’ equity, and positive asset balances. Its editable `min_equity_ratio` defaults to 5% average equity / average assets. Thin or nonpositive equity bases are marked unavailable, with reasons retained; a score override cannot bypass unavailable data. The annual measure is deliberately distinct from the provider's overview field labelled TTM.
+
+Open **ROE history and equity checks** in the results or stock sidebar for annual values, equity-base checks and a three-year average when three consecutive valid years exist. Five annual balance sheets typically support four annual ROE calculations. Sector comparisons and percentile ranking work through the existing research views. Quality and Enhanced Quality already use ROE, so giving all three ranking weight increases its influence.
+
 ## Validation
 
 ```powershell

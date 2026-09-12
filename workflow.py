@@ -36,13 +36,17 @@ def default_rule(name, instance):
         'sharpe_ratio': ('Sharpe ratio', 'gte', 'min_sharpe_ratio', '', True),
         'momentum': ('Momentum score', 'gte', 'min_momentum_score', '%', True),
         'quality': ('Quality score', 'gte', 'min_quality_score', '', True),
+        'return_on_equity': ('Annual ROE', 'gte', 'min_roe', '%', False),
         'fcf_yield': ('Free cash flow yield', 'gte', 'min_fcf_yield', '%', True),
         'historic_value': ('Historic value score', 'gte', 'min_historic_value_score', '', True),
     }
     if name in parameter_rules:
         metric, operator, parameter, unit, zero_uses_default = parameter_rules[name]
-        return dict(metric=metric, operator=operator, value=getattr(instance, parameter),
+        rule = dict(metric=metric, operator=operator, value=getattr(instance, parameter),
                     parameter=parameter, unit=unit, zero_uses_default=zero_uses_default)
+        if name == 'return_on_equity':
+            rule['note'] = f'Uses annual net income and average equity, not TTM ROE. Requires positive opening and closing equity, matching currencies, and average equity / assets ≥ {instance.min_equity_ratio:g}%.'
+        return rule
     fixed_rules = {
         'enhanced_quality': ('Quality score', 'gte', getattr(config.ScreeningThresholds, 'MIN_ENHANCED_QUALITY_SCORE', 50.0), ' / 100'),
         'insider_buying': ('Insider buying score', 'gte', getattr(config.ScreeningThresholds, 'MIN_INSIDER_BUYING_SCORE', 65.0), ' / 100'),
@@ -311,7 +315,9 @@ class WorkflowEngine:
                             else:
                                 row = json_records(frame)[0]
                                 if row.get('score') is None or not isinstance(row.get('meets_threshold'), bool):
-                                    row.update(outcome='unavailable', reason='Score or threshold outcome is unavailable.')
+                                    row['outcome'] = 'unavailable'
+                                    if not row.get('reason'):
+                                        row['reason'] = 'Score or threshold outcome is unavailable.'
                                 else:
                                     row['outcome'] = 'passed' if row['meets_threshold'] else 'failed'
                         except Exception:

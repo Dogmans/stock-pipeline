@@ -51,6 +51,7 @@ from .price_to_book import PriceToBookScreener
 from .sharpe_ratio import SharpeRatioScreener
 from .momentum import MomentumScreener
 from .quality import QualityScreener
+from .return_on_equity import ReturnOnEquityScreener
 from .free_cash_flow_yield import FCFYieldScreener
 from .enhanced_quality import EnhancedQualityScreener
 from .insider_buying import InsiderBuyingScreener
@@ -69,6 +70,7 @@ __all__ = [
     'SharpeRatioScreener',
     'MomentumScreener',
     'QualityScreener',
+    'ReturnOnEquityScreener',
     'FCFYieldScreener',
     'EnhancedQualityScreener',
     'InsiderBuyingScreener',

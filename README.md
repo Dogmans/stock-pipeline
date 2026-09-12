@@ -95,7 +95,7 @@ Comma-separated `--strategies` runs the specified screeners; use workflow JSON t
 | Focus | CLI strategy IDs |
 | --- | --- |
 | Valuation | `pe_ratio`, `price_to_book`, `peg_ratio`, `fcf_yield`, `historic_value` |
-| Quality | `quality`, `enhanced_quality` |
+| Quality | `quality`, `enhanced_quality`, `return_on_equity` |
 | Price and risk | `momentum`, `sharpe_ratio`, `fifty_two_week_lows` |
 | Insider and analyst activity | `insider_buying`, `analyst_sentiment_momentum` |
 | Multiple factors | `composite_score` |
