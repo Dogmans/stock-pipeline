@@ -120,3 +120,22 @@ class FMPTransportTests(unittest.TestCase):
                 self.assertEqual(get.call_count,1)
         finally:
             cache.delete(key)
+
+    def test_quality_debt_equity_mapping_and_missing_fallback(self):
+        import inspect
+        from screeners.quality import QualityScreener
+        provider = fmp.FinancialModelingPrepProvider(api_key='offline-quality')
+        for value, expected in [(0.14, 0.14), (0, 0), (None, 0.25), ('', 0.25)]:
+            with self.subTest(ratio=value):
+                responses = {
+                    'profile': [{'companyName':'Test','mktCap':1000}],
+                    'quote': [{'price':100,'pe':20}],
+                    'key-metrics': [{'debtToEquity':0.25}],
+                    'ratios': [{'debtEquityRatio':value,'returnOnEquity':0.32,
+                                'netProfitMargin':0.33,'operatingProfitMargin':0.32,
+                                'enterpriseValueMultiple':21}],
+                }
+                with patch.object(provider, '_make_api_request', side_effect=lambda endpoint, *a, **kw: (True,responses[endpoint],None)):
+                    overview = inspect.unwrap(type(provider).get_company_overview)(provider,'TEST')
+                self.assertEqual(overview['DebtToEquityRatio'],expected)
+                self.assertEqual(QualityScreener().calculate_score(overview),9)

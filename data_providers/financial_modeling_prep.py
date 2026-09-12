@@ -474,7 +474,8 @@ class FinancialModelingPrepProvider(BaseDataProvider):
         # Process the data
         return self._process_financial_statement(data, column_mapping)
         
-    @cache.memoize(expire=24*3600)  # Cache for 24 hours
+    # Bypass cached overviews with the old debt/equity mapping.
+    @cache.memoize(name="fmp.company_overview.v2", expire=24*3600)
     @throttler.throttle(cache_check_func=create_cache_checker(
         cache, "get_company_overview"
     ))
@@ -609,7 +610,11 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 overview['ReturnOnAssetsTTM'] = ratio.get('returnOnAssets', '')
                 overview['ProfitMargin'] = ratio.get('netProfitMargin', '')
                 overview['OperatingMarginTTM'] = ratio.get('operatingProfitMargin', '')
-                overview['DebtToEquityRatio'] = ratio.get('debtToEquity', '')
+                # Ratios and key-metrics use different field names. Preserve the
+                # key-metrics value when ratios omits this field; zero is valid.
+                debt_equity = ratio.get('debtEquityRatio')
+                if debt_equity is not None and debt_equity != '':
+                    overview['DebtToEquityRatio'] = debt_equity
                 overview['EVToEBITDA'] = ratio.get('enterpriseValueMultiple', '')
         
         # Step 5: For very accurate market cap, try the dedicated endpoint
