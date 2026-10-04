@@ -1,54 +1,16 @@
-# Stock Pipeline Reporting System
+# Reports and audit exports
 
-Added: 2025-06-20
-
-## Overview
-
-The visualization system has been replaced with a text-based reporting system that focuses on generating concise reports of stocks that pass each screener strategy. The main benefits are:
-
-1. Cleaner output with focused information on key metrics
-2. Ranked results from best to worst by the most relevant metric for each screener
-3. Markdown-based reports that can be viewed in any text editor or browser
-4. Better compatibility with CI/CD pipelines and automated systems
-
-## Report Structure
-
-The screening report is structured as follows:
-
-1. **Summary Section**: Overview of all strategies and stocks passing
-   - Total unique stocks passing at least one screener
-   - Table of strategies with stock count and top performer
-
-2. **Strategy Sections**: Detailed results for each strategy
-   - Tables sorted by the most relevant metric for that strategy
-   - All key metrics included for comparison
-   - Company sector information for context
-
-## Example Usage
+The default CLI writes text reports through `reporting.py`; it does not automatically generate charts or the legacy HTML dashboard.
 
 ```powershell
-# Run quick pipeline with SP500 universe and value+growth strategies
-python main.py --universe sp500 --strategies value,growth
-
-# Run full pipeline with all strategies
-python main.py --full
-
-# Check the output directory for reports
-Get-Content .\output\screening_report.md
+.venv-ui\Scripts\python.exe main.py --universe sp500 --strategies pe_ratio,quality --limit 20
+Get-Content output\screening_report_sp500.md
 ```
 
-## Metrics Prioritization
+Normal runs write `screening_report_<universe>.md` and `summary_<universe>.txt`. Country suffixes use the country key, such as `screening_report_japan.md`. Results are filtered by `meets_threshold` when present; legacy rows without that flag are treated as already selected. Failed stocks are not used to pad a short report. `--limit 0` displays all passing rows; positive limits affect display, not universe processing.
 
-Each strategy prioritizes different metrics for ranking:
+Workflow CLI runs write `workflow_results.json`, `workflow_report.md`, and `workflow_summary.txt`. Reports contain records routed into output nodes, which may deliberately include Fail/Unavailable branches; the JSON retains their actual per-node outcomes.
 
-- **Value**: Sorted by P/E ratio (ascending)
-- **Growth**: Sorted by growth rate (descending)
-- **Income**: Sorted by dividend yield (descending)
-- **Mean Reversion**: Sorted by % below 52-week high (descending)
+TAM additionally exports `proven_technology_emerging_tam_summary.json`, `_candidates.json`, `_near_misses.json`, and `_audit.json`. Normal CLI exports live in the output directory; workflow CLI exports live in its per-node subdirectory. Editor downloads use `tam_<kind>.json`. Candidate/near-miss caps do not alter hard-filter outcomes or remove rows from the full audit. [TAM methodology](proven_technology_emerging_tam.md).
 
-## Output Files
-
-Two main output files are generated:
-
-1. `screening_report.md`: Comprehensive report with all details
-2. `summary.txt`: Quick overview of screening results
+Editor CSV exports the selected outcome's matching rows, including nested evidence serialized as JSON. Stock tables display at most 500 matching rows, while CSV includes all matching rows. Saved editor runs retain their workflow and results locally.

@@ -1,5 +1,7 @@
 # BaseScreener Architecture Implementation Summary
 
+> Historical implementation report. Examples and completion claims below describe an earlier repository state. See [current architecture](DOCUMENTATION.md) before using them.
+
 ## Overview
 
 Successfully implemented the BaseScreener class-based architecture to eliminate code duplication across screeners and provide a consistent interface for all screening strategies.

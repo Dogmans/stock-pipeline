@@ -33,6 +33,7 @@ def main():
                 suite = unittest.defaultTestLoader.loadTestsFromNames([
                     'tests.test_regressions', 'tests.test_fmp_transport', 'tests.test_workflow',
                     'tests.test_visual_api',
+                    'tests.test_tam_screener',
                 ])
                 result = unittest.TextTestRunner(verbosity=2).run(suite)
                 return 0 if result.wasSuccessful() else 1

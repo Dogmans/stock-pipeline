@@ -4,6 +4,11 @@ export const outcomeLabels = { passed: 'Pass', failed: 'Fail', unavailable: 'Una
 export function defaultRuleText(catalog, params = {}) {
   const rule = catalog?.default_rule;
   if (!rule) return 'Default rule details unavailable.';
+  if (rule.operator === 'all') return rule.checks.map(check => {
+    const value = params[check.parameter] ?? check.value;
+    if (check.operator === 'between') return `${check.metric}: ${value.toLocaleString()}–${(params[check.upper_parameter] ?? check.upper_value).toLocaleString()} inclusive`;
+    return `${check.metric} ${{gt:'>',gte:'≥',lte:'≤'}[check.operator]} ${value.toLocaleString()}`;
+  }).join('; ');
   const override = params[rule.parameter];
   const value = override == null || (rule.zero_uses_default && override === 0) ? rule.value : override;
   if (rule.operator === 'between') return `${rule.metric} ${value}${rule.unit || ''} to ${params[rule.upper_parameter] ?? rule.upper_value}${rule.unit || ''} (inclusive)`;
@@ -83,7 +88,7 @@ export function volumeWidth(count, universeCount) {
 export function csv(rows) {
   const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
   const quote = value => {
-    let text = value == null ? '' : String(value);
+    let text = value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
     if (/^[=+@\-]/.test(text)) text = "'" + text;
     return '"' + text.replaceAll('"', '""') + '"';
   };

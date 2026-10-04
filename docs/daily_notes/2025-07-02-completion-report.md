@@ -1,5 +1,7 @@
 # Screeners Refactoring - Completion Report
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Completed Tasks
 
 1. **Refactored Structure**

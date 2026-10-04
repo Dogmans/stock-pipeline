@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { defaultRuleText, stockScreeningPath } from './workflow.js';
 import {percentile, rankRows, nearMisses, ruleFor, runChanges, peerContext} from './insights.js';
 
+test('multi-rule description follows editable limits and CSV preserves audit objects', () => {
+  const rule = {operator:'all', checks:[
+    {metric:'Revenue USD',operator:'gt',value:20000000,parameter:'min_revenue'},
+    {metric:'Statement age days',operator:'lte',value:550,parameter:'max_statement_age_days'}]};
+  const text = defaultRuleText({default_rule:rule}, {min_revenue:30000000,max_statement_age_days:365});
+  assert.match(text, /Revenue USD > 30/);
+  assert.match(text, /Statement age days ≤ 365/);
+  assert.match(csv([{symbol:'PNG.V',checks:[{status:'unknown'}]}]), /unknown/);
+});
+
 test('percentile ranking respects direction, ties and missing active factors', () => {
   assert.equal(percentile(10,[10,20,30],true),100);
   assert.equal(percentile(20,[10,20,20,30]),50);

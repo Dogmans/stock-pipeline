@@ -1,5 +1,7 @@
 # Default Display Limits for Screeners - July 3, 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Issue
 When running individual (non-combined) screeners against the Russell 2000 universe, the output can be overwhelming with hundreds of matching stocks, making it difficult to review results.
 

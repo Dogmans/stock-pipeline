@@ -1,5 +1,7 @@
 # Screener Architecture Refactoring (November 2023)
 
+> Historical implementation report. Examples and completion claims below describe an earlier repository state. See [current architecture](../../DOCUMENTATION.md) before using them.
+
 ## Overview
 
 In November 2023, we refactored the stock screening pipeline to implement a more modular and direct data access architecture. This document outlines the key changes and the rationale behind them.

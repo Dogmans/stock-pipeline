@@ -1,5 +1,7 @@
 # Data Provider Cleanup - December 19, 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Overview
 Removed unused data providers (Alpha Vantage and Finnhub) from the stock pipeline project to simplify the codebase and reduce maintenance overhead.
 

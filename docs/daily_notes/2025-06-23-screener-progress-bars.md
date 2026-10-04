@@ -1,5 +1,7 @@
 # Screener Progress Bar Updates - 2025-06-23
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Changes Made
 
 Updated the progress indicators in screener functions to have more specific descriptions:

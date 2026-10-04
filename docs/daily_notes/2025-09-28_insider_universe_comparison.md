@@ -1,5 +1,7 @@
 # Insider Buying Universe Comparison - Key Findings
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 Date: 2025-09-28
 
 ## Executive Summary

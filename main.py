@@ -231,7 +231,8 @@ def main():
     
     # Determine which strategies to run
     if args.strategies.lower() == 'all':
-        strategies = list(list_screeners().keys())
+        from utils.screener_registry import default_screeners
+        strategies = default_screeners()
     else:
         strategies = [s.strip() for s in args.strategies.split(',')]
     
@@ -246,6 +247,9 @@ def main():
         try:
             logger.info(f"Running {strategy_name} screener...")
             result = run_screener(strategy_name, universe_df)
+            if result is not None and 'screening_audit' in result.attrs:
+                from screening_audit import write_audit
+                write_audit(result.attrs['screening_audit'], output_dir)
             if result is not None and not result.empty:
                 screening_results[strategy_name] = result
                 logger.info(f"{strategy_name} screener found {len(result)} stocks")

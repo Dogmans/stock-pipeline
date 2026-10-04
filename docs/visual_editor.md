@@ -9,11 +9,11 @@ registry, FMP, and the existing disk cache.
 Python 3.12 is recommended. From the repository root:
 
 ```powershell
-python -m venv .venv-ui
+py -3.12 -m venv .venv-ui
 .venv-ui\Scripts\python.exe -m pip install -r requirements.txt
 .venv-ui\Scripts\python.exe -m pip install -r requirements-ui.txt
 cd web
-npm install
+npm ci
 npm run build
 cd ..
 .venv-ui\Scripts\python.exe visual_api.py
@@ -48,9 +48,9 @@ thresholds, or the universe changes.
 
 ## Thresholds and snapshots
 
-Each screener starts with its existing default rule. A node may override the final
+Each screener starts with its existing default rule. Ordinary score-based nodes may override the final
 decision using `Score ≥` or `Score ≤`. Constructor settings exposed by the
-screener can be edited in the side panel.
+screener can be edited in the side panel. TAM uses all hard checks and disables score overrides; its priority score is independent of eligibility.
 
 With **Reuse calculated scores** enabled, later runs can reuse the most recent
 bounded in-memory snapshot. Threshold-only changes avoid FMP calls. Constructor
@@ -84,3 +84,13 @@ npm run build
 ```
 
 Python tests block network access and use temporary storage.
+
+## Broad quantitative discovery
+
+Choose **FMP listed: US, TSX and TSXV** for the new listing universe or supply custom symbols. Add **Proven Technology / Emerging TAM** as one box and edit its defaults in the inspector. No theme keywords or Technology-sector inclusion gate apply.
+
+Each completed TAM node shows **Settings used in this run**, per-company checks and penalties, and summary/candidate/near-miss/full-audit JSON exports. Up to 250 candidates and 100 near misses are selected for export; every eligible survivor remains on the Pass branch. Unknown required data goes to Unavailable. All results remain in the audit.
+
+The ordinary Near misses tab is designed for single numeric thresholds. TAM's multi-rule review queue is its dedicated near-miss export. Universe prefilters and upstream boxes can remove companies before TAM evaluates them; its funnel counts describe its own input. Its exchange parameter cannot expand the chosen input universe.
+
+[Openable example workflow](../workflows/proven_technology_emerging_tam.json), [complete checks and defaults](guides/proven_technology_emerging_tam.md). The editor normally supports 10,000 symbols, with up to 25,000 for `fmp_listed`.

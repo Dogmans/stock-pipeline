@@ -1,5 +1,7 @@
 # Logging Usage Audit - 2025-06-21
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Logger Usage Analysis
 
 Today I audited the codebase to ensure all uses of `get_logger()` are properly passing `__name__` as an argument. This is important to maintain accurate module identification in logs.

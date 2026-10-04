@@ -1,5 +1,7 @@
 # Report Formatting Improvement - June 23, 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Change Made
 Updated the price-to-book ratio formatting in the screening report to use 3 decimal places instead of the default 2 decimal places, making values more precise and readable.
 

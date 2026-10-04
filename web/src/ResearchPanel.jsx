@@ -16,7 +16,7 @@ const comparisonFields = [
 
 export function ThresholdDistribution({node, result, catalog}) {
   const rule = ruleFor(node,catalog,result);
-  if (!rule || !result) return null;
+  if (!rule || !result || rule.operator === 'all') return null;
   const rows = Object.values(result.outcomes).flat(), values = rows.map(r => r[rule.field]).filter(numeric);
   if (!values.length) return <p className="muted">No numeric values available for this threshold.</p>;
   const bounds = rule.operator === 'between' ? [...new Set([rule.value, rule.upper_value])] : [rule.value];

@@ -1,5 +1,7 @@
 # Report Format Fixes - June 23, 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Issue Fixed
 Fixed a display issue in the screening report where the price-to-book strategy section was missing the P/B ratios column.
 

@@ -1,5 +1,7 @@
 # Limit Parameter Fix - 2025-06-29
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Issue Fixed
 Today I fixed the behavior of the `--limit` parameter in the main pipeline. Previously, `--limit` was reducing the size of the universe being analyzed, which led to several issues:
 

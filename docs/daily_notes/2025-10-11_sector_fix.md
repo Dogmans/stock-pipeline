@@ -1,5 +1,7 @@
 # Sector Information Fix - 2025-10-11
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Issue Identified
 Some screeners were displaying "Unknown" sectors in reports due to inconsistent field name usage for sector information.
 

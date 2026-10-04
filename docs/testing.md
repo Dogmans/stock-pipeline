@@ -1,285 +1,44 @@
-# Testing with Cache System
+# Testing
 
-## Overview
-
-This document explains how to work with the caching system during testing.
-
-## Offline scoring and reporting regressions
-
-From the repository root, using an environment with the project dependencies:
+Run commands from the repository root using the installed project environment. The normal regression runner isolates temporary cache/output storage and blocks external network access.
 
 ```powershell
-python scripts/run_offline_regressions.py
+.venv-ui\Scripts\python.exe scripts/run_offline_regressions.py
 ```
 
-The runner executes `tests/test_regressions.py` and `tests/test_fmp_transport.py` with temporary cache, log, and
-output storage. It disables `.env` loading, supplies a dummy FMP key, and blocks
-HTTP requests and socket connections. No live API data is required. A successful
-run reports 20 passing tests and exits with status 0.
+It currently includes reporting/scoring regressions, FMP transport/cache checks, workflow validation/routing, the visual API and TAM. TAM coverage includes strict/inclusive boundaries, financial survivability, penalties without exclusion, missing data, annual/TTM fallback, currency mismatch, staging, benchmark counts and export limits.
 
-Coverage includes decimal quality-score thresholds, missing metrics, passing-only
-counts and candidates, zero/unlimited display limits, legacy prefiltered results,
-and a complete pipeline run through the actual quality screener and report writers.
-A separate failure scenario verifies that a failed screener is identified in both
-reports, successful strategies remain available, and the pipeline returns status 1.
-This is a targeted suite; it does not run the existing live provider tests.
-
-FMP transport tests cover actual DiskCache key lookup, empty and expired entries,
-argument and API-key separation, cache reuse across provider instances after HTTP
-calls, and shared session use for central and insider-trading requests.
-
-For the current Windows checkout, if the `.venv` launcher cannot find its original
-Python installation, this verified command uses installed Python 3.12 with the
-existing Python 3.12 dependencies:
+Research and price-change tests can be run separately:
 
 ```powershell
-py -3.12 -c "import sys, runpy; sys.path.insert(0, r'D:\Documents\git\stock-pipeline\.venv\Lib\site-packages'); runpy.run_path('scripts/run_offline_regressions.py', run_name='__main__')"
+.venv-ui\Scripts\python.exe -m unittest tests.test_research tests.test_price_change tests.test_return_on_equity
 ```
 
-## Screener Testing
+The repository also contains older integration and legacy-function tests. Full discovery is not the default offline check: some tests make live API calls, need credentials, clear shared cache, or contain assertions/imports from earlier implementations.
 
-### Testing Analyst Sentiment Momentum Screener
-
-**Individual Stock Testing**:
-```python
-# Test analyst sentiment screener with specific stocks
-from screeners.analyst_sentiment_momentum import screen_for_analyst_sentiment_momentum
-import pandas as pd
-
-# Create test universe with known analyst coverage
-test_universe = pd.DataFrame({
-    'symbol': ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'TSLA'],
-    'security': ['Apple Inc', 'Microsoft Corp', 'NVIDIA Corp', 'Alphabet Inc', 'Tesla Inc'],
-    'gics_sector': ['Technology'] * 5,
-    'gics_sub_industry': ['Technology Hardware', 'Software', 'Semiconductors', 'Internet', 'Auto Manufacturers']
-})
-
-# Run screener
-results = screen_for_analyst_sentiment_momentum(test_universe)
-print(f"Found {len(results)} stocks with positive analyst sentiment")
-print(results[['symbol', 'analyst_momentum_score', 'reason']].head())
+```powershell
+# Includes legacy and potentially live integration tests
+.venv-ui\Scripts\python.exe -m unittest discover -s tests
 ```
 
-**Expected Performance Metrics**:
-- **Processing Speed**: ~2-3 seconds per stock (due to multiple API calls)
-- **API Calls**: 5 endpoints per stock (grades, consensus, estimates, targets, historical)
-- **Data Volume**: 50+ analyst ratings processed per covered stock
-- **Scoring Range**: 0-100 points with weighted multi-component system
-- **Coverage**: 85%+ of large-cap stocks have sufficient analyst coverage
-- **Success Rate**: 10-30% of S&P 500 stocks typically pass screening criteria
+## Frontend and browser checks
 
-**Component Testing**:
-```python
-# Test individual scoring components
-from screeners.analyst_sentiment_momentum import AnalystSentimentMomentumScreener
-
-screener = AnalystSentimentMomentumScreener()
-
-# Test grade change analysis
-test_symbol = 'AAPL'
-grade_score = screener._calculate_rating_momentum_score(grade_data, test_symbol)
-print(f"Rating momentum score for {test_symbol}: {grade_score}")
-
-# Validate scoring thresholds
-assert 0 <= grade_score <= 30, "Rating score should be between 0-30 points"
+```powershell
+cd web
+npm test
+npm run build
+npx playwright install chromium
+npx playwright test
 ```
 
-**API Endpoint Validation**:
-```python
-# Direct endpoint testing for troubleshooting
-from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+Frontend unit tests cover graph mechanics, rule descriptions, rankings, near misses and evidence exports. Browser tests stub API data and run desktop/mobile projects. Set `$env:STOCK_UI_BROWSER_CHANNEL='msedge'` to use installed Edge. `STOCK_UI_EXTERNAL_SERVER` and `STOCK_UI_BASE_URL` can target an existing local build. [Research test details](stock-research.md).
 
-provider = FinancialModelingPrepProvider()
+If Vite's bundled config loader cannot write its temporary config file, use `npm run build -- --configLoader runner`. A write-denied output directory is a separate filesystem issue; the alternate loader does not bypass it.
 
-# Test primary grade endpoint
-grade_data = provider.get_analyst_grades('AAPL')
-print(f"Grade data records: {len(grade_data) if grade_data else 0}")
+## Fixture and cache rules
 
-# Test auxiliary endpoints
-targets = provider.get_analyst_price_targets('AAPL')
-estimates = provider.get_analyst_estimates('AAPL')
-print(f"Price targets: {len(targets) if targets else 'None'}")
-print(f"Estimates: {len(estimates) if estimates else 'None'}")
-```
+Mock data at the actual provider import/use location. Use normalized field names and the correct units/statement dates. Do not patch historical package exports that no longer exist. For isolated cache tests, use temporary storage or exact memoization keys and cleanup. Avoid broad production-cache clearing for routine unit tests. [Cache guide](cache_usage.md).
 
-**Error Handling Validation**:
-```python
-# Test graceful degradation with limited data
-test_cases = [
-    'AAPL',  # High coverage stock
-    'TSLA',  # Volatile analyst coverage
-    'XYZ123'  # Invalid symbol (should handle gracefully)
-]
+If coverage.py is separately installed, run coverage with the same interpreter, for example `python -m coverage run scripts/run_offline_regressions.py`, then `python -m coverage report`. Coverage is not part of the pinned requirements.
 
-for symbol in test_cases:
-    try:
-        result = screen_for_analyst_sentiment_momentum(
-            pd.DataFrame({'symbol': [symbol], 'security': [f'{symbol} Test']})
-        )
-        print(f"{symbol}: {'Pass' if len(result) > 0 else 'Filtered out'}")
-    except Exception as e:
-        print(f"{symbol}: Error handled - {str(e)[:50]}...")
-```
-
-## Cache Handling in Tests
-
-The stock pipeline's test suite interacts with the cache system in various ways:
-
-1. **Default Behavior**: Tests use the cache just like the regular application
-2. **Clearing Cache**: Some tests need a clean cache to ensure predictable results
-3. **Force Refresh**: Tests can bypass the cache when needed
-4. **Mock Caching**: For unit tests, the cache can be mocked
-
-## Strategies for Testing with Cache
-
-### Clearing Cache Before Tests
-
-```python
-import unittest
-from cache_config import cache
-
-class TestMarketData(unittest.TestCase):
-    def setUp(self):
-        # Clear relevant cache entries before each test
-        cache.delete('get_market_conditions')
-        
-    def test_market_conditions(self):
-        # This will execute with a clean cache
-        result = get_market_conditions()
-        self.assertIsNotNone(result)
-```
-
-### Using Force Refresh
-
-```python
-def test_historical_prices_with_fresh_data(self):
-    # Use force_refresh to bypass cache
-    prices = get_historical_prices(['AAPL', 'MSFT'], force_refresh=True)
-    self.assertIsNotNone(prices)
-```
-
-### Testing Cache Hits
-
-```python
-def test_cache_hit(self):
-    # First call will miss cache
-    first_call = get_market_conditions()
-    
-    # Get cache stats
-    hits_before, misses_before = cache.stats()
-    
-    # Second call should hit cache
-    second_call = get_market_conditions()
-    
-    # Get updated stats
-    hits_after, misses_after = cache.stats()
-    
-    # Verify cache was hit
-    self.assertEqual(hits_after, hits_before + 1)
-    self.assertEqual(misses_after, misses_before)
-```
-
-## Mocking the Cache for Unit Tests
-
-For true unit tests, you may want to mock the cache:
-
-```python
-from unittest.mock import patch
-
-@patch('cache_config.cache.memoize', lambda *args, **kwargs: lambda f: f)
-def test_function_without_caching(self):
-    # This will bypass the cache decorator entirely
-    result = my_cached_function()
-    self.assertIsNotNone(result)
-```
-
-## Testing Cache Expiration
-
-Cache expiration can be tested by manipulating the expire parameter:
-
-```python
-def test_cache_expiration(self):
-    from cache_config import cache
-    
-    # Create a function with 1 second expiry for testing
-    @cache.memoize(expire=1)
-    def quick_expire_func():
-        return datetime.now().timestamp()
-    
-    # First call
-    first_val = quick_expire_func()
-    
-    # Immediate second call should return same value (cache hit)
-    self.assertEqual(quick_expire_func(), first_val)
-    
-    # Wait for expiration
-    time.sleep(1.1)
-    
-    # After expiry, should get new value
-    self.assertNotEqual(quick_expire_func(), first_val)
-```
-
-## Running Test Suite with Clean Cache
-
-To run the entire test suite with a clean cache, use this command:
-
-```bash
-python -c "from cache_config import cache; cache.clear()" && python -m unittest discover -s tests
-```
-
-## Test Files Organization (Updated June 2025)
-
-The test files are organized to align with our current architecture:
-
-### Core Test Files
-
-1. `test_screeners.py` - Tests the new screener architecture where each screener fetches its own data
-2. `test_providers.py` - Tests data providers with their API-specific methods
-3. `test_providers.py` - Tests data provider functionality
-4. `test_cache.py` - Tests the caching system
-
-### Other Test Files
-
-- `test_config.py` - Tests configuration loading
-- `test_market_data.py` - Tests market data retrieval
-- `test_providers.py` - Tests data provider functionality 
-- `test_universe.py` - Tests universe selection functions
-- `test_visualization.py` - Tests visualization functions
-- `test_utils.py` - Tests utility functions
-- `test_main.py` - Tests the main pipeline orchestration
-
-### Removed Test Files (June 2025)
-
-As part of our refactoring, we removed the following redundant test files:
-
-1. `test_run_pipeline.py` - Empty file that was no longer needed
-2. `test_simple.py` - Contained only trivial placeholder tests
-
-## Running Tests with VS Code Tasks
-
-We have several VS Code tasks to simplify test execution:
-
-```json
-{
-  "label": "Run All Tests",
-  "type": "shell",
-  "command": "python",
-  "args": ["-m", "unittest", "discover", "-s", "tests"],
-  "group": "test"
-},
-{
-  "label": "Run All Tests with Coverage",
-  "type": "shell",
-  "command": "python",
-  "args": ["-m", "coverage", "run", "-m", "unittest", "discover", "-s", "tests", "&&", "python", "-m", "coverage", "report"],
-  "group": "test"
-}
-```
-
-## Special Considerations
-
-1. **Tests That Modify Cache**: If your test modifies the cache behavior, be sure to restore the original state in the `tearDown` method.
-
-2. **Integration Tests**: Integration tests might benefit from using the cache to avoid hitting external APIs repeatedly.
-
-3. **Performance Tests**: For performance testing, it's important to run both with cold cache and warm cache to understand both scenarios.
+[Tests directory](../tests/README.md), [legacy turnaround tests](testing/turnaround_screener_testing.md). Passing mocked tests does not verify live FMP entitlements or broad-universe survivor counts.

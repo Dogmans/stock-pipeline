@@ -1,5 +1,7 @@
 # Screeners Package Refactoring
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 *July 2, 2025*
 
 ## Overview

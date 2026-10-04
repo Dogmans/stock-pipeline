@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "Proven Technology / Emerging TAM research universe",
+  "universe": {"name": "fmp_listed"},
+  "nodes": [
+    {"id": "universe", "type": "universe", "position": {"x": 0, "y": 150}},
+    {"id": "tam", "type": "screener", "screener": "proven_technology_emerging_tam", "params": {}, "criterion": {"operator": "default"}, "position": {"x": 350, "y": 150}},
+    {"id": "survivors", "type": "output", "label": "All quantitative survivors", "position": {"x": 700, "y": 0}},
+    {"id": "failures", "type": "output", "label": "Failures with evidence", "position": {"x": 700, "y": 260}},
+    {"id": "unavailable", "type": "output", "label": "Missing data for review", "position": {"x": 700, "y": 520}}
+  ],
+  "edges": [
+    {"id": "input", "source": "universe", "sourceHandle": "passed", "target": "tam"},
+    {"id": "pass", "source": "tam", "sourceHandle": "passed", "target": "survivors"},
+    {"id": "fail", "source": "tam", "sourceHandle": "failed", "target": "failures"},
+    {"id": "missing", "source": "tam", "sourceHandle": "unavailable", "target": "unavailable"}
+  ]
+}

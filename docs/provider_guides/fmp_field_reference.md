@@ -1,6 +1,6 @@
 # Financial Modeling Prep (FMP) API Field Reference
 
-Quick reference guide for FMP API field names and common mistakes.
+Quick reference for normalized repository output, reviewed on 2026-10-04. Fields can be absent or empty even when declared in a TypedDict. This page describes `FinancialModelingPrepProvider`; TAM stable profile metadata uses raw field names and its own derived metrics.
 
 ## 📋 Table of Contents
 
@@ -31,7 +31,7 @@ overview['Industry']        # 'Consumer Electronics'
 overview['Description']     # Company description
 
 # Market Data
-overview['MarketCapitalization']  # Market cap in dollars
+overview['MarketCapitalization']  # Amount; verify quote currency before USD comparisons
 overview['SharesOutstanding']     # Shares outstanding
 overview['Beta']                  # Beta coefficient
 
@@ -48,7 +48,7 @@ overview['ReturnOnEquityTTM']    # ROE as decimal
 overview['ReturnOnAssetsTTM']    # ROA as decimal
 overview['ProfitMargin']         # Profit margin as decimal
 overview['OperatingMarginTTM']   # Operating margin as decimal
-overview['RevenueGrowth']        # Revenue growth as decimal
+overview.get('RevenueGrowth')    # Declared in type, but not populated by this provider
 
 # Price Range
 overview['52WeekHigh']           # 52-week high (string)
@@ -79,7 +79,7 @@ latest = income.iloc[0]
 
 # Revenue (⚠️ Use 'totalRevenue' NOT 'revenue')
 latest['totalRevenue']          # ✅ Correct
-latest['revenue']               # ❌ Returns None
+latest['revenue']               # ❌ Raises KeyError when only normalized fields exist
 
 # Operating Metrics
 latest['operatingIncome']       # Operating income
@@ -127,7 +127,7 @@ latest['totalDebt']               # Total debt
 # Equity (⚠️ Use these, NOT 'totalStockholdersEquity')
 latest['totalEquity']              # ✅ Correct
 latest['totalShareholderEquity']   # ✅ Also correct
-latest['totalStockholdersEquity']  # ❌ Returns None
+latest['totalStockholdersEquity']  # ❌ Raises KeyError when only normalized fields exist
 
 # Calculate Key Ratios:
 current_ratio = latest['totalCurrentAssets'] / latest['totalCurrentLiabilities']
@@ -225,8 +225,10 @@ df['High']                             # ✅
 # Cash Flow (check both!)
 data.get('freeCashflow')               # ✅ (might exist)
 data.get('freeCashFlow')               # ✅ (might exist)
-# Better:
-fcf = data.get('freeCashflow') or data.get('freeCashFlow')
+# Preserve a valid zero instead of using boolean fallback:
+fcf = data.get('freeCashflow')
+if fcf is None:
+    fcf = data.get('freeCashFlow')
 
 # Current Ratio (not in overview!)
 overview.get('CurrentRatio')           # ❌ Returns None
@@ -250,18 +252,22 @@ provider = data_providers.get_provider('financial_modeling_prep')
 
 # IDE will now autocomplete fields
 overview: FMPCompanyOverview = provider.get_company_overview('AAPL')
-sector = overview['Sector']  # Type-safe!
+sector = overview.get('Sector')  # Type hints do not validate API availability
 
 # For DataFrames, access rows as typed dicts
 balance = provider.get_balance_sheet('AAPL')
 latest_bs: FMPBalanceSheet = balance.iloc[0].to_dict()
-equity = latest_bs['totalEquity']  # Type-safe!
+equity = latest_bs.get('totalEquity', latest_bs.get('totalShareholderEquity'))
 ```
 
 ---
 
 ## See Also
 
-- **Complete type definitions:** [fmp_types.py](../data_providers/fmp_types.py)
-- **Provider implementation:** [financial_modeling_prep.py](../data_providers/financial_modeling_prep.py)
-- **Usage examples:** [composite_score.py](../screeners/composite_score.py)
+- **Complete type definitions:** [fmp_types.py](../../data_providers/fmp_types.py)
+- **Provider implementation:** [financial_modeling_prep.py](../../data_providers/financial_modeling_prep.py)
+- **Usage examples:** [composite_score.py](../../screeners/composite_score.py)
+
+## Period and currency caveats
+
+Overview fields labelled TTM may originate from annual ratios, and profitability fields are populated only when that conditional endpoint is called. `DataCompleteness` is not a per-field guarantee. Check `FinancialPeriod`, `RatiosPeriod`, quote currency and statement currency. Guard empty frames and zero/nonpositive denominators before calculations. [TAM formulas and data evidence](../guides/proven_technology_emerging_tam.md).

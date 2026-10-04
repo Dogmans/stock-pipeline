@@ -1,5 +1,7 @@
 # 2025-06-24: Turnaround Companies Screener
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## New Screener Implementation: Companies That Have "Turned the Corner"
 
 Today I implemented a new screener for identifying companies that have "turned the corner" or show signs of financial improvement. This screener addresses a crucial investing strategy: finding companies transitioning from financial stress to recovery.

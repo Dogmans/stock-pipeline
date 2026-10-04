@@ -46,6 +46,10 @@ class WorkflowTests(unittest.TestCase):
                 rule = entry['default_rule']
                 self.assertIsNotNone(rule)
                 screener = get_screener(entry['id'])
+                if entry.get('multi_rule'):
+                    self.assertEqual(rule['operator'], 'all')
+                    self.assertIn('checks', rule)
+                    continue
                 boundary = rule['value']
                 for offset in (-0.01, 0, 0.01):
                     value = boundary + offset

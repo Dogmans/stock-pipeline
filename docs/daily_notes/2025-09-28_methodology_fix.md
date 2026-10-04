@@ -1,5 +1,7 @@
 # Critical Methodology Fix - Insider Buying Screener
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Date: September 28, 2025
 
 ### Issue Identified

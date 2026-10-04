@@ -29,6 +29,8 @@ class Cancelled(Exception):
 
 def default_rule(name, instance):
     """Describe the default pass condition, including editable threshold parameters."""
+    if getattr(instance, 'multi_rule', False):
+        return instance.rule_description()
     if name == 'price_change':
         return dict(metric='Price change', operator='between', value=instance.min_change,
                     upper_value=instance.max_change, parameter='min_change', upper_parameter='max_change', unit='%',
@@ -90,6 +92,7 @@ def screener_catalog():
                     ('1y', '1 year (252 sessions)'), ('custom', 'Custom sessions')]]
         catalog.append({'id': name, 'label': instance.get_strategy_name(),
                         'description': description, 'parameters': parameters,
+                        'multi_rule': getattr(instance, 'multi_rule', False),
                         'default_rule': default_rule(name, instance)})
     return catalog
 
@@ -126,6 +129,8 @@ def validate_workflow(document, catalog=None):
                 elif not isinstance(value, str) or len(value) > 40:
                     raise WorkflowError(f'{key} must be short text.')
             criterion = node.get('criterion', {'operator': 'default'})
+            if entry.get('multi_rule') and isinstance(criterion, dict) and criterion.get('operator') != 'default':
+                raise WorkflowError('This research screen uses all eligibility checks; edit its parameters instead of overriding the score.')
             if not isinstance(criterion, dict) or criterion.get('operator') not in ('default', 'gte', 'lte'):
                 raise WorkflowError('Choose the default rule, score ≥, or score ≤.')
             if criterion['operator'] != 'default':
@@ -229,7 +234,7 @@ class WorkflowEngine:
             if frame is None or frame.empty or 'symbol' not in frame:
                 raise WorkflowError('The universe returned no symbols. Check the universe and FMP access.')
             frame = frame.drop_duplicates('symbol').copy()
-            if len(frame) > 10000:
+            if len(frame) > (25000 if universe_spec.get('name') == 'fmp_listed' else 10000):
                 raise WorkflowError('This editor supports up to 10,000 symbols per run.')
             if 'security' not in frame:
                 frame['security'] = frame['symbol']
@@ -293,6 +298,8 @@ class WorkflowEngine:
                 screener = self.factory(node['screener'], **node.get('params', {}))
                 if screener is None:
                     raise WorkflowError(f"Could not create screener {node['screener']}.")
+                if getattr(screener, 'multi_rule', False):
+                    logger.info('Effective %s settings: %s', node['screener'], screener.settings)
                 criterion = node.get('criterion', {'operator': 'default'})
                 if criterion['operator'] == 'default':
                     applied_rule = default_rule(node['screener'], screener)
@@ -363,6 +370,9 @@ class WorkflowEngine:
                                         'counts': {key: len(rows) for key, rows in outcomes.items()}}
             if applied_rule:
                 result['nodes'][node_id]['rule'] = applied_rule
+            if node['type'] == 'screener' and getattr(screener, 'multi_rule', False):
+                from screening_audit import build_audit
+                result['nodes'][node_id]['screening_audit'] = build_audit(screener, scored)
             if node['type'] == 'universe':
                 result['nodes'][node_id]['input_count'] = sum(len(rows) for rows in outcomes.values())
             result['errors'] += len(outcomes['error']) if node['type'] == 'screener' else 0
@@ -383,6 +393,10 @@ def run_workflow_cli(path, output_dir, display_limit=20):
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     (destination / 'workflow_results.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
+    from screening_audit import write_audit
+    for node_id, node_result in result['nodes'].items():
+        if 'screening_audit' in node_result:
+            write_audit(node_result['screening_audit'], destination / node_id)
     # A shortlist can deliberately be connected to a fail branch: label it as selected.
     selected = pd.DataFrame(result['shortlist'])
     if not selected.empty:

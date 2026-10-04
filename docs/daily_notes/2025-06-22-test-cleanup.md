@@ -1,5 +1,7 @@
 # Test Cleanup - June 22, 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Redundant Test Files Removed
 
 As part of our ongoing refactoring, we've removed the following redundant test files:

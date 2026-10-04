@@ -340,7 +340,10 @@ def get_stock_universe(universe=None, force_refresh=False):
 @cache.memoize(expire=24*3600)  # Cache for 24 hours
 def _get_stock_universe_cached(universe, cache_version=2):
     """Internal cached function for stock universe selection."""
-    if universe == config.UNIVERSES["SP500"]:
+    if universe == 'fmp_listed':
+        from data_providers.fmp_screening import FMPScreeningProvider
+        result = FMPScreeningProvider().listing_universe()
+    elif universe == config.UNIVERSES["SP500"]:
         result = get_sp500_symbols()
     elif universe == config.UNIVERSES["RUSSELL2000"]:
         result = get_russell2000_symbols()

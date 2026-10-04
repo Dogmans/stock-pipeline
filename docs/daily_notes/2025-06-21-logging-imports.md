@@ -1,5 +1,7 @@
 # Logging Import Analysis - 2025-06-21
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Redundant Logging Imports Analysis
 
 Today I audited the codebase to identify modules that have redundant imports of the `logging` module when they are already using `get_logger` from our custom utils module.

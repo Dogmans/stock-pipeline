@@ -1,5 +1,7 @@
 # Architecture Transformation Complete - 2025-10-11
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Summary
 Successfully completed transformation from function-based to BaseScreener class-based architecture. The system is now fully operational with the new object-oriented design.
 

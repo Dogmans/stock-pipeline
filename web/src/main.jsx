@@ -33,6 +33,14 @@ function ScreeningPath({ context }) {
 }
 
 function ScoreBreakdown({ row }) {
+  if (Array.isArray(row.checks)) return <details className="score-breakdown"><summary>Eligibility checks and research-priority penalties</summary>
+    <div className="table-scroll"><table><thead><tr><th>Check</th><th>Actual</th><th>Required</th><th>Outcome</th></tr></thead><tbody>{row.checks.map(check => <tr key={check.rule}><td>{check.rule.replaceAll('_', ' ')}</td><td>{JSON.stringify(check.value)}</td><td>{check.operator} {JSON.stringify(check.threshold)}</td><td>{check.status}</td></tr>)}</tbody></table></div>
+    <p>Priority starts at 100; eligibility is independent of this score.</p>
+    {(row.penalties || []).map((penalty, index) => <p key={index}>{penalty.metric}: −{penalty.points.toFixed(2)} points ({penalty.reason})</p>)}
+    <p>{row.revenue_basis || 'Revenue basis unavailable'}; {row.ev_basis}</p>
+    {(row.data_warnings || []).map((warning, index) => <p key={index}>{warning}</p>)}
+    <details><summary>Effective settings and source dates</summary><pre>{JSON.stringify({settings:row.effective_settings, sources:row.source_dates, fx:row.fx}, null, 2)}</pre></details>
+  </details>;
   if (row.price_basis) return <details className="score-breakdown"><summary>Price change calculation</summary>
     <p>{row.trading_days} trading sessions / {row.currency || 'Currency unavailable'}</p>
     <p>{row.start_date || 'Unavailable'}: {row.start_price ?? 'Unavailable'} to {row.end_date || 'Unavailable'}: {row.end_price ?? 'Unavailable'}</p>
@@ -95,7 +103,7 @@ function WorkflowNode({ id, data, selected }) {
     {isScreener && <div className="node-rule nodrag">
       <select aria-label={`${data.catalog?.label || data.screener} rule`} value={data.criterion.operator} disabled={data.busy}
         onChange={event => data.onUpdate(id, { criterion: { operator: event.target.value, value: data.criterion.value ?? 10 } })}>
-        <option value="default">{defaultRuleText(data.catalog, data.params)}</option><option value="gte">Score ≥</option><option value="lte">Score ≤</option>
+        <option value="default">{data.catalog?.multi_rule ? 'All eligibility checks (edit settings)' : defaultRuleText(data.catalog, data.params)}</option>{!data.catalog?.multi_rule && <><option value="gte">Score ≥</option><option value="lte">Score ≤</option></>}
       </select>
       {data.criterion.operator !== 'default' && <input type="number" step="any" aria-label="Score threshold" value={data.criterion.value ?? ''} disabled={data.busy}
         onChange={event => data.onUpdate(id, { criterion: { ...data.criterion, value: event.target.value === '' ? null : Number(event.target.value) } })}/>}
@@ -271,7 +279,7 @@ function Studio() {
         {rows.length ? <div className="table-scroll"><table><thead><tr><th>Symbol</th><th>Company</th><th>Score</th><th>Decision / reason</th></tr></thead><tbody>{rows.slice(0, 500).map(row => <tr key={row.symbol}><td><button className="stock-link" onClick={() => openStock(row.symbol)} disabled={stockLoading === row.symbol}>{stockLoading === row.symbol ? 'Loading…' : row.symbol}</button></td><td>{row.company_name || row.security || '—'}</td><td>{typeof row.score === 'number' ? row.score.toFixed(2) : '—'}</td><td>{row.reason || 'Included in universe'}<ScoreBreakdown row={row}/></td></tr>)}</tbody></table>{rows.length > 500 && <p>Showing 500 rows. CSV includes all {rows.length} matching stocks.</p>}</div> : <div className="empty-state"><ListFilter size={23}/><div><strong>{stale ? 'Results need an update' : result ? 'No stocks in this outcome' : 'Your results will appear here'}</strong><p>{stale ? 'Run this workflow to see results for its current settings.' : result ? 'Select another outcome or connection to explore the run.' : 'Run the workflow, then click a node or connection to explore its stocks.'}</p></div></div>}
         </ResearchPanel>
       </section></main>
-      <aside className="inspector"><div className="section-heading">Workflow settings <SlidersHorizontal size={16}/></div><label className="field">Universe<select disabled={busy} value={universe.symbols ? 'custom' : universe.name} onChange={e => setUniverse(e.target.value === 'custom' ? {symbols: example.universe.symbols, filters: universe.filters} : {name: e.target.value, filters: universe.filters})}><option value="custom">Custom symbols</option><option value="sp500">S&P 500</option><option value="russell2000">Russell 2000</option><option value="nasdaq100">Nasdaq 100</option></select></label>
+      <aside className="inspector"><div className="section-heading">Workflow settings <SlidersHorizontal size={16}/></div><label className="field">Universe<select disabled={busy} value={universe.symbols ? 'custom' : universe.name} onChange={e => setUniverse(e.target.value === 'custom' ? {symbols: example.universe.symbols, filters: universe.filters} : {name: e.target.value, filters: universe.filters})}><option value="custom">Custom symbols</option><option value="fmp_listed">FMP listed: US, TSX and TSXV</option><option value="sp500">S&P 500</option><option value="russell2000">Russell 2000</option><option value="nasdaq100">Nasdaq 100</option></select></label>
         {universe.symbols && <label className="field">Symbols<textarea disabled={busy} aria-label="Symbols" value={universe.symbols.join(', ')} onChange={e => setUniverse({...universe, symbols: e.target.value.toUpperCase().split(/[\s,]+/).filter(Boolean)})}/><small>Comma-separated stock symbols</small></label>}
         <details className="universe-filters"><summary>Universe eligibility filters</summary>
           <p className="muted">Applied before screening. Missing eligibility data appears under the source node’s Unavailable outcome. Filters require company data for each candidate.</p>
@@ -285,6 +293,7 @@ function Studio() {
           {selected.data.kind === 'screener' && <p className="default-rule">Default pass condition: {defaultRuleText(byScreener[selected.data.screener], selected.data.params)}
             {byScreener[selected.data.screener]?.default_rule?.note && <span className="default-rule-note">{byScreener[selected.data.screener].default_rule.note}</span>}
           </p>}
+          {selectedResult?.screening_audit && <details open><summary>Settings used in this run</summary><dl>{Object.entries(selectedResult.screening_audit.summary.effective_settings).map(([key,value]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{String(value) || 'All countries'}</dd></div>)}</dl><p>{selectedResult.screening_audit.summary.final_candidate_count} candidates; {selectedResult.screening_audit.summary.near_miss_count} near misses. All survivors remain on the Pass branch.</p>{['summary','candidates','near_misses','audit'].map(key => <button key={key} onClick={() => download(`tam_${key}.json`, JSON.stringify(selectedResult.screening_audit[key], null, 2), 'application/json')}>Export {key.replaceAll('_',' ')}</button>)}</details>}
           {selected.data.kind === 'screener' && <ThresholdDistribution node={selected} result={selectedResult} catalog={byScreener}/>}
           {(byScreener[selected.data.screener]?.parameters || []).filter(param => selected.data.screener !== 'price_change' || param.name !== 'custom_days' || selected.data.params?.period === 'custom').map(param => {
             const change = e => { const params = {...selected.data.params}; if (e.target.value === '') delete params[param.name]; else params[param.name] = param.type === 'number' ? Number(e.target.value) : e.target.value; update(selected.id, {params}); };

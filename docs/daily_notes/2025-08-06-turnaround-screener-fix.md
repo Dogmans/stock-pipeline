@@ -1,5 +1,7 @@
 # Turnaround Screener Fix - 2025-08-06
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Issues Fixed
 Fixed parameter mismatch in the turnaround screener when calling Financial Modeling Prep provider methods.
 

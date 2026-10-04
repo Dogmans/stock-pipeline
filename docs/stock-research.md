@@ -12,9 +12,9 @@ Run a workflow, select an output node, then use the tabs in the results panel:
 
 The stock sidebar adds sector percentiles among the stocks evaluated at each screening step. This is a sample comparison, not an industry-wide ranking. At least two stocks with a known matching sector and numeric metric are required. The financial-history button loads up to five annual reporting periods, with revenue, earnings, margin, debt and free cash flow where available.
 
-Selecting a screener shows its numeric distribution and applied threshold. Its canvas dropdown displays the compact rule. The sidebar shows source, reporting periods, quote timestamp, retrieval timestamp and missing-field coverage where the provider supplies them. Existing cache entries may lack newly added metadata; they remain labelled unavailable until refreshed through the normal cache lifecycle. Starting a new score snapshot does not bypass the underlying FMP data cache.
+Selecting an ordinary score-based screener shows its numeric distribution and applied threshold. TAM displays its multiple eligibility checks and effective run settings instead. Its canvas dropdown displays the compact rule. The sidebar shows source, reporting periods, quote timestamp, retrieval timestamp and missing-field coverage where the provider supplies them. Existing cache entries may lack newly added metadata; they remain labelled unavailable until refreshed through the normal cache lifecycle. Starting a new score snapshot does not bypass the underlying FMP data cache.
 
-The universe selector supports the existing S&P 500, Nasdaq 100 and Russell 2000 sources. Optional exchange, minimum market-cap and average daily share-volume filters run before screening. Exchange matches the provider's full or short exchange name. Market-cap minimums are in the quote currency. Excluded and unavailable candidates remain inspectable in the source node's outcome tabs. Filtering needs company data for every candidate, so a broad universe can take longer.
+The universe selector supports custom symbols, the existing S&P 500, Nasdaq 100 and Russell 2000 sources, and `fmp_listed` for US/TSX/TSXV discovery. Index and ETF-derived sources are not complete listing universes. Optional exchange, minimum market-cap and average daily share-volume filters run before screening. Exchange matches the provider's full or short exchange name. Market-cap minimums are in the quote currency. Excluded and unavailable candidates remain inspectable in the source node's outcome tabs. Filtering needs company data for every candidate, so a broad universe can take longer.
 
 ## Return on equity
 
@@ -31,6 +31,14 @@ The `price_change` node checks an inclusive minimum/maximum percentage change (d
 The calculation is `(end close / start close - 1) * 100`, using FMP stable daily split-adjusted closes, excluding dividends and today's potentially incomplete bar. Each result records the actual endpoint dates and prices in its calculation details. A period needs N+1 observations; insufficient history, invalid prices, duplicate dates or gaps exceeding 10 calendar days produce Unavailable. Periods count observed sessions, not exact calendar months; smaller missing-data gaps cannot be distinguished from exchange closures.
 
 Near misses check both range boundaries; distributions show both limits. Higher returns receive higher percentile ranks, which measures price strength rather than valuation.
+
+## TAM research universe
+
+TAM's priority score is separate from eligibility and does not claim to measure technological proof or emerging TAM. Its dedicated exports contain up to 250 candidates, 100 near misses, a complete audit and benchmark diagnostics. Generic threshold-distance near misses do not apply to this multi-rule node. Use its dedicated near-miss export and retained rule evidence.
+
+The Rank view can order its numeric priority scores within the selected sample. Independent rule values and reasons remain in the result details; a percentile rank cannot override a failed hard check. Broad candidate sets must be reduced to at most 100 selected stocks before using forward Performance. No automated qualitative AI research stage is implemented.
+
+[Checks, formulas and limitations](guides/proven_technology_emerging_tam.md).
 
 ## Validation
 

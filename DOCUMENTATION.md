@@ -1,217 +1,51 @@
-# Stock Screening Pipeline Documentation
+# Stock Pipeline architecture
 
-This document provides a detailed overview of the stock screening pipeline components and their functions.
+Reviewed against the repository on 2026-10-04. Start with [README.md](README.md) for installation and [the documentation index](docs/README.md) for topic guides.
 
-## Architecture Overview
+## Execution paths
 
-The stock screening pipeline is built with a modular architecture that separates concerns into specialized components. This makes the codebase easier to maintain, test, and extend with new functionality.
+The standalone CLI in `main.py` resolves a universe, gathers market context, runs selected registered screeners independently, and writes Markdown/text reports. A comma-separated strategy list is not a sequential filter chain. Normal `--strategies all` excludes opt-in research screens.
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Data Collection│────▶│ Data Processing │────▶│    Screeners    │
-│   & Caching     │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                                               │
-        │                                               │
-        │                                               ▼
-┌─────────────────┐                          ┌─────────────────┐
-│                 │                          │                 │
-│    Main Orchestrator    ◀────────────────▶│  Visualization  │
-│                 │                          │                 │
-└─────────────────┘                          └─────────────────┘
-```
+The editor API in `visual_api.py` and `main.py --workflow` use `WorkflowEngine` in `workflow.py`. The engine validates a rooted graph, evaluates each screener per input symbol, routes Pass/Fail/Unavailable/Error outcomes, and records node rules, stock evidence and connection counts. It supports source fan-out but no cycles or merges. Output nodes collect their incoming records; connecting a Fail branch to an output deliberately selects failures.
 
-## Component Details
+## Components
 
-### Data Collection Modules
+| Path | Responsibility |
+| --- | --- |
+| `universe.py` | Index constituents, index union, ETF-derived country sets and `fmp_listed` discovery listings |
+| `utils/screener_registry.py` | Explicit class registration, construction, catalog and default strategy selection |
+| `screeners/base_screener.py` | Common screener interface, data fetching and result assembly |
+| `screeners/` | Registered class implementations and separate legacy function modules |
+| `data_providers/financial_modeling_prep.py` | Existing FMP overview, statements, prices and auxiliary endpoints |
+| `data_providers/fmp_screening.py` | Stable FMP discovery access, eight-quarter requests, FX and bounded retries |
+| `screening_audit.py` | TAM funnel, benchmarks, candidate/near-miss selection and JSON exports |
+| `cache_config.py` | DiskCache FanoutCache under `data/cache`, with eight shards |
+| `utils/rate_limiter.py`, `utils/throttling.py` | Request-level limits and selected method-level throttling |
+| `reporting.py` | Passing-stock Markdown/text reports |
+| `web/src/` | React flow editor, inspections, ranking and research controls |
+| `research.py` | Local run history, research snapshots, financial history and forward price tracking |
+| `technical_indicators.py`, `visualization.py` | Supporting analysis/legacy visualization utilities; not the default report pipeline |
 
-These modules handle fetching data from various sources and APIs.
+## Results and eligibility
 
-| Module | Description |
-|--------|-------------|
-| `universe.py` | Defines and retrieves stock universes (S&P 500, NASDAQ 100, Russell 2000) which serve as the basis for screening. |
-| `market_data.py` | Gathers market-level data including indices, VIX, and sector performance metrics to provide market context. |
-| `data_providers/` | Modular data provider architecture for financial data collection with multiple API support (Financial Modeling Prep, YFinance). |
-| `cache_config.py` | Implements file-based caching system to reduce redundant API calls, improve performance, and persist data between program runs. |
+Most class screeners return scored rows with `meets_threshold`, including failures. The base class can skip missing data or invalid scores; it does not guarantee one row per symbol. Workflow execution turns absent evaluations into explicit Unavailable outcomes and raised processing failures into Error outcomes. The reporting layer displays passing rows only and does not fill short reports with failed stocks.
 
-### Utilities
+TAM overrides the base evaluation path to retain every input and evaluates multiple hard checks independently of its research-priority score. Its default rule cannot be replaced with a score threshold. Every run retains effective settings, raw statement rows, calculations and rule evidence. See [the TAM guide](docs/guides/proven_technology_emerging_tam.md).
 
-| Module | Description |
-|--------|-------------|
-| `utils/` | Package providing common utility functions used throughout the pipeline:
-| | - `logger.py`: Logging setup functionality
-| | - `filesystem.py`: Directory and file operations 
-| | - `rate_limiter.py`: API rate limiting functionality
-| | - `shared_persistence.py`: Shared persistence layer for data storage |
+The existing `composite_score` is a weighted numeric factor screener. Legacy combined functions rank intersection membership in returned result sets; that is not the same as passing every component threshold or a grouped workflow node.
 
-### Screening Engine
+## Providers and configuration
 
-The screening engine uses a modular architecture with individual screener modules in the `screeners/` package:
+Registered screeners normally initialize their own FMP provider. Standalone `--data-provider` selects the provider passed to market-context collection; it does not rewire those screener instances. Configuration is split between `config.py`, constructor defaults and implementation constants. The editor derives editable parameters from constructor signatures.
 
-| Module | Description |
-|--------|-------------|
-| `base_screener.py` | Abstract base class defining the interface for all screeners with standardized methods |
-| `pe_ratio.py` | P/E ratio screener for classic value stock identification |
-| `price_to_book.py` | Price-to-book value screener following Graham's principles |
-| `peg_ratio.py` | PEG ratio screener for growth at reasonable price |
-| `quality.py` | Basic quality screener (10-point financial strength assessment) |
-| `enhanced_quality.py` | Advanced quality screener (0-100 granular scoring system) |
-| `free_cash_flow_yield.py` | Free cash flow yield screener using API calculations |
-| `historic_value.py` | **NEW**: Historic value screener for mean reversion opportunities |
-| `momentum.py` | Momentum screener based on 6M/3M performance analysis |
-| `sharpe_ratio.py` | Risk-adjusted return screener using Sharpe ratios |
-| `fifty_two_week_lows.py` | Screener for quality stocks near 52-week lows |
-| `insider_buying.py` | Pre-pump insider buying pattern detection |
-| `fallen_ipos.py` | Post-IPO stabilization opportunity screener |
-| `turnaround_candidates.py` | Financial turnaround situation screener |
-| `sector_corrections.py` | Sector-wide correction opportunity detection |
-| `combined.py` | Combined screening strategies and pre-configured approaches |
-| `utils.py` | Utility functions and screener registry management |
+FMP overview fields are assembled from legacy endpoints and may be missing or conditional. Statement columns are normalized; ratios are generally decimals. Discovery uses isolated stable endpoints without migrating existing consumers. [Provider guide](docs/provider_guides/financial_modeling_prep.md).
 
-### Caching System
+## Persistence and freshness
 
-The pipeline includes a comprehensive caching system to improve performance and reduce redundant API calls.
+Disk cache entries persist across processes and expire per method. In-memory score snapshots are bounded and disappear when the API restarts. Completed editor history persists separately in `output/workflow_history`. Restoring history does not refresh its data. A new score snapshot still uses the disk cache.
 
-| Feature | Description |
-|---------|-------------|
-| File-based cache | Cache data is stored in JSON files in the `data/cache` directory, with filenames derived from function names and arguments |
-| Configurable expiration | Each cache type can have its own expiration time (default: 24 hours), after which data is automatically refreshed |
-| Force refresh option | Any cached function can be forced to ignore cache and fetch fresh data by passing `force_refresh=True` |
-| Cache management | Command-line options allow viewing cache stats, clearing all cache, or removing old cache files |
-| DataFrame serialization | Special JSON serialization/deserialization for pandas DataFrames ensures proper caching of complex data structures |
-| CLI integration | The `main.py` script supports cache management arguments for easier control |
+Many existing refresh methods clear the entire cache. `clear_old_cache` is not selective age deletion: under 168 hours it does nothing; at least 168 hours clears everything. [Cache guide](docs/cache_usage.md).
 
-Command-line options for cache management:
+## Extending the application
 
-```
---cache-info         Display cache statistics and exit
---clear-cache        Clear all cache files before running
---force-refresh      Bypass cache and fetch fresh data for all API calls
---clear-old-cache N  Clear cache files older than N hours
-```
-
-See `scripts.md` for examples of combining these options with other commands.
-
-### Visualization and Output
-
-| Module | Description |
-|--------|-------------|
-| `visualization.py` | Creates visualizations of screening results, including charts, tables, and interactive dashboards. Generates both static and dynamic visualizations for analysis and presentation. |
-
-### Orchestration
-
-| Module | Description |
-|--------|-------------|
-| `main.py` | The main entry point that orchestrates the entire pipeline. Handles command line arguments, executes the data collection, processing, screening, and visualization in sequence. |
-
-### Configuration
-
-| Module | Description |
-|--------|-------------|
-| `config.py` | Contains all configuration settings for the pipeline, including API keys, screening thresholds, market indexes, and general settings. Centralizes all configurable parameters in one place. |
-
-## Key Components in Detail
-
-### Universe Selection (`universe.py`)
-
-The universe module provides functions for defining and retrieving various stock universes:
-
-- `get_sp500_symbols()`: Retrieves current S&P 500 constituents from Wikipedia
-- `get_russell2000_symbols()`: Retrieves Russell 2000 constituents from iShares ETF holdings
-- `get_nasdaq100_symbols()`: Retrieves NASDAQ 100 constituents from Wikipedia
-- `get_stock_universe()`: Main function that returns the specified universe based on configuration
-
-### Market Data Collection (`market_data.py`)
-
-This module gathers market-level data to provide context for stock screening:
-
-- `get_market_conditions()`: Retrieves data on major market indices and VIX
-- `is_market_in_correction()`: Determines if the market is in correction based on VIX levels
-- `get_sector_performances()`: Calculates performance metrics for market sectors to identify trends
-
-### Data Providers (`data_providers/` package)
-
-Modular data collection architecture with multiple API provider support:
-
-- `FinancialModelingPrepProvider`: Primary provider with comprehensive financial data (300 calls/minute)
-- `YFinanceProvider`: Yahoo Finance integration for price data and market indices
-
-### Screening Strategies (`screeners/` package)
-
-The pipeline implements 11 comprehensive screening strategies using a standardized BaseScreener architecture:
-
-#### Value Investing Screeners
-- `PERatioScreener`: Classic P/E ratio screening (threshold: < 10)
-- `PriceToBookScreener`: Graham-style book value analysis (threshold: < 1.2)
-- `PEGRatioScreener`: Growth at reasonable price screening
-- `HistoricValueScreener`: **NEW** - Mean reversion value screening with multi-factor analysis:
-  - Valuation discount scoring (40% weight): P/E, P/B, EV/EBITDA vs historical averages
-  - Quality filters (35% weight): ROE, profitability, financial stability
-  - Market structure analysis (25% weight): Market cap, volatility patterns
-  - Distress avoidance mechanisms and minimum thresholds
-
-#### Quality & Fundamental Screeners  
-- `QualityScreener`: Basic financial strength (10-point assessment)
-- `EnhancedQualityScreener`: Advanced quality analysis (0-100 granular scoring)
-- `FCFYieldScreener`: Free cash flow yield analysis using API calculations
-
-#### Technical & Momentum Screeners
-- `MomentumScreener`: 6M/3M weighted performance analysis
-- `SharpeRatioScreener`: Risk-adjusted return screening
-- `FiftyTwoWeekLowsScreener`: Quality stocks near yearly lows
-
-#### Special Situation Screeners
-- `InsiderBuyingScreener`: Pre-pump insider activity pattern detection (0-100 scoring)
-- `FallenIPOsScreener`: Post-IPO stabilization opportunities
-- `TurnaroundCandidatesScreener`: Financial recovery pattern detection
-- `SectorCorrectionsScreener`: Sector-wide correction opportunities
-
-#### Combined Strategies (`combined.py`)
-- Pre-configured strategy combinations for common investment approaches
-- Traditional value, high performance, and comprehensive screening modes
-
-### Visualization (`visualization.py`)
-
-Creates visual representations of the screening results:
-
-- `create_stock_charts()`: Generates price charts for individual stocks
-- `create_dashboard()`: Creates an interactive HTML dashboard with all screening results
-- `create_market_overview()`: Visualizes market conditions and sector performance
-
-### Main Script (`main.py`)
-
-The orchestrator of the pipeline:
-
-- Parses command line arguments
-- Sets up logging and directories
-- Retrieves stock universe and market data
-- Fetches and processes stock data
-- Runs screening strategies
-- Creates visualizations and reports
-- Outputs summary information
-
-## Pipeline Workflow
-
-1. **Universe Selection**: Choose which stocks to analyze (S&P 500, Russell 2000, etc.)
-2. **Market Analysis**: Check overall market conditions and sector performance
-3. **Data Collection**: Gather historical price data and fundamental information
-4. **Data Processing**: Calculate metrics and indicators needed for screening
-5. **Screening**: Apply various screening strategies to identify promising stocks
-6. **Visualization**: Create charts and dashboards to visualize the results
-7. **Reporting**: Generate summary reports of the findings
-
-## Extension Points
-
-The modular design allows for easy extension of the pipeline:
-
-- Add new data sources by creating new collection functions
-- Implement new screening strategies in the `screeners.py` module
-- Create new visualization types in the `visualization.py` module
-- Add scheduled runs or automation through cron jobs or schedulers
-
-## Performance Considerations
-
-- API rate limits are respected through batch processing and delays
-- Data caching is implemented to reduce redundant API calls
-- Parallel processing can be implemented for computationally intensive tasks
+Subclass `BaseScreener`, register the class explicitly, and expose simple constructor parameters for the editor. Verify catalog default rules and sorting direction. If eligibility depends on multiple rules, keep eligibility separate from score and preserve unknown outcomes. Add mocked behavioural tests to the offline suite where appropriate. [Package guide](docs/screener_methods/package_structure.md), [testing guide](docs/testing.md).

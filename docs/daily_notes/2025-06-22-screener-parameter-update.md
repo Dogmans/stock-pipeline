@@ -1,5 +1,7 @@
 # Screener Parameter Update - 2025-06-22
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Changes Made
 
 Today we updated all screener functions to make the `universe_df` parameter required rather than optional, and to use it directly for stock selection.

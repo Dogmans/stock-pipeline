@@ -1,27 +1,30 @@
 # Documentation
 
-This directory contains documentation for the stock pipeline project:
+Current user and developer guides were reviewed against the code on 2026-10-04. Dated development notes and implementation reports are historical records, not current setup instructions.
 
-## Main Documentation
+## Start here
 
-- [`data_processing.md`](data_processing.md): Data processing workflows and patterns
-- [`powershell_commands.md`](powershell_commands.md): Useful PowerShell commands for the pipeline
-- [`provider_guides.md`](provider_guides.md): API provider-specific guidance
-- [`testing.md`](testing.md): Testing procedures and patterns
-- [`visual_editor.md`](visual_editor.md): Visual workflow editor setup and usage
-- [`sector_corrections.md`](sector_corrections.md): Sector assignment fixes
-- [`screener_methods.md`](screener_methods.md): Stock screener methods and implementations
+- [Project README](../README.md): installation, editor and CLI quick start.
+- [Architecture](../DOCUMENTATION.md): execution paths, providers and extension points.
+- [Visual editor](visual_editor.md): graph mechanics, settings and snapshots.
+- [Stock research](stock-research.md): ranking, comparisons, histories and performance.
+- [TAM candidate screen](guides/proven_technology_emerging_tam.md): quantitative checks, penalties and audit exports.
+- [Research workflow](investment_workflow.md): broad candidate discovery followed by qualitative review.
 
-## Directories
+## Reference
 
-- [`daily_notes/`](daily_notes/): Day-by-day development notes and decisions
-- [`guides/`](guides/): Detailed guides on specific topics
-  - [`guides/turnaround_screener.md`](guides/turnaround_screener.md): User guide for the turnaround screener
-  - [`guides/reporting.md`](guides/reporting.md): Guide to generating reports
-  - [`guides/data_providers.md`](guides/data_providers.md): Setting up data providers
-- [`testing/`](testing/): Detailed testing documentation
-  - [`testing/turnaround_screener_testing.md`](testing/turnaround_screener_testing.md): Testing the turnaround screener
+- [Strategy IDs and defaults](screener_methods.md), [strategy names](screener_methods/strategy_names.md).
+- [Package structure](screener_methods/package_structure.md), [result behaviour](screener_methods/enhanced_behavior.md).
+- [PEG](screener_methods/peg_ratio.md), [insider buying](screener_methods/insider_buying.md), [legacy combined functions](screener_methods/combined.md).
+- [Providers](provider_guides.md), [FMP implementation](provider_guides/financial_modeling_prep.md), [field reference](provider_guides/fmp_field_reference.md).
+- [Data processing](data_processing.md), [cache semantics](cache_usage.md), [reporting](guides/reporting.md).
+- [Testing](testing.md), [PowerShell commands](powershell_commands.md), [scripts](../scripts/README.md).
+- [Legacy turnaround guide](guides/turnaround_screener.md), [turnaround tests](testing/turnaround_screener_testing.md), [legacy sector corrections](sector_corrections.md).
+- [Current screener status](SCREENER_STATUS.md).
 
-## Example Scripts
+## Historical material
 
-See also the [`/scripts`](../scripts/) directory for executable examples.
+- [Development notes](daily_notes/README.md).
+- [Earlier refactoring report](architecture/screener_refactoring.md).
+- [BaseScreener implementation report](../BASESCREEN_IMPLEMENTATION.md).
+- [Dated FMP performance investigation](fmp_performance.md). Its timings are sample measurements, not current performance guarantees.

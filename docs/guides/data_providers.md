@@ -1,31 +1,12 @@
-# Data Provider Architecture
-
-This guide explains the data provider architecture used in the stock pipeline project.
-
-## Overview
-
-Our system uses specific providers for each data type:
-- **Financial Modeling Prep**: Primary provider for stock data and fundamentals
-- **YFinance**: Used for market indexes and VIX data
-
-## Provider Structure
-
-| File | Description |
-|------|-----------|
-| `data_providers/base.py` | Abstract base class defining the provider interface |
-| `data_providers/yfinance_provider.py` | Yahoo Finance implementation |
-| `data_providers/financial_modeling_prep.py` | Financial Modeling Prep implementation |
-
-## Usage Examples
+# Using data providers
 
 ```python
-# Use the default provider (Financial Modeling Prep)
-import data_providers
-provider = data_providers.get_provider()
-data = provider.get_historical_prices(['AAPL', 'MSFT'], period='1y')
-
-# Explicitly use a specific provider
-from data_providers.yfinance_provider import YFinanceProvider
-yf_provider = YFinanceProvider()
-market_data = yf_provider.get_historical_prices(['^GSPC', '^VIX'], period='1m')
+from data_providers import get_provider
+provider = get_provider('financial_modeling_prep')
+overview = provider.get_company_overview('AAPL')
+prices = provider.get_historical_prices('AAPL', period='1y')
 ```
+
+Only FMP and YFinance are supported factory names. Registered screens normally construct their own FMP provider; CLI provider selection does not replace it. Discovery uses a separate `FMPScreeningProvider` for stable requests and FX.
+
+See [provider architecture](../../data_providers/README.md), [FMP implementation](../provider_guides/financial_modeling_prep.md), [field reference](../provider_guides/fmp_field_reference.md) and [cache semantics](../cache_usage.md).

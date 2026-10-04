@@ -101,6 +101,7 @@ def auto_register_screeners():
         from screeners.historic_value import HistoricValueScreener
         from screeners.analyst_sentiment_momentum import AnalystSentimentMomentumScreener
         from screeners.composite_score import CompositeScoreScreener
+        from screeners.proven_technology_emerging_tam import ProvenTechnologyEmergingTAMScreener
         
         # Register the screeners
         register_screener("pe_ratio", PERatioScreener)
@@ -118,6 +119,7 @@ def auto_register_screeners():
         register_screener("historic_value", HistoricValueScreener)
         register_screener("analyst_sentiment_momentum", AnalystSentimentMomentumScreener)
         register_screener("composite_score", CompositeScoreScreener)
+        register_screener("proven_technology_emerging_tam", ProvenTechnologyEmergingTAMScreener)
         
         logger.info(f"Auto-registered {len(_screener_registry)} screeners")
         
@@ -145,7 +147,21 @@ def run_screener(name: str, universe_df, **kwargs):
         import pandas as pd
         return pd.DataFrame()
     
-    return screener.screen_stocks(universe_df)
+    if getattr(screener, 'multi_rule', False):
+        logger.info('Effective %s settings: %s', name, screener.settings)
+    if getattr(screener, 'multi_rule', False):
+        logger.info('Effective %s settings: %s', name, screener.settings)
+    result = screener.screen_stocks(universe_df)
+    if getattr(screener, 'multi_rule', False):
+        from screening_audit import build_audit
+        result.attrs['screening_audit'] = build_audit(screener, result.to_dict('records'))
+    return result
+
+
+def default_screeners():
+    """Exclude opt-in research screens from legacy 'all' selections."""
+    list_screeners()
+    return [name for name, cls in _screener_registry.items() if not getattr(cls, 'opt_in', False)]
 
 
 # Auto-register screeners when needed, but not during module import

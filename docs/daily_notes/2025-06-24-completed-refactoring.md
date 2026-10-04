@@ -1,5 +1,7 @@
 # 2025-06-24: Completed Refactoring Work
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Completed Migration from data_processing.py to technical_indicators.py
 
 Today we completed the final steps of migrating from the centralized `data_processing.py` module to the more focused `technical_indicators.py` module:

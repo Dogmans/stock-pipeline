@@ -1,5 +1,7 @@
 # Financial Modeling Prep Provider Refactoring
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 Date: June 25, 2025
 
 ## Changes Made

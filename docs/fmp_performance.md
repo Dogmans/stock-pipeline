@@ -1,5 +1,9 @@
 # FMP performance investigation — 2026-09-09
 
+> Dated investigation. Recorded samples and test counts below are historical evidence. Current endpoint routing, timeouts and discovery behaviour are documented in [the FMP guide](provider_guides/financial_modeling_prep.md).
+
+Current status (2026-10-04): the central existing helper has 5/20-second connect/read timeouts; stock news and price-change history add cache-aware paths beyond the original sample. Discovery uses the shared session/limiter, bounded retries and 24-hour memoization. These changes do not imply a new measured full-pipeline speedup.
+
 ## Finding
 
 Measured delays predominantly came from HTTP round trips, including connection

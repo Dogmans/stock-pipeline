@@ -1,5 +1,7 @@
 # Enhanced Quality Screener Implementation Results
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Overview
 The enhanced quality screener has been successfully implemented with a 0-100 point scoring system that provides much better stock differentiation compared to the original binary scoring system.
 

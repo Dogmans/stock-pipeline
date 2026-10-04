@@ -1,83 +1,36 @@
-# Cache Usage Guide
+# Cache and refresh semantics
 
-This documentation explains how to use the direct diskcache memoization pattern in the stock pipeline project.
+The application uses DiskCache `FanoutCache` with eight shards under `data/cache`. It stores serialized Python objects, including DataFrames; it is not a directory of hand-written JSON response files. Expiry is set per memoized method, in seconds.
 
-## Overview
+## Cache layers
 
-The stock pipeline now uses the diskcache library directly for caching API results and expensive computations. 
-This approach eliminates custom caching logic in favor of the well-tested diskcache implementation.
+- FMP disk responses persist across processes. Existing statements normally expire after 168h; overview and price histories after 24h; stock news after 30min. Discovery successes expire after 24h.
+- Workflow score snapshots are in memory: five snapshots, up to 100,000 non-error symbol evaluations each. Restarting the API clears them. Parameter changes create distinct score keys.
+- Completed editor runs persist separately in `output/workflow_history`. Restoring a run does not refresh its evidence or reuse an in-memory score snapshot automatically.
 
-## How to Use Caching in Your Code
-
-### Basic Caching
-
-To cache the results of a function:
+## Correct key-based invalidation
 
 ```python
-from cache_config import cache
-
-@cache.memoize(expire=24*3600)  # Cache for 24 hours (in seconds)
-def my_expensive_function(param1, param2):
-    # Expensive computation or API call
-    return result
+from cache_config import cache, get_cache_info
+from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
+provider = FinancialModelingPrepProvider()
+method = provider.get_income_statement
+key = method.__cache_key__(provider, 'AAPL', annual=True)
+cache.delete(key)
+print(get_cache_info())
 ```
 
-### Force Refresh
+The key must match the original instance and exact positional/keyword argument form. `cache.delete(function, symbol)` is not a supported function-call invalidation pattern. The compatibility `delete_memoized` shim currently clears the entire cache rather than selecting one method.
 
-To support bypassing the cache with a force_refresh parameter:
+To wrap a new operation, use `@cache.memoize(expire=24 * 3600)`. Raise on transient errors when they must not be cached; returning an empty object can memoize that failure. The existing FMP price-change history and discovery fetch methods use this exception pattern. Not all older methods do.
 
-```python
-from cache_config import cache
+## CLI commands
 
-@cache.memoize(expire=6*3600)  # Cache for 6 hours
-def get_market_data(symbol, force_refresh=False):
-    # Handle force refresh by deleting cached result
-    if force_refresh:
-        cache.delete(get_market_data, symbol)
-        
-    # Function implementation...
-    return data
+```powershell
+.venv-ui\Scripts\python.exe main.py --cache-info
+.venv-ui\Scripts\python.exe main.py --universe sp500 --strategies quality --force-refresh
 ```
 
-### Cache Management
+For normal CLI runs, `--clear-cache` and `--force-refresh` clear the global disk cache before execution. They do not clear editor score snapshots. Workflow dispatch occurs before these options are processed; do not assume `--workflow ... --force-refresh` refreshes data.
 
-```python
-from cache_config import cache, clear_all_cache, get_cache_info
-
-# Clear the entire cache
-clear_all_cache()
-
-# Get information about cache
-info = get_cache_info()
-print(f"Cache contains {info['count']} items using {info['size_kb']} KB")
-
-# Clear just one function's cache
-cache.delete(get_market_data)
-
-# Clear specific function call's cache
-cache.delete(get_market_data, "AAPL")
-```
-
-## Cache Configuration
-
-The cache is configured in `cache_config.py`. The primary settings are:
-
-- **Cache Location**: `data/cache`
-- **Cache Type**: `FanoutCache` with 8 shards for better concurrency
-
-If you need to modify cache behavior system-wide, edit the `cache_config.py` file.
-
-## Benefits Over Previous Approach
-
-1. **Simplicity**: No custom serialization/deserialization code
-2. **Reliability**: Direct use of the library's tested functionality
-3. **Maintainability**: Less code to maintain, fewer potential bugs
-4. **Performance**: More efficient key generation and storage
-5. **Type Safety**: Better handling of various Python types
-
-## Implementation Notes
-
-- Diskcache automatically handles serialization of most Python types
-- Cache keys are generated based on function object and arguments
-- Expiry is in seconds, not hours as in the previous implementation
-- The cache directory structure is managed automatically by diskcache
+`--clear-old-cache N` is a compatibility placeholder: N below 168 hours does nothing; N at least 168 clears the entire cache. It does not delete entries selectively by age. `get_cache_info()` returns `count`, `hits`, `misses`, `size_kb`, `directory`, and `status` when successful. Cache-clearing log counts are approximate.

@@ -1,224 +1,35 @@
-# Financial Modeling Prep API Provider Guide
+# FMP implementation guide
 
-This guide covers best practices and implementation details for working with the Financial Modeling Prep API.
+This page describes repository behaviour, not a guarantee of current subscription coverage. The implementation is [financial_modeling_prep.py](../../data_providers/financial_modeling_prep.py); discovery access is [fmp_screening.py](../../data_providers/fmp_screening.py).
 
-## API Provider Overview
+## Existing provider
 
-Financial Modeling Prep (FMP) is our primary data provider for financial statements and market data. The provider implementation follows these key principles:
+`_make_api_request()` returns `(success, data, error)` and routes ordinary endpoints to `/api/v3/{endpoint}/{symbol}`. Its selected stable endpoints use query-string symbols. It shares a module-level Requests session and calls the shared request limiter before requests. Central requests have 5-second connect and 20-second read timeouts; other methods have their own paths. There is no universal retry policy in this existing helper.
 
-- Comprehensive caching to minimize API calls
-- Consistent error handling and reporting
-- Standardized data formats matching our internal conventions
-- Rate limiting to stay within API constraints
+| Method | Data/API behaviour | Cache |
+| --- | --- | --- |
+| `get_company_overview` | Profile + quote + annual key metrics; ratios when valuation fields are missing; market-cap endpoint if needed | 24h, versioned key |
+| `get_income_statement` | Legacy income statement, five annual rows or configured quarterly count (default six) | 168h |
+| `get_balance_sheet` | Legacy balance-sheet statement, same limits | 168h |
+| `get_cash_flow` | Legacy cash-flow statement, same limits | 168h |
+| `get_historical_prices` | Legacy price history; returns a symbol-to-DataFrame mapping | 24h |
+| `get_price_change_history` | Stable `historical-price-eod/full`, requested date range, split-adjusted closes | 24h |
+| `get_stock_news` | Stable `news/stock` | 30min |
+| `get_insider_trading` | Stable `insider-trading/search` for a symbol, limited response filtered by lookback | 24h |
+| Analyst/price-target methods | Selected stable grades, estimates and targets | No blanket cache guarantee; inspect individual methods |
 
-## API Request Pattern
+Statements rename `date` to `fiscalDateEnding`, convert it to datetime, sort newest first and retain unrenamed source fields. [Field mapping reference](fmp_field_reference.md).
 
-All API requests should use the centralized helper method:
+Overview profitability fields are conditional on the ratios request; names labelled TTM do not establish a TTM period because the request uses annual ratios. `RevenueGrowth` is declared in the type but not populated by the existing overview. `DataCompleteness` is a coarse fetch-stage label, not validation of every metric.
 
-```python
-def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True):
-    """
-    Make an API request to Financial Modeling Prep.
-    
-    Args:
-        endpoint (str): API endpoint path (without base URL)
-        symbol (str): Stock symbol to query
-        params (dict, optional): Additional query parameters
-        rate_limit (bool): Whether to apply rate limiting
-        
-    Returns:
-        tuple: (success (bool), data (dict/list), error_msg (str or None))
-    """
-    url = f"{self.base_url}/{endpoint}/{symbol}"
-    
-    # Initialize params dictionary if None
-    if params is None:
-        params = {}
-    
-    # Always include API key
-    params["apikey"] = self.api_key
-    
-    try:
-        # Apply rate limiting if requested
-        if rate_limit:
-            fmp_rate_limiter.wait_if_needed()
-            
-        # Make the request
-        response = requests.get(url, params=params)
-        
-        # Check if response is successful
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Check if data is valid (list with content for most endpoints)
-            if isinstance(data, list) and len(data) > 0:
-                return True, data, None
-            elif not isinstance(data, list) and isinstance(data, dict):
-                # Some endpoints return direct dictionaries
-                return True, data, None
-            else:
-                error_msg = f"Empty or invalid response: {data}"
-                logger.error(f"API error for {url}: {error_msg}")
-                return False, None, error_msg
-        else:
-            error_msg = f"HTTP {response.status_code}: {response.text}"
-            logger.error(f"API error for {url}: {error_msg}")
-            return False, None, error_msg
-            
-    except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Exception during API call to {url}: {error_msg}")
-        return False, None, error_msg
-```
+## Discovery provider
 
-## Financial Statement Processing Pattern
+`FMPScreeningProvider` subclasses the existing provider but isolates stable requests through `fetch()`. It requests stable profile, stock-list, quote (FX), income, balance-sheet and cash-flow endpoints. Requests use the shared session/limiter and 5/20-second timeouts. Up to three attempts retry 429 and selected server errors, with waits capped at 30 seconds. Successful nonempty record lists are memoized for 24h; failures raise without caching an empty result.
 
-All financial statement processing should use the common helper:
+`statements()` requests eight quarterly rows or three annual rows, then normalizes selected fields. The TAM screener validates and selects the required periods. `usd_rate()` uses direct or inverse currency-pair quotes, and rejects missing conversion data. The listing universe requires exchange metadata and selects NASDAQ/NYSE/AMEX/TSX/TSXV without cap or volume prefilters. See [the TAM guide](../guides/proven_technology_emerging_tam.md) for formulas and limitations.
 
-```python
-def _process_financial_statement(self, data, column_mapping=None):
-    """
-    Process financial statement data into standardized DataFrame.
-    
-    Args:
-        data (list): Raw financial statement data from API
-        column_mapping (dict, optional): Column name mapping
-        
-    Returns:
-        pd.DataFrame: Processed financial statement data
-    """
-    if not data:
-        return pd.DataFrame()
-        
-    # Convert to DataFrame
-    df = pd.DataFrame(data)
-    
-    # Rename date column to match our standard format
-    df = df.rename(columns={"date": "fiscalDateEnding"})
-    
-    # Convert date to datetime
-    df["fiscalDateEnding"] = pd.to_datetime(df["fiscalDateEnding"])
-    
-    # Sort by date
-    df = df.sort_values("fiscalDateEnding", ascending=False)
-    
-    # Rename columns if mapping provided
-    if column_mapping:
-        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-    
-    return df
-```
+## Refresh and errors
 
-## Field Mapping Reference
+Existing `force_refresh=True` methods can clear the global cache. Memoized argument forms matter: positional and keyword calls can have different cache keys. Discovery has no `force_refresh` argument; clear its exact memoization key or use normal expiry. The standalone CLI refresh flag clears the cache before a normal run; workflow CLI dispatch happens before that cache-management path.
 
-### Income Statement
-
-```python
-column_mapping = {
-    "revenue": "totalRevenue",
-    "costOfRevenue": "costOfRevenue",
-    "grossProfit": "grossProfit",
-    "grossProfitRatio": "grossProfitMargin",
-    "operatingExpenses": "operatingExpenses",
-    "operatingIncome": "operatingIncome",
-    "netIncome": "netIncome",
-    "ebitda": "ebitda"
-}
-```
-
-### Balance Sheet
-
-```python
-column_mapping = {
-    "totalAssets": "totalAssets",
-    "totalCurrentAssets": "totalCurrentAssets",
-    "totalLiabilities": "totalLiabilities",
-    "totalCurrentLiabilities": "totalCurrentLiabilities",
-    "totalStockholdersEquity": "totalShareholderEquity",
-    "cashAndCashEquivalents": "cash",
-    "shortTermInvestments": "shortTermInvestments",
-    "longTermDebt": "longTermDebt",
-    "commonStock": "commonStock"
-}
-```
-
-### Cash Flow Statement
-
-```python
-column_mapping = {
-    "netCashProvidedByOperatingActivities": "operatingCashflow",
-    "capitalExpenditure": "capitalExpenditures",
-    "freeCashFlow": "freeCashflow",
-    "dividendsPaid": "dividendPayout",
-    "netChangeInCash": "changeInCash",
-    "stockRepurchased": "repurchaseOfStock",
-    "commonStockIssued": "issuanceOfStock"
-}
-```
-
-## Cache Management
-
-Each method includes a force_refresh parameter to handle cache invalidation:
-
-```python
-@cache.memoize(expire=168*3600)  # Cache for 1 week (168 hours)
-def get_income_statement(self, symbol: str, 
-                        annual: bool = True,
-                        force_refresh: bool = False) -> pd.DataFrame:
-    """Get income statement data"""
-    if force_refresh:
-        cache.delete(self.get_income_statement, symbol, annual)
-        
-    # Make API request using helper...
-```
-
-## Response Examples
-
-The provider returns standardized responses:
-
-### Income Statement
-
-```python
-# DataFrame with columns:
-# fiscalDateEnding, symbol, reportedCurrency, totalRevenue, costOfRevenue, grossProfit, 
-# operatingExpenses, operatingIncome, netIncome, ebitda, etc.
-```
-
-### Balance Sheet
-
-```python
-# DataFrame with columns:
-# fiscalDateEnding, symbol, reportedCurrency, totalAssets, totalCurrentAssets,
-# totalLiabilities, totalCurrentLiabilities, totalShareholderEquity, cash, etc.
-```
-
-### Cash Flow Statement
-
-```python
-# DataFrame with columns:
-# fiscalDateEnding, symbol, reportedCurrency, operatingCashflow, capitalExpenditures,
-# freeCashflow, dividendPayout, changeInCash, repurchaseOfStock, issuanceOfStock, etc.
-```
-
-### Historical Prices
-
-```python
-# DataFrame with columns:
-# Date (index), Open, High, Low, Close, Volume
-```
-
-### Company Overview
-
-```python
-# Dictionary with keys:
-# Symbol, Name, Description, Exchange, Sector, Industry, MarketCapitalization,
-# PERatio, EPS, Beta, 52WeekHigh, 52WeekLow, etc.
-```
-
-## Best Practices
-
-1. **Always handle missing data**: Check for empty DataFrames or missing fields
-2. **Respect rate limits**: Use the _make_api_request helper which handles rate limiting
-3. **Use caching**: Don't bypass caching unless absolutely necessary
-4. **Handle errors**: Check for success before processing data
-5. **Field naming**: Maintain consistent column names with our internal conventions
+Some existing methods convert API failures to empty data. Preserve unknown/unavailable states in consumers; do not replace absent revenue, equity, cash or ratios with zero. Existing universe requests do not all use the shared provider transport or limiter.

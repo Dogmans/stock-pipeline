@@ -1,5 +1,7 @@
 # Data Provider Architecture Update - June 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Overview
 
 In June 2025, we updated the data provider architecture to remove the enforced abstract interface pattern. This allows each provider to use method names that more closely match their own APIs rather than conforming to a common interface.

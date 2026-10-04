@@ -36,7 +36,8 @@ def run_screeners_with_registry(universe_df, screener_names=None, **screener_kwa
     
     # Get available screeners if none specified
     if screener_names is None:
-        screener_names = list(list_screeners().keys())
+        from utils.screener_registry import default_screeners
+        screener_names = default_screeners()
     
     logger.info(f"Running {len(screener_names)} screeners with registry: {screener_names}")
     

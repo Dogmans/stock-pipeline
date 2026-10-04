@@ -1,5 +1,7 @@
 # Enhanced Screener Behavior - 2025-06-29
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Refactoring Summary
 Today I implemented an enhanced behavior for all stock screeners to make them more flexible for both individual and combined use cases.
 

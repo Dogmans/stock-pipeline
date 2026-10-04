@@ -1,5 +1,7 @@
 # Technical Indicators Module Update - June 24, 2025
 
+> Historical record. This dated note may describe superseded commands, APIs or results. For current behaviour, use the [documentation index](../README.md) and [architecture](../../DOCUMENTATION.md).
+
 ## Architecture Change: From data_processing.py to technical_indicators.py
 
 Today we completed an important architectural change in our stock pipeline project. As part of our transition to a direct provider access pattern (where screeners fetch and process their own data directly), we identified that the centralized `data_processing.py` module had become largely redundant.

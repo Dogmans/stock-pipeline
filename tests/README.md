@@ -13,6 +13,8 @@ This directory contains unit tests for the stock screening pipeline modules.
 - `test_regressions.py`: Offline regression coverage for scoring and reports
 - `test_workflow.py`: Tests workflow validation, branching, caching, and progress
 - `test_visual_api.py`: Tests the local workflow API
+- `test_tam_screener.py`: Quantitative checks, missing data, FX, staging, penalties and audit exports
+- `test_research.py`, `test_price_change.py`, `test_return_on_equity.py`: Focused research and calculation coverage
 
 ### Supporting Tests
 
@@ -32,7 +34,7 @@ This directory contains unit tests for the stock screening pipeline modules.
 ```
 
 This is the normal project check. It blocks external network access and exercises
-the pipeline, FMP transport, workflow engine, and visual API.
+the pipeline, FMP transport, workflow engine, visual API and TAM.
 
 ### Run all tests, including live API tests
 
@@ -40,7 +42,7 @@ the pipeline, FMP transport, workflow engine, and visual API.
 python -m unittest discover -s tests
 ```
 
-Some legacy integration tests require configured API credentials and network access.
+Some legacy integration tests require configured API credentials and network access. Older tests can also contain stale assertions/imports; full discovery is not the normal offline gate. See [the testing guide](../docs/testing.md).
 
 ### Run a specific test file
 
