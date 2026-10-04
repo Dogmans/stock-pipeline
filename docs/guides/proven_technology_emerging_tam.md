@@ -63,7 +63,7 @@ statement currencies. Negative or missing denominators are not coerced to zero.
 
 ## Universe and performance
 
-The new `fmp_listed` universe uses FMP's stable stock list and selects the five
+The new `fmp_listed` universe uses FMP's paginated stable company screener by exchange and selects the five
 default exchanges above. It preserves dotted ticker suffixes and does not use
 ETF holdings or index constituents. Its coverage is provider coverage, not a
 guarantee of every exchange listing. Missing exchange metadata fails explicitly.
@@ -126,3 +126,5 @@ The supplied example has output collections for all survivors, failures and
 unavailable data. Consequently the workflow-wide combined shortlist includes
 records from all three collections. Use the survivors collection or TAM's
 candidate export when sending eligible companies to subsequent research.
+
+Live check on 2026-10-04: the configured account permits NASDAQ, NYSE and AMEX listing queries, but returns HTTP 402 for TSX and TSXV. The default full discovery run therefore stops rather than silently dropping Canadian coverage. Account permissions can change.

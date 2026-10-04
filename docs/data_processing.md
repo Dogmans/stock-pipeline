@@ -10,7 +10,7 @@ Screeners receive a DataFrame with a `symbol` column. Universe rows may also con
 - Dow: FMP constituents, with a separate fallback in the existing implementation.
 - `all`: deduplicated union of these index sets, not every listed company.
 - `country:<key>`: configured ETF holdings, not a complete country listing. Use mapping keys such as `country:japan`, `country:uk` or `country:canada`; unknown named universes can fall back to S&P 500.
-- `fmp_listed`: stable FMP stock-list scoped to NASDAQ/NYSE/AMEX/TSX/TSXV; preserves ticker suffixes and raises on missing exchange metadata.
+- `fmp_listed`: paginated stable FMP company-screener scoped to NASDAQ/NYSE/AMEX/TSX/TSXV; preserves ticker suffixes and raises on missing exchange metadata.
 
 ## Financial and price normalization
 
@@ -31,3 +31,5 @@ Analyst sentiment uses the provider's stable grades/estimates/target methods. Co
 `technical_indicators.py` uses pandas/NumPy and optional TA-Lib. TA-Lib is not installed by the pinned requirements; pandas fallbacks exist. When calling TA-Lib directly, supply float64 NumPy arrays. The indicator function lowercases input columns and adds calculated columns; avoid assuming it preserves an untouched provider frame.
 
 Cache expiry is per method. See [cache semantics](cache_usage.md) for correct invalidation; creating a new score snapshot does not guarantee new market data.
+
+Live check on 2026-10-04: the configured account permits NASDAQ, NYSE and AMEX listing queries, but returns HTTP 402 for TSX and TSXV. The default full discovery run therefore stops rather than silently dropping Canadian coverage. Account permissions can change.

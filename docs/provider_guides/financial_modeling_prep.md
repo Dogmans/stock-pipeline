@@ -24,12 +24,14 @@ Overview profitability fields are conditional on the ratios request; names label
 
 ## Discovery provider
 
-`FMPScreeningProvider` subclasses the existing provider but isolates stable requests through `fetch()`. It requests stable profile, stock-list, quote (FX), income, balance-sheet and cash-flow endpoints. Requests use the shared session/limiter and 5/20-second timeouts. Up to three attempts retry 429 and selected server errors, with waits capped at 30 seconds. Successful nonempty record lists are memoized for 24h; failures raise without caching an empty result.
+`FMPScreeningProvider` subclasses the existing provider but isolates stable requests through `fetch()`. It requests stable profile, company-screener, quote (FX), income, balance-sheet and cash-flow endpoints. Requests use the shared session/limiter and 5/20-second timeouts. Up to three attempts retry 429 and selected server errors, with waits capped at 30 seconds. Successful record lists are memoized for 24h; empty lists are accepted only for listing pagination. Failures raise without caching an empty result.
 
-`statements()` requests eight quarterly rows or three annual rows, then normalizes selected fields. The TAM screener validates and selects the required periods. `usd_rate()` uses direct or inverse currency-pair quotes, and rejects missing conversion data. The listing universe requires exchange metadata and selects NASDAQ/NYSE/AMEX/TSX/TSXV without cap or volume prefilters. See [the TAM guide](../guides/proven_technology_emerging_tam.md) for formulas and limitations.
+`statements()` requests eight quarterly rows or three annual rows, then normalizes selected fields. The TAM screener validates and selects the required periods. `usd_rate()` uses direct or inverse currency-pair quotes, and rejects missing conversion data. The listing universe uses paginated company-screener requests and requires exchange metadata and selects NASDAQ/NYSE/AMEX/TSX/TSXV without cap or volume prefilters. See [the TAM guide](../guides/proven_technology_emerging_tam.md) for formulas and limitations.
 
 ## Refresh and errors
 
 Existing `force_refresh=True` methods can clear the global cache. Memoized argument forms matter: positional and keyword calls can have different cache keys. Discovery has no `force_refresh` argument; clear its exact memoization key or use normal expiry. The standalone CLI refresh flag clears the cache before a normal run; workflow CLI dispatch happens before that cache-management path.
 
 Some existing methods convert API failures to empty data. Preserve unknown/unavailable states in consumers; do not replace absent revenue, equity, cash or ratios with zero. Existing universe requests do not all use the shared provider transport or limiter.
+
+Live check on 2026-10-04: the configured account permits NASDAQ, NYSE and AMEX listing queries, but returns HTTP 402 for TSX and TSXV. The default full discovery run therefore stops rather than silently dropping Canadian coverage. Account permissions can change.

@@ -25,7 +25,6 @@ def build_audit(screener, records, evaluate_benchmarks=True):
     summary = {'run_date': datetime.now(timezone.utc).date().isoformat(), 'data_provider': 'Financial Modeling Prep',
                'initial_universe_count': len(records), 'effective_settings': screener.settings,
                'eligibility_policy': screener.rule_description(),
-               'eligibility_policy': screener.rule_description(),
                'final_candidate_count': len(candidates), 'near_miss_count': len(near_misses),
                'unselected_survivor_count': len(survivors) - len(candidates), 'benchmark_results': benchmarks,
                'unavailable_count': sum(r.get('outcome') == 'unavailable' for r in records),

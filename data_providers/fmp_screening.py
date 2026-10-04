@@ -11,9 +11,9 @@ from .financial_modeling_prep import FinancialModelingPrepProvider, fmp_http_ses
 
 class FMPScreeningProvider(FinancialModelingPrepProvider):
     @cache.memoize(expire=24 * 3600)
-    def fetch(self, endpoint, symbol=None, period=None, limit=None):
+    def fetch(self, endpoint, symbol=None, period=None, limit=None, exchange=None, page=None, allow_empty=False):
         params = {'apikey': self.api_key}
-        params.update({k: v for k, v in {'symbol': symbol, 'period': period, 'limit': limit}.items() if v is not None})
+        params.update({k: v for k, v in {'symbol': symbol, 'period': period, 'limit': limit, 'exchange': exchange, 'page': page}.items() if v is not None})
         for attempt in range(3):
             fmp_rate_limiter.wait_if_needed()
             response = fmp_http_session.get(f'{self.stable_base_url}/{endpoint}', params=params, timeout=(5, 20))
@@ -28,7 +28,7 @@ class FMPScreeningProvider(FinancialModelingPrepProvider):
             if response.status_code != 200:
                 raise RuntimeError(f'FMP {endpoint} unavailable (HTTP {response.status_code}).')
             data = response.json()
-            if not isinstance(data, list) or not data:
+            if not isinstance(data, list) or (not data and not allow_empty):
                 raise RuntimeError(f'FMP {endpoint} returned no records.')
             return {'records': data, 'fetched_at': datetime.now(timezone.utc).isoformat()}
 
@@ -64,11 +64,27 @@ class FMPScreeningProvider(FinancialModelingPrepProvider):
 
     def listing_universe(self):
         # No cap/volume prefilter: preserve honest funnel counts and boundary misses.
-        response = self.fetch('stock-list')
-        frame = pd.DataFrame(response['records'])
+        records = []
+        for exchange in ('NASDAQ', 'NYSE', 'AMEX', 'TSX', 'TSXV'):
+            seen = set()
+            for page in range(100):
+                response = self.fetch('company-screener', exchange=exchange, page=page, limit=1000, allow_empty=True)
+                rows = response['records']
+                symbols = {row.get('symbol') for row in rows}
+                if rows and not symbols - seen:
+                    raise RuntimeError(f'FMP repeated a listing page for {exchange}; coverage cannot be verified.')
+                seen.update(symbols)
+                records.extend(rows)
+                if len(rows) < 1000:
+                    break
+            else:
+                raise RuntimeError(f'FMP listing pagination exceeded the bound for {exchange}.')
+        frame = pd.DataFrame(records)
         if 'symbol' not in frame:
             raise RuntimeError('FMP listing universe has no symbols.')
         frame = frame.dropna(subset=['symbol']).drop_duplicates('symbol')
+        if 'exchangeShortName' in frame:
+            frame['exchange'] = frame['exchangeShortName']
         # Explicit discovery scope; do not substitute an index or ETF universe.
         if 'exchange' not in frame:
             raise RuntimeError('FMP listing response lacks exchange metadata; discovery coverage cannot be verified.')
