@@ -8,7 +8,10 @@ const percent = value => numeric(value) ? `${display(value)}%` : 'Unavailable';
 const comparisonFields = [
   ['Sector','Sector'], ['Industry','Industry'], ['Currency','Quote currency'], ['Price','Price'],
   ['MarketCapitalization','Market cap'], ['PERatio','P/E'], ['PriceToBookRatio','Price / book'],
-  ['ReturnOnEquityTTM','Return on equity',100], ['ProfitMargin','Profit margin',100],
+  ['TTMROE','TTM return on equity',100], ['TTMROA','TTM return on assets',100],
+  ['TTMROCE','TTM return on capital employed',100], ['ROEChange3Y','ROE change over three years (pp)',100],
+  ['ROE3YAgo','ROE three years earlier',100], ['ProfitabilityPeriod','Profitability period'],
+  ['ProfitabilityComparisonPeriod','ROE comparison period'], ['ProfitMargin','Profit margin',100],
   ['DebtToEquityRatio','Debt / equity'], ['FreeCashFlowYield','Free cash flow yield',100],
   ['AverageVolume','Average daily volume'], ['FinancialPeriod','Financial period'], ['RatiosPeriod','Ratios period'],
   ['AnnualPeriod','Annual statement period'], ['AnnualCurrency','Statement currency'], ['AnnualRevenueGrowth','Annual revenue growth',100],
@@ -63,6 +66,9 @@ function Comparison({rows, api}) {
       let detail;
       try {detail = await api(`/stocks/${encodeURIComponent(symbol)}`);}
       catch(e) {detail = {symbol,overview:{},error:e.message};}
+      const p = detail.profitability?.latest || {};
+      Object.assign(detail.overview, {TTMROE:p.roe,TTMROA:p.roa,TTMROCE:p.roce,ROEChange3Y:p.roe_change_3y,
+        ROE3YAgo:p.roe_3y_ago,ProfitabilityPeriod:p.date,ProfitabilityComparisonPeriod:p.comparison_date});
       try {
         const history = await api(`/stocks/${encodeURIComponent(symbol)}/financial-history`);
         const [latest,previous] = history.periods.filter(p => numeric(p.revenue));
@@ -84,7 +90,7 @@ function Comparison({rows, api}) {
       <tr><th>Data status</th>{details.map(d => <td key={d.symbol}>{d.error || d.overview.DataCompleteness || 'Coverage unknown'}{d.historyError && <p>{d.historyError}</p>}</td>)}</tr>
       {comparisonFields.map(([key,label,multiplier]) => <tr key={key}><th>{label}</th>{details.map(d => {
         const value = d.overview[key];
-        return <td key={d.symbol} className={value == null || value === '' ? 'missing-value' : ''}>{value == null || value === '' ? 'Unavailable' : multiplier ? percent(Number(value)*multiplier) : typeof value === 'number' ? display(value) : String(value)}</td>;
+        return <td key={d.symbol} className={value == null || value === '' ? 'missing-value' : ''}>{value == null || value === '' ? 'Unavailable' : key === 'ROEChange3Y' ? `${display(value*100)}pp` : multiplier ? percent(Number(value)*multiplier) : typeof value === 'number' ? display(value) : String(value)}</td>;
       })}
       </tr>)}
       <tr><th>Quote time</th>{details.map(d => <td key={d.symbol}>{d.overview.QuoteTimestamp ? new Date(d.overview.QuoteTimestamp*1000).toLocaleString() : 'Unavailable'}</td>)}</tr>

@@ -27,7 +27,7 @@ test('research views compare, explain, restore and track a shortlist', async ({p
     else if(path === '/api/history/def') body=previous;
     else if(path.endsWith('/performance')) body={pending:true,message:'At least two benchmark trading closes after the saved run are needed.'};
     else if(path.endsWith('/financial-history')) body={source:'FMP annual financial statements',missing:[],periods:[{date:'2025-12-31',currency:'USD',revenue:100,debt:10,free_cash_flow:20},{date:'2024-12-31',currency:'USD',revenue:80}]};
-    else if(path.startsWith('/api/stocks/')) body={symbol:path.split('/').pop(),overview:{Name:'Example company',Sector:'Technology',Price:100,Currency:'USD'},news:[]};
+    else if(path.startsWith('/api/stocks/')) body={symbol:path.split('/').pop(),overview:{Name:'Example company',Sector:'Technology',Price:100,Currency:'USD'},news:[],profitability:{latest:{date:'2025-12-31',roe:.2,roa:.12,roce:.4,roe_change_3y:.1,roe_3y_ago:.1,comparison_date:'2022-12-31'},history:[]}};
     else throw new Error(`Unexpected endpoint ${path}`);
     await route.fulfill({json:body});
   });
@@ -44,6 +44,8 @@ test('research views compare, explain, restore and track a shortlist', async ({p
   await page.getByRole('button',{name:'Compare 2 stocks'}).click();
   await expect(page.getByRole('rowheader',{name:'Annual revenue growth',exact:true})).toBeVisible();
   await expect(page.getByRole('cell',{name:'25%',exact:true})).toHaveCount(2);
+  await expect(page.getByRole('row',{name:'TTM return on equity 20% 20%',exact:true})).toBeVisible();
+  await expect(page.getByRole('row',{name:'ROE change over three years (pp) 10pp 10pp',exact:true})).toBeVisible();
   await page.screenshot({path:testInfo.outputPath('comparison.png'),fullPage:true});
   await page.getByRole('button',{name:'Near misses',exact:true}).click();
   await page.getByRole('button',{name:'Add NEAR to watchlist',exact:true}).click();

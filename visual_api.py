@@ -19,6 +19,7 @@ from workflow import WorkflowEngine, WorkflowError, Cancelled, screener_catalog,
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 from research import RunArchive, financial_history, forward_performance
 from investor_research import financials, prices, evidence, safe_url
+from profitability import profitability
 
 
 def validated_symbol(symbol, label='stock'):
@@ -128,7 +129,8 @@ class StockDetailService:
                 'url': safe_url(url),
                 'image': safe_url(item.get('image')),
             })
-        return {'symbol': symbol, 'overview': overview, 'news': articles}
+        return {'symbol': symbol, 'overview': overview, 'news': articles,
+                'profitability': profitability(self.provider, symbol)}
 
 
 def create_app(manager=None, stock_service=None):

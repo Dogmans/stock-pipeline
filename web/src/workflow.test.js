@@ -137,3 +137,15 @@ test('price change ranges preserve both bounds and find misses on either side', 
   assert.deepEqual(misses.map(r=>r.symbol),['A','B']);
   assert.deepEqual(misses.map(r=>r.threshold),[10,20]);
 });
+
+
+test('ROE improvement uses a strict threshold and near misses use the correct direction', () => {
+  const rule={metric:'ROE change',operator:'gt',value:2,unit:'pp',parameter:'min_percent'};
+  assert.equal(defaultRuleText({default_rule:rule}),'ROE change > 2pp');
+  assert.equal(defaultRuleText({default_rule:rule},{min_percent:0}),'ROE change > 0pp');
+  const node={id:'trend',data:{screener:'roe_improvement',criterion:{operator:'default'}}};
+  const rows=nearMisses([node],{nodes:{trend:{outcomes:{failed:[{symbol:'NEAR',score:1.9}]}}}},
+    {roe_improvement:{default_rule:rule}},10);
+  assert.equal(rows[0].symbol,'NEAR');
+  assert.ok(rows[0].gap > 0);
+});

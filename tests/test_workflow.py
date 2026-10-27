@@ -53,7 +53,7 @@ class WorkflowTests(unittest.TestCase):
                 boundary = rule['value']
                 for offset in (-0.01, 0, 0.01):
                     value = boundary + offset
-                    expected = value >= boundary if rule['operator'] == 'gte' else value <= boundary
+                    expected = value > boundary if rule['operator'] == 'gt' else value >= boundary if rule['operator'] == 'gte' else value <= boundary
                     if rule['operator'] == 'between':
                         expected = boundary <= value <= rule['upper_value']
                     if entry['id'] == 'fifty_two_week_lows':

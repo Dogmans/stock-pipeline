@@ -6,6 +6,7 @@ import {download} from './browserState.js';
 import {useLocalDraft} from './useLocalDraft.js';
 import {Busy, Section, TrendChart, FinancialTable, MetricCard, fmt, metrics} from './ResearchUI.jsx';
 import {Valuation} from './ValuationPanel.jsx';
+import ProfitabilityPanel from './ProfitabilityPanel.jsx';
 export {Valuation} from './ValuationPanel.jsx';
 export {TrendChart, FinancialTable} from './ResearchUI.jsx';
 
@@ -75,6 +76,7 @@ export default function InvestorWorkspace({symbol, page = 'overview', onPage, re
             {tab === 'financials' && <Section title="Financial statements" eyebrow="SOURCE DATA & YEAR-ON-YEAR CHANGE"><FinancialTable data={active.data} symbol={symbol} selectedMetric={metric} onSelectMetric={key=>selectMetric(key,true)} chartId={chartId}/><p className="ir-source">Values retain vendor reporting conventions. Capex is shown as an outflow magnitude; dividend and buyback signs follow the source. Reported FCF seeds the simple DCF; the advanced DCF models unlevered FCFF separately.</p></Section>}
           </></Busy>
         </>}
+        {(tab === 'overview' || tab === 'financials') && <Busy state={company}><ProfitabilityPanel data={company.data?.profitability} symbol={symbol}/></Busy>}
         {tab === 'overview' && <>
           <Section title="Price history" eyebrow="MARKET PERFORMANCE" action={<div className="ir-segment">{['1M','3M','1Y','3Y','5Y','10Y'].map(r=><button key={r} aria-pressed={r===range} onClick={()=>setRange(r)}>{r}</button>)}</div>}>
             <Busy state={priceData}><><p className="ir-price-return"><strong className={priceReturn>=0 ? 'ir-positive' : 'ir-negative'}>{fmt(priceReturn,'change')}</strong> price return · {priceRows[0]?.date || '—'} to {end || '—'} · {overview.Currency || 'Currency unknown'}</p><TrendChart rows={priceRows} field="close" label="Daily close" kind="number"/><p className="ir-source">{priceData.data?.source}. Based on available closes; quote may be newer.</p></></Busy>

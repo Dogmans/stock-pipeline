@@ -121,12 +121,21 @@ Comma-separated `--strategies` runs the specified screeners; use workflow JSON t
 | --- | --- |
 | Valuation | `pe_ratio`, `price_to_book`, `peg_ratio`, `fcf_yield`, `historic_value` |
 | Quality | `quality`, `enhanced_quality`, `return_on_equity` |
+| Profitability traits (opt-in) | `ttm_return_on_equity`, `return_on_assets`, `roe_improvement`, `return_on_capital_employed` |
 | Price and risk | `price_change`, `momentum`, `sharpe_ratio`, `fifty_two_week_lows` |
 | Insider and analyst activity | `insider_buying`, `analyst_sentiment_momentum` |
 | Multiple factors | `composite_score` |
 | Broad quantitative discovery (opt-in) | `proven_technology_emerging_tam` |
 
-Use `--strategies all` to run the 15 default screens; TAM is opt-in and excluded from that set. The registry currently has 16 screens. Legacy turnaround, fallen-IPO, sector-correction and combined functions are not registered CLI strategies or flow boxes. Scores and defaults differ between strategies; the editor shows the applicable rule rather than treating every score as a 0–100 scale.
+Use `--strategies all` to run the 15 default screens; TAM and the four profitability screens are opt-in and excluded from that set. The registry currently has 20 screens. Legacy turnaround, fallen-IPO, sector-correction and combined functions are not registered CLI strategies or flow boxes. Scores and defaults differ between strategies; the editor shows the applicable rule rather than treating every score as a 0–100 scale.
+
+## Four profitability traits
+
+Overview, Financials, and screening stock details show TTM ROE, TTM ROA, ROE change over three years, and TTM ROCE, with charts, calculation notes and CSV export. Screening comparisons include these fields and their reporting dates.
+
+In the screener library, select **Load four profitability traits** to load the stacked S&P 500 workflow. It applies the video's defaults: ROE at least 15%, ROA at least 10%, ROE strictly higher than three years earlier, and ROCE at least 30%. It excludes financial services, energy, utilities, basic materials and real estate through editable universe filters. Individual screens accept any sector; all thresholds are editable.
+
+The existing `return_on_equity` screen uses annual income and average equity. The new `ttm_return_on_equity` screen uses four reported quarters and closing equity. Missing quarters, incompatible currencies and unsuitable denominators remain unavailable. The three-year comparison normally needs sixteen quarters of history. See [definitions and source](docs/guides/profitability_traits.md).
 
 ## Broad candidate discovery with TAM
 

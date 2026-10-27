@@ -43,6 +43,10 @@ def default_rule(name, instance):
         'momentum': ('Momentum score', 'gte', 'min_momentum_score', '%', True),
         'quality': ('Quality score', 'gte', 'min_quality_score', '', True),
         'return_on_equity': ('Annual ROE', 'gte', 'min_roe', '%', False),
+        'ttm_return_on_equity': ('TTM ROE', 'gte', 'min_percent', '%', False),
+        'return_on_assets': ('TTM ROA', 'gte', 'min_percent', '%', False),
+        'return_on_capital_employed': ('TTM ROCE', 'gte', 'min_percent', '%', False),
+        'roe_improvement': ('ROE change over three years', 'gt', 'min_percent', 'pp', False),
         'fcf_yield': ('Free cash flow yield', 'gte', 'min_fcf_yield', '%', True),
         'historic_value': ('Historic value score', 'gte', 'min_historic_value_score', '', True),
     }
@@ -179,8 +183,10 @@ def validate_workflow(document, catalog=None):
     elif not isinstance(universe.get('name'), str) or not re.fullmatch(r'[a-zA-Z0-9_:.-]{1,60}', universe['name']):
         raise WorkflowError('Choose a named universe or provide symbols.')
     filters = universe.get('filters', {})
-    if not isinstance(filters, dict) or set(filters) - {'exchange', 'min_market_cap', 'min_average_volume'}:
+    if not isinstance(filters, dict) or set(filters) - {'exchange', 'min_market_cap', 'min_average_volume', 'excluded_sectors'}:
         raise WorkflowError('Invalid universe filters.')
+    if 'excluded_sectors' in filters and (not isinstance(filters['excluded_sectors'], str) or len(filters['excluded_sectors']) > 200):
+        raise WorkflowError('Excluded sectors must be a comma-separated list of at most 200 characters.')
     if 'exchange' in filters and (not isinstance(filters['exchange'], str) or len(filters['exchange']) > 60):
         raise WorkflowError('Exchange must be a short name.')
     for field in ('min_market_cap', 'min_average_volume'):
@@ -256,6 +262,13 @@ class WorkflowEngine:
                         logger.exception('Universe eligibility data unavailable for %s', row['symbol'])
                         overview = {}
                     reasons, missing = [], []
+                    excluded_sectors = {s.strip().casefold() for s in filters.get('excluded_sectors', '').split(',') if s.strip()}
+                    if excluded_sectors:
+                        sector = overview.get('Sector')
+                        if not isinstance(sector, str) or not sector or sector == 'Unknown':
+                            missing.append('sector')
+                        elif sector.casefold() in excluded_sectors:
+                            reasons.append(f'Sector {sector} is excluded')
                     exchange = filters.get('exchange', '').strip().upper()
                     if exchange:
                         actual = [str(overview.get(key) or '').upper() for key in ('Exchange', 'ExchangeShortName')]

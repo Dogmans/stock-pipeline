@@ -94,6 +94,8 @@ def auto_register_screeners():
         from screeners.momentum import MomentumScreener
         from screeners.quality import QualityScreener
         from screeners.return_on_equity import ReturnOnEquityScreener
+        from screeners.profitability import (ProfitabilityScreener, ReturnOnAssetsScreener,
+                                            ReturnOnCapitalEmployedScreener, ReturnOnEquityTrendScreener)
         from screeners.free_cash_flow_yield import FCFYieldScreener
         from screeners.enhanced_quality import EnhancedQualityScreener
         from screeners.insider_buying import InsiderBuyingScreener
@@ -112,6 +114,10 @@ def auto_register_screeners():
         register_screener("momentum", MomentumScreener)
         register_screener("quality", QualityScreener)
         register_screener("return_on_equity", ReturnOnEquityScreener)
+        register_screener("ttm_return_on_equity", ProfitabilityScreener)
+        register_screener("return_on_assets", ReturnOnAssetsScreener)
+        register_screener("return_on_capital_employed", ReturnOnCapitalEmployedScreener)
+        register_screener("roe_improvement", ReturnOnEquityTrendScreener)
         register_screener("fcf_yield", FCFYieldScreener)
         register_screener("enhanced_quality", EnhancedQualityScreener)
         register_screener("insider_buying", InsiderBuyingScreener)

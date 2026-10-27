@@ -6,7 +6,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import {workspaceRoute} from './navigation.js';
 
-let server, ui, watchlistUi, appUi, draftUi, valuationUi;
+let server, ui, watchlistUi, appUi, draftUi, valuationUi, profitabilityUi;
 before(async () => {
   server = await createServer({configFile:false,appType:'custom',server:{middlewareMode:true,hmr:false,watch:null},
     optimizeDeps:{noDiscovery:true,include:[]}});
@@ -15,6 +15,7 @@ before(async () => {
   appUi = await server.ssrLoadModule('/src/App.jsx');
   draftUi = await server.ssrLoadModule('/src/useLocalDraft.js');
   valuationUi = await server.ssrLoadModule('/src/ValuationPanel.jsx');
+  profitabilityUi = await server.ssrLoadModule('/src/ProfitabilityPanel.jsx');
 });
 
 test('unsaved model and note drafts survive remounts and remain separate for each company', () => {
@@ -136,4 +137,18 @@ test('financial table renders units and filing dates and a sparse chart retains 
   assert.ok(chart.includes('2 observations'));
   assert.ok(chart.includes('M65,'));
   assert.ok(!chart.includes('L412.5,'));
+});
+
+
+test('profitability renders the four traits, percentage-point changes and missing-data explanations', () => {
+  const latest = {date:'2025-12-31',currency:'USD',roe:.2,roa:.128,roce:.4,roe_3y_ago:.1,roe_change_3y:.1,
+    comparison_date:'2022-12-31'};
+  const html = renderToStaticMarkup(React.createElement(profitabilityUi.default,{symbol:'ABC',data:{latest,history:[latest]}}));
+  for (const text of ['TTM return on equity (ROE)','TTM return on assets (ROA)','TTM return on capital employed (ROCE)',
+    'ROE change over three years','+10.0pp','2022-12-31','Export profitability CSV','Profitability chart metric']) assert.ok(html.includes(text),text);
+  assert.equal((html.match(/Pass<\/small>/g) || []).length,4);
+  const missing = renderToStaticMarkup(React.createElement(profitabilityUi.default,{symbol:'ABC',data:{latest:{reasons:{roe:'Missing equity.'}},history:[]}}));
+  assert.ok(missing.includes('Missing equity.'));
+  assert.ok(missing.includes('Unavailable'));
+  assert.ok(!missing.includes('NaN'));
 });

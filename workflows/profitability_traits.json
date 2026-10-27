@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "Four profitability traits (Investor52)",
+  "universe": {"name": "sp500", "filters": {"excluded_sectors": "Financial Services,Financials,Energy,Utilities,Basic Materials,Materials,Real Estate"}},
+  "nodes": [
+    {"id": "universe", "type": "universe", "position": {"x": 30, "y": 100}},
+    {"id": "roe", "type": "screener", "screener": "ttm_return_on_equity", "params": {"min_percent": 15}, "criterion": {"operator": "default"}, "position": {"x": 360, "y": 100}},
+    {"id": "roa", "type": "screener", "screener": "return_on_assets", "params": {"min_percent": 10}, "criterion": {"operator": "default"}, "position": {"x": 690, "y": 100}},
+    {"id": "trend", "type": "screener", "screener": "roe_improvement", "params": {"min_percent": 0}, "criterion": {"operator": "default"}, "position": {"x": 1020, "y": 100}},
+    {"id": "roce", "type": "screener", "screener": "return_on_capital_employed", "params": {"min_percent": 30}, "criterion": {"operator": "default"}, "position": {"x": 1350, "y": 100}},
+    {"id": "shortlist", "type": "output", "label": "Four-trait shortlist", "position": {"x": 1680, "y": 100}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "universe", "sourceHandle": "passed", "target": "roe"},
+    {"id": "e2", "source": "roe", "sourceHandle": "passed", "target": "roa"},
+    {"id": "e3", "source": "roa", "sourceHandle": "passed", "target": "trend"},
+    {"id": "e4", "source": "trend", "sourceHandle": "passed", "target": "roce"},
+    {"id": "e5", "source": "roce", "sourceHandle": "passed", "target": "shortlist"}
+  ]
+}

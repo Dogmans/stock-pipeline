@@ -64,7 +64,7 @@ export function nearMisses(path, result, catalog, tolerance = 10) {
       if (!numeric(value)) return [];
       if (rule.operator === 'between' && value >= rule.value && value <= rule.upper_value) return [];
       const threshold = rule.operator === 'between' && value > rule.upper_value ? rule.upper_value : rule.value;
-      const gap = rule.operator === 'between' ? Math.abs(value-threshold) : rule.operator === 'gte' ? threshold-value : value-threshold;
+      const gap = rule.operator === 'between' ? Math.abs(value-threshold) : ['gte','gt'].includes(rule.operator) ? threshold-value : value-threshold;
       const percent = threshold === 0 ? null : gap / Math.abs(threshold)*100;
       if (gap < 0 || (percent == null ? gap !== 0 : percent > tolerance)) return [];
       return [{...row, nodeId:node.id, label:node.data.label || catalog[node.data.screener]?.label || node.data.screener,

@@ -6,6 +6,7 @@ import { Play, Square, Download, Upload, Plus, Search, SlidersHorizontal, GitBra
   ExternalLink, Newspaper, Star } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import example from '../../workflows/value_quality.json';
+import profitabilityExample from '../../workflows/profitability_traits.json';
 import { colors, outcomeLabels, fromDocument, toDocument, logicKey, canConnect, volumeWidth, csv, defaultRuleText } from './workflow.js';
 import ResearchPanel, {ThresholdDistribution, FinancialHistory} from './ResearchPanel.jsx';
 import {peerContext} from './insights.js';
@@ -13,6 +14,7 @@ import {download} from './browserState.js';
 import {fmt} from './ResearchUI.jsx';
 import {WatchlistButton, useWatchlist} from './WatchlistContext.jsx';
 import StockDialog from './StockDialog.jsx';
+import ProfitabilityPanel from './ProfitabilityPanel.jsx';
 
 function ScreeningPath({ context }) {
   const passed = context.steps.filter(step => step.outcome === 'passed').length;
@@ -35,6 +37,7 @@ function ScreeningPath({ context }) {
 }
 
 function ScoreBreakdown({ row }) {
+  if (row.profitability) return <details className="score-breakdown"><summary>TTM profitability calculation</summary><p>{row.methodology}</p><pre>{JSON.stringify(row.profitability,null,2)}</pre></details>;
   if (Array.isArray(row.checks)) return <details className="score-breakdown"><summary>Eligibility checks and research-priority penalties</summary>
     <div className="table-scroll"><table><thead><tr><th>Check</th><th>Actual</th><th>Required</th><th>Outcome</th></tr></thead><tbody>{row.checks.map(check => <tr key={check.rule}><td>{check.rule.replaceAll('_', ' ')}</td><td>{JSON.stringify(check.value)}</td><td>{check.operator} {JSON.stringify(check.threshold)}</td><td>{check.status}</td></tr>)}</tbody></table></div>
     <p>Priority starts at 100; eligibility is independent of this score.</p>
@@ -76,7 +79,7 @@ const metricDefinitions = [
   ['Price', 'Price', 'currency'], ['Change', 'Change', 'number'], ['ChangesPercentage', 'Today', 'percentValue'],
   ['MarketCapitalization', 'Market cap', 'compact'], ['PERatio', 'Trailing P/E', 'number'], ['EPS', 'EPS', 'currency'],
   ['PriceToBookRatio', 'Price / book', 'number'], ['PriceToSalesRatio', 'Price / sales', 'number'],
-  ['ReturnOnEquityTTM', 'Return on equity', 'percent'], ['ProfitMargin', 'Profit margin', 'percent'],
+  ['ReturnOnEquityTTM', 'Provider annual ROE', 'percent'], ['ProfitMargin', 'Profit margin', 'percent'],
   ['52WeekLow', '52-week low', 'currency'], ['52WeekHigh', '52-week high', 'currency'],
 ];
 function formatMetric(value, kind) {
@@ -204,6 +207,12 @@ export default function Studio({active = true}) {
     } catch (err) { setError(err.message); }
     event.target.value = '';
   }
+  function loadProfitabilityExample() {
+    const graph = fromDocument(profitabilityExample);
+    setNodes(graph.nodes);setEdges(graph.edges);setName(profitabilityExample.name);setUniverse(profitabilityExample.universe);
+    setRun(null);setRecord(null);setError('');savedSnapshot.current = null;
+    inspect('shortlist');setTimeout(() => fitView({padding:.2}),100);
+  }
   async function restoreRun(id) {
     if (busy) {setError('Finish or stop the active run before opening a saved run.');return;}
     try {
@@ -249,6 +258,7 @@ export default function Studio({active = true}) {
           <span className="library-icon"><SlidersHorizontal size={15}/></span><span>{c.label.replace(' Screener', '')}</span><Plus size={13}/>
         </button>)}</div>
         <button className="add-shortlist" disabled={busy} onClick={() => add('output')}><ListFilter size={16}/> Add shortlist <Plus size={14}/></button>
+        <button className="add-shortlist" disabled={busy} onClick={loadProfitabilityExample}><Layers size={16}/> Load four profitability traits</button>
         <div className="library-note"><GitBranch size={19}/><strong>Follow the decisions.</strong><p>Connect an outcome to the next screen. Select any line to see the stocks flowing through it.</p></div>
       </aside>
       <section className="main-pane" aria-label="Workflow canvas and results"><div className="canvas-bar"><div className="canvas-run-status"><span><i className="status-dot"/>{busy ? run?.progress?.message : stale ? 'Workflow changed · run to update' : run?.status === 'completed' ? 'Run complete' : run?.status === 'cancelled' ? 'Run cancelled' : 'Build your screening path'}</span>
@@ -278,6 +288,7 @@ export default function Studio({active = true}) {
           <p className="muted">Applied before screening. Missing eligibility data appears under the source node’s Unavailable outcome. Filters require company data for each candidate.</p>
           <label className="field">Exchange<input disabled={busy} placeholder="Any, e.g. NASDAQ" value={universe.filters?.exchange || ''} onChange={e => setUniverse({...universe,filters:{...universe.filters,exchange:e.target.value.toUpperCase()}})}/></label>
           {[['min_market_cap','Minimum market cap (quote currency)'],['min_average_volume','Minimum average daily volume (shares)']].map(([key,label]) => <label className="field" key={key}>{label}<input disabled={busy} type="number" min="0" step="any" value={universe.filters?.[key] ?? ''} placeholder="No minimum" onChange={e => setUniverse({...universe,filters:{...universe.filters,[key]:e.target.value === '' ? 0 : Number(e.target.value)}})}/></label>)}
+          <label className="field">Excluded sectors<input disabled={busy} aria-label="Excluded sectors" placeholder="Comma-separated sector names" maxLength={200} value={universe.filters?.excluded_sectors || ''} onChange={e => setUniverse({...universe,filters:{...universe.filters,excluded_sectors:e.target.value}})}/></label>
           <p className="muted">Use the Universe selector above to explore an index instead of the eight example symbols.</p>
         </details>
         <div className="setting-divider"/><label className="reuse-option"><input type="checkbox" checked={reuse} disabled={busy} onChange={e => setReuse(e.target.checked)}/><span>Reuse calculated scores<small>Fast comparisons with your last run.</small></span></label>
@@ -308,6 +319,7 @@ export default function Studio({active = true}) {
         <p className="muted">Source: FMP (may be cached). Fetched: {stockDetail.overview.OverviewFetchedAt ? new Date(stockDetail.overview.OverviewFetchedAt).toLocaleString() : 'Unavailable'}. Quote time: {stockDetail.overview.QuoteTimestamp ? new Date(stockDetail.overview.QuoteTimestamp*1000).toLocaleString() : 'Unavailable'}. Financial period: {stockDetail.overview.FinancialPeriod || 'Unavailable'}. Ratios period: {stockDetail.overview.RatiosPeriod || 'Unavailable'}.</p>
         <p className="muted">Coverage: {metricDefinitions.filter(([key]) => stockDetail.overview[key] != null && stockDetail.overview[key] !== '').length}/{metricDefinitions.length} displayed metrics. Quote currency: {stockDetail.overview.Currency || 'Unavailable'}.</p>
         <div className="metric-grid">{metricDefinitions.map(([key,label,kind]) => <div key={key}><span>{label}</span><strong>{stockDetail.overview[key] == null || stockDetail.overview[key] === '' ? 'Unavailable' : formatMetric(stockDetail.overview[key], kind)}</strong></div>)}</div>
+        <ProfitabilityPanel data={stockDetail.profitability} symbol={stockDetail.symbol}/>
         <FinancialHistory key={stockDetail.symbol} symbol={stockDetail.symbol} api={api}/>
         {stockDetail.overview.Description && <p className="company-description">{stockDetail.overview.Description}</p>}
         <div className="news-heading"><Newspaper size={16}/><h3>Recent news</h3><span>{stockDetail.news.length}</span></div>
