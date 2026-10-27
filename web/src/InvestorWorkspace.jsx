@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {ArrowDownToLine, ArrowUpRight, BarChart3, Calculator, ChevronRight, LineChart, Star} from 'lucide-react';
 import {useWatchlist} from './WatchlistContext.jsx';
 import useData from './useResearchData.js';
@@ -25,6 +25,12 @@ export default function InvestorWorkspace({symbol, page = 'overview', onPage, re
   const [period,setPeriod] = useState('annual');
   const [metric,setMetric] = useState('free_cash_flow'), [growth,setGrowth] = useState(false), [chartType,setChartType] = useState('bar');
   const [range,setRange] = useState('1Y');
+  const metricChart = useRef(null);
+  const chartId = 'financial-metric-chart';
+  function selectMetric(key, reveal = false) {
+    setMetric(key);setGrowth(false);
+    if (reveal) metricChart.current?.scrollIntoView({block:'start',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+  }
   const {watchlist,toggleSymbol,notify} = useWatchlist();
   const base = `/stocks/${encodeURIComponent(symbol)}`;
   const company = useData(base,revision), annual = useData(base+'/research?period=annual',revision), quarter = useData(base+'/research?period=quarter',revision);
@@ -61,12 +67,12 @@ export default function InvestorWorkspace({symbol, page = 'overview', onPage, re
         {(tab === 'overview' || tab === 'financials') && <><div className="ir-page-intro"><div><h2>{tab === 'overview' ? 'Company overview' : 'Financial history'}</h2><p>{latest.date ? `${period === 'annual' ? 'Annual' : 'Quarterly'} reporting · period ended ${latest.date} · ${latest.currency || 'Currency unknown'}` : 'Reported fundamentals, with gaps kept visible.'}</p></div><div className="ir-segment" aria-label="Reporting frequency"><button aria-pressed={period==='annual'} onClick={()=>setPeriod('annual')}>Annual</button><button aria-pressed={period==='quarter'} onClick={()=>setPeriod('quarter')}>Quarterly</button></div></div>
           <Busy state={active}><>{active.data?.missing?.length > 0 && <p className="ir-warning">Unavailable statements: {active.data.missing.join(', ')}. Your FMP plan or company coverage may limit availability.</p>}{active.data?.warnings?.map((warning,i)=><p key={i} className="ir-warning">{warning}</p>)}
             <div className="ir-kpi-grid"><MetricCard label="Revenue" value={latest.revenue} change={latest.yoy?.revenue} note="Reported period"/><MetricCard label="Free cash flow" value={latest.free_cash_flow} change={latest.yoy?.free_cash_flow} note="Operating cash flow − capex"/><MetricCard label="Operating margin" value={latest.operating_income_margin} kind="percent" note="EBIT / revenue"/><MetricCard label="Diluted EPS" value={latest.eps} kind="number" change={latest.yoy?.eps} note="Reported period"/></div>
-            <Section title="Operating performance" eyebrow="FUNDAMENTALS OVER TIME" action={<div className="ir-chart-controls"><select aria-label="Chart metric" value={metric} onChange={e=>{setMetric(e.target.value);setGrowth(false);}}>{metrics.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><button aria-pressed={growth} onClick={()=>setGrowth(v=>!v)}>YoY change</button><button aria-label="Toggle line or bar chart" onClick={()=>setChartType(t=>t==='bar' ? 'line' : 'bar')}>{chartType==='bar' ? <LineChart size={16}/> : <BarChart3 size={16}/>}</button></div>}>
+            <div ref={metricChart} id={chartId} className="ir-metric-chart" role="region" aria-label="Financial metric chart"><Section title={`${selectedMetric[1]} over time`} eyebrow="FUNDAMENTALS OVER TIME" action={<div className="ir-chart-controls"><select aria-label="Chart metric" value={metric} onChange={e=>selectMetric(e.target.value)}>{metrics.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><button aria-pressed={growth} onClick={()=>setGrowth(v=>!v)}>YoY change</button><button aria-label="Toggle line or bar chart" onClick={()=>setChartType(t=>t==='bar' ? 'line' : 'bar')}>{chartType==='bar' ? <LineChart size={16}/> : <BarChart3 size={16}/>}</button></div>}>
               <p className="ir-source">{currencies.join(', ')} · {growth ? selectedMetric[2] === 'percent' ? 'Change in percentage points from the same fiscal period a year earlier.' : 'Same fiscal period a year earlier; unavailable for nonpositive prior bases.' : 'Reported values. Hover for period details.'}</p>
-              {mixedCurrency ? <div className="ir-warning">Reporting currencies changed across periods. Use the financial table to inspect individual periods; combined charts are withheld.</div> : <TrendChart rows={chartRows} field="chart_value" label={selectedMetric[1]+(growth ? ' · YoY change' : '')} kind={growth ? selectedMetric[2] === 'percent' ? 'pp' : 'change' : selectedMetric[2] || 'compact'} bar={chartType==='bar'}/>}
+              {mixedCurrency ? <div className="ir-warning">Reporting currencies changed across periods. Use the financial table to inspect individual periods; combined charts are withheld.</div> : <TrendChart key={`${period}-${metric}-${growth}`} rows={chartRows} field="chart_value" label={selectedMetric[1]+(growth ? ' · YoY change' : '')} kind={growth ? selectedMetric[2] === 'percent' ? 'pp' : 'change' : selectedMetric[2] || 'compact'} bar={chartType==='bar'}/>}
               <p className="ir-source">{active.data?.methodology}</p>
-            </Section>
-            {tab === 'financials' && <Section title="Financial statements" eyebrow="SOURCE DATA & YEAR-ON-YEAR CHANGE"><FinancialTable data={active.data} symbol={symbol}/><p className="ir-source">Values retain vendor reporting conventions. Capex is shown as an outflow magnitude; dividend and buyback signs follow the source. FCF is distinct from the modelled FCFF in DCF valuation.</p></Section>}
+            </Section></div>
+            {tab === 'financials' && <Section title="Financial statements" eyebrow="SOURCE DATA & YEAR-ON-YEAR CHANGE"><FinancialTable data={active.data} symbol={symbol} selectedMetric={metric} onSelectMetric={key=>selectMetric(key,true)} chartId={chartId}/><p className="ir-source">Values retain vendor reporting conventions. Capex is shown as an outflow magnitude; dividend and buyback signs follow the source. FCF is distinct from the modelled FCFF in DCF valuation.</p></Section>}
           </></Busy>
         </>}
         {tab === 'overview' && <>

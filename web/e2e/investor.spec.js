@@ -67,3 +67,35 @@ test('DCF can use the annual balance sheet when quarterly history fails', async 
   await expect(page.getByLabel('Cash & equivalents (m)',{exact:true})).toHaveValue('35000');
   await expect(page.getByRole('alert')).toContainText('Quarterly history unavailable');
 });
+
+test('financial rows select their history chart by mouse or keyboard', async ({page}) => {
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.route('**/api/**',async route=>{
+    const url=new URL(route.request().url()), body=demoStockResponse(url);
+    if (!body) throw Error(`Unexpected API request ${url.pathname}`);
+    await route.fulfill({json:body});
+  });
+  await page.goto('/#research/AAPL/financials');
+  const chart=page.getByRole('region',{name:'Financial metric chart',exact:true});
+  await expect(chart.getByRole('img',{name:/Free cash flow over time/})).toBeVisible();
+  const revenue=page.getByRole('rowheader',{name:'Revenue',exact:true}).locator('..');
+  await revenue.getByRole('cell').first().click();
+  await expect(page.getByRole('combobox',{name:'Chart metric',exact:true})).toHaveValue('revenue');
+  await expect(revenue.getByRole('button',{name:'Revenue',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(chart.getByRole('img',{name:/Revenue over time/})).toBeInViewport();
+  await page.getByRole('button',{name:'YoY change',exact:true}).click();
+  await expect(chart.getByRole('img',{name:/Revenue.*YoY change over time/})).toBeVisible();
+  const margin=page.getByRole('rowheader',{name:'Operating margin',exact:true}).getByRole('button');
+  await margin.focus();
+  await margin.press('Enter');
+  await expect(margin).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('button',{name:'YoY change',exact:true})).toHaveAttribute('aria-pressed','false');
+  await expect(chart.getByRole('img',{name:/Operating margin over time/})).toBeInViewport();
+  await page.getByRole('button',{name:'Quarterly',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'Chart metric',exact:true})).toHaveValue('operating_income_margin');
+  await expect(chart.getByRole('img',{name:/Operating margin over time/})).toBeVisible();
+  await page.getByRole('combobox',{name:'Chart metric',exact:true}).selectOption('gross_profit');
+  await expect(page.getByRole('rowheader',{name:'Gross profit',exact:true}).getByRole('button')).toHaveAttribute('aria-pressed','true');
+  expect(errors).toEqual([]);
+});

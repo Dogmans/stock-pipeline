@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {ArrowDownToLine, LoaderCircle} from 'lucide-react';
+import {ArrowDownToLine, LineChart, LoaderCircle} from 'lucide-react';
 import {exportCsv} from './browserState.js';
 
 export const metrics = [
@@ -66,13 +66,14 @@ export function TrendChart({rows, field, label, kind = 'compact', color = '#2581
 export function MetricCard({label, value, change, note, kind}) {
   return <div className="ir-kpi"><span>{label}</span><strong>{fmt(value,kind)}</strong><small className={change == null ? '' : change >= 0 ? 'ir-positive' : 'ir-negative'}>{change == null ? note || 'Unavailable' : `${fmt(change,'change')} YoY`}</small></div>;
 }
-export function FinancialTable({data, symbol}) {
+export function FinancialTable({data, symbol, selectedMetric, onSelectMetric, chartId}) {
   const rows = data?.periods || [], reversed = [...rows].reverse();
   const currencies = [...new Set(rows.map(r => r.currency || 'Unknown'))].join(', ');
   return <><div className="ir-table-toolbar"><span>Reported values · {currencies} · money and share counts in millions, except per-share data</span>
     <button disabled={!rows.length} onClick={() => exportCsv(`${symbol}-${data.period}-financials.csv`, [['Metric','Unit',...rows.map(r => r.date)],['Reported currency','currency',...rows.map(r => r.currency)],...metrics.map(([key,label,kind]) => [label,kind === 'percent' ? 'fraction' : kind === 'perShare' ? 'currency / share' : kind || 'currency units',...rows.map(r => r[key])])])}><ArrowDownToLine size={14}/> Export CSV (raw units)</button></div>
+    {onSelectMetric && <p className="ir-source ir-table-hint">Select a metric row to view its chart above.</p>}
     <div className="ir-table-scroll"><table className="ir-table ir-financial-table"><thead><tr><th>Financial metric</th>{reversed.map(r => <th key={r.date}>{r.fiscal_period} {r.date}<small>{r.currency || 'Currency unknown'}</small><small>Filed {r.sources?.income?.filed_at || r.sources?.balance?.filed_at || 'date unavailable'}</small></th>)}</tr></thead>
-      <tbody>{metrics.map(([key,label,kind]) => <tr key={key}><th scope="row">{label}</th>{reversed.map(row => {
+      <tbody>{metrics.map(([key,label,kind]) => <tr key={key} className={onSelectMetric ? `ir-metric-row ${selectedMetric === key ? 'is-selected' : ''}` : undefined} onClick={onSelectMetric ? () => onSelectMetric(key) : undefined}><th scope="row">{onSelectMetric ? <button type="button" className="ir-metric-select" aria-pressed={selectedMetric === key} aria-controls={chartId} title={`Show ${label.toLowerCase()} chart`} onClick={event => {event.stopPropagation();onSelectMetric(key);}}>{label}<LineChart size={13} aria-hidden="true"/></button> : label}</th>{reversed.map(row => {
         const value = row[key] == null ? null : !kind || kind === 'shares' ? row[key]/1e6 : row[key];
         const change = kind === 'percent' ? row.yoy_pp?.[key] : row.yoy?.[key];
         return <td key={row.date}>{fmt(value,kind === 'shares' ? 'number' : kind || 'number')}

@@ -201,6 +201,14 @@
 .ir-financial-table th:first-child{position:sticky;left:0;background:white;z-index:1;min-width:170px;border-right:1px solid #edf0e8}
 
 .ir-financial-table thead th:first-child{background:#f7f9f3}
+.ir-metric-chart{scroll-margin-top:90px}
+.ir-table-hint{margin:0 0 12px}
+.ir-financial-table .ir-metric-row{cursor:pointer}
+.ir-financial-table .ir-metric-row:hover>th,.ir-financial-table .ir-metric-row:hover>td{background:#f3f8ef}
+.ir-financial-table .ir-metric-row.is-selected>th,.ir-financial-table .ir-metric-row.is-selected>td{background:#eaf3e5}
+.ir-financial-table .ir-metric-row.is-selected>th{box-shadow:inset 3px 0 #317351}
+.investor-app .ir-metric-select{border:0;background:transparent;padding:0;width:100%;display:flex;justify-content:space-between;gap:12px;text-align:left;font-size:11px;font-weight:500;color:inherit}
+.ir-metric-select svg{flex-shrink:0;color:#68855c}
 
 .ir-table tr:hover td{background:#fafcf7}
 

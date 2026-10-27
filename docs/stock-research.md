@@ -6,6 +6,8 @@ The landing page is now company research (`/#research/AAPL`; substitute any supp
 
 Each research section has its own URL, such as `/#research/AAPL/financials`, so browser Back/Forward and direct links select the same section as the sidebar. The sidebar and mobile selector are the primary page navigation. Expanded screening results use the available workspace area without covering that navigation; settings move below the canvas on narrower screens. The stock details dialog supports Escape and contains keyboard focus until dismissed.
 
+On **Financials**, select any metric row to chart its history. The selected row is highlighted, the chart metric updates and the view scrolls to the chart. Keyboard users can focus a metric's button and press Enter or Space. Row selection shows reported values first; use **YoY change** for growth or margin changes, and retain annual/quarterly and line/bar choices. The chart dropdown and table selection stay synchronized.
+
 Unsaved DCF inputs and investment notes remain as per-company drafts while navigating, changing companies or reloading source data. Drafts are held in the current browser session; use the explicit Save action to keep them after a page reload or closing the site. Resetting a DCF applies the latest available source base. Line charts scale to the observed range, while bar charts retain a zero baseline. Margin changes are reported in percentage points in charts and tables.
 
 ### Workspace examples
