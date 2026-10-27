@@ -20,6 +20,8 @@ The configured FMP limit is 300 requests/minute and no daily cap. These settings
 | `yfinance_provider.py` | Alternate market/price data support |
 | `base.py` | Provider interface |
 
+The stock profitability panel and four opt-in screens share `profitability.py`. They use `get_research_statements(symbol, statement, annual=False)` for up to forty raw quarterly income/balance observations from the stable endpoints, cached for 24 hours. This is separate from the legacy five-year/six-quarter normalized statement methods and TAM's eight-quarter accessor. ROE/ROA/ROCE and the three-year ROE change are derived locally with aligned periods and known matching currencies; no provider overview ratio is substituted. [Definitions and API fields](../docs/guides/profitability_traits.md).
+
 Cache expiry is method-specific. Discovery successes expire after 24 hours and exceptions are not memoized. Existing income/balance/cash-flow calls expire after a week and may cache empty results on failure. Existing `force_refresh` paths can clear the whole cache. See [cache semantics](../docs/cache_usage.md).
 
 Read [the FMP guide](../docs/provider_guides/financial_modeling_prep.md) and [field reference](../docs/provider_guides/fmp_field_reference.md) before consuming data. Use [the offline test runner](../docs/testing.md) for mocked validation; legacy provider tests can contact live services.

@@ -46,6 +46,16 @@ Python server. Production assets are generated under ignored `web/dist/`.
 Moving nodes only changes layout. Results are marked stale when screening logic,
 thresholds, or the universe changes.
 
+## Four profitability traits
+
+Select **Load four profitability traits** in the library to load [the supplied workflow](../workflows/profitability_traits.json). This replaces the current canvas and clears its displayed run; save your workflow first if you want to keep it. The preset starts with the S&P 500 and routes Pass through TTM ROE >= 15%, TTM ROA >= 10%, ROE change over three years > 0pp, and TTM ROCE >= 30%, then into a shortlist.
+
+Each screen is also available independently in the library. Edit `min_percent` on a node: 15 means 15% for ROE, while 5 means a change greater than 5 percentage points for the improvement screen. Its default rule is strict: unchanged ROE fails at zero. Explicit **Score ≥** and **Score ≤** overrides use their selected inclusive comparison.
+
+Under **Universe eligibility filters**, **Excluded sectors** accepts comma-separated full sector names, matched without case sensitivity. The preset lists Financial Services / Financials, Energy, Utilities, Basic Materials / Materials, and Real Estate. Unknown or missing sectors go to the source node's Unavailable outcome when exclusions are enabled; excluded sectors go to Fail. Clear the field to allow every sector. Other universes and independent profitability nodes have no sector exclusions unless configured.
+
+Open a stock for the shared profitability panel and its CSV export; **Compare** includes all four metrics and the comparison dates. Expand **TTM profitability calculation** in a result to inspect its inputs and reasons. Stock cards use fixed video reference thresholds; the saved workflow step records the actual rule applied in that run. [Definitions and data requirements](guides/profitability_traits.md).
+
 ## Thresholds and snapshots
 
 Each screener starts with its existing default rule. Ordinary score-based nodes may override the final
@@ -54,7 +64,7 @@ screener can be edited in the side panel. TAM uses all hard checks and disables 
 
 With **Reuse calculated scores** enabled, later runs can reuse the most recent
 bounded in-memory snapshot. Threshold-only changes avoid FMP calls. Constructor
-changes create a new score key. The server retains five snapshots and up to 100,000
+changes create a new score key, including edits to profitability `min_percent`. An explicit score-criterion edit can reuse the existing score. The server retains five snapshots and up to 100,000
 non-error scores per snapshot; restarting clears them. FMP disk caching still applies.
 
 ## CLI compatibility

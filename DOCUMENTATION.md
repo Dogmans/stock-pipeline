@@ -1,6 +1,6 @@
 # Stock Pipeline architecture
 
-Reviewed against the repository on 2026-10-04. Start with [README.md](README.md) for installation and [the documentation index](docs/README.md) for topic guides.
+Core architecture reviewed on 2026-10-04; profitability components and integration updated on 2026-10-27. Start with [README.md](README.md) for installation and [the documentation index](docs/README.md) for topic guides.
 
 ## Execution paths
 
@@ -23,6 +23,9 @@ The editor API in `visual_api.py` and `main.py --workflow` use `WorkflowEngine` 
 | `utils/rate_limiter.py`, `utils/throttling.py` | Request-level limits and selected method-level throttling |
 | `reporting.py` | Passing-stock Markdown/text reports |
 | `web/src/` | React flow editor, inspections, ranking and research controls |
+| `profitability.py` | Shared TTM ROE/ROA/ROCE history and three-year ROE comparison from reported quarterly statements |
+| `screeners/profitability.py` | Four opt-in numeric screens using the shared profitability calculations |
+| `web/src/ProfitabilityPanel.jsx` | Shared metric cards, historical chart and profitability CSV export |
 | `research.py` | Local run history, research snapshots, financial history and forward price tracking |
 | `technical_indicators.py`, `visualization.py` | Supporting analysis/legacy visualization utilities; not the default report pipeline |
 
@@ -32,13 +35,17 @@ Most class screeners return scored rows with `meets_threshold`, including failur
 
 TAM overrides the base evaluation path to retain every input and evaluates multiple hard checks independently of its research-priority score. Its default rule cannot be replaced with a score threshold. Every run retains effective settings, raw statement rows, calculations and rule evidence. See [the TAM guide](docs/guides/proven_technology_emerging_tam.md).
 
+The registry contains 20 screens; 15 are selected by default. The four profitability screens are opt-in and share `profitability.py` with `StockDetailService` in `visual_api.py`. Stock detail responses contain a separate `profitability` object with the latest observation, history and methodology. Each profitability screen uses four quarters of profit and closing balance-sheet values; unavailable inputs remain separate from failed thresholds. The improvement screen uses a strict `gt` default rule, while generic score overrides remain inclusive. [Definitions and API fields](docs/guides/profitability_traits.md).
+
+Universe filters run before node evaluation and include comma-separated sector exclusions. The four-trait preset sets those exclusions; the individual screens do not. Saved results retain the per-node rules and calculation evidence.
+
 The existing `composite_score` is a weighted numeric factor screener. Legacy combined functions rank intersection membership in returned result sets; that is not the same as passing every component threshold or a grouped workflow node.
 
 ## Providers and configuration
 
 Registered screeners normally initialize their own FMP provider. Standalone `--data-provider` selects the provider passed to market-context collection; it does not rewire those screener instances. Configuration is split between `config.py`, constructor defaults and implementation constants. The editor derives editable parameters from constructor signatures.
 
-FMP overview fields are assembled from legacy endpoints and may be missing or conditional. Statement columns are normalized; ratios are generally decimals. Discovery uses isolated stable endpoints without migrating existing consumers. [Provider guide](docs/provider_guides/financial_modeling_prep.md).
+FMP overview fields are assembled from legacy endpoints and may be missing or conditional. Legacy statement columns are normalized; ratios are generally decimals. `get_research_statements()` supplies raw stable statements separately, up to ten annual periods or forty quarters, cached for 24 hours. The profitability adapter uses quarterly income and balance statements from that path without changing legacy statement lookbacks. Discovery uses isolated stable endpoints without migrating existing consumers. [Provider guide](docs/provider_guides/financial_modeling_prep.md).
 
 ## Persistence and freshness
 

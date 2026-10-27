@@ -1,6 +1,6 @@
 # Documentation
 
-Current user and developer guides were reviewed against the code on 2026-10-04. Dated development notes and implementation reports are historical records, not current setup instructions.
+The core guide review dates from 2026-10-04; profitability metrics, screeners and related references were updated against the code on 2026-10-27. Dated development notes and implementation reports are historical records, not current setup instructions.
 
 ## Start here
 
@@ -8,6 +8,7 @@ Current user and developer guides were reviewed against the code on 2026-10-04. 
 - [Architecture](../DOCUMENTATION.md): execution paths, providers and extension points.
 - [Visual editor](visual_editor.md): graph mechanics, settings and snapshots.
 - [Stock research](stock-research.md): ranking, comparisons, histories and performance.
+- [Four profitability traits](guides/profitability_traits.md): TTM ROE, ROA, ROCE, three-year ROE change, screening preset, API fields and CSV units.
 - [TAM candidate screen](guides/proven_technology_emerging_tam.md): quantitative checks, penalties and audit exports.
 - [Research workflow](investment_workflow.md): broad candidate discovery followed by qualitative review.
 

@@ -26,7 +26,7 @@ The star beside a company name on its research page already saves it to the brow
 
 The **Watchlist (N)** action beside the results filter adds every matching stock in the selected node/outcome to the watchlist, including rows beyond the first 500 displayed. It respects the text filter and deduplicates stocks already saved; it does not imply all those stocks passed every screening step. The action is disabled when all matching stocks are already saved. The workspace watchlist updates immediately; choose a ticker there to research it and return to **Screening workflow** to resume the same screen. Saved symbols survive reloads and synchronize between tabs on the same origin. Existing saved watchlists are preserved. If browser storage is unavailable, a notification explains that updates last only for the current session.
 
-Financial history uses the FMP stable income, balance-sheet and cash-flow endpoints with a separate research lookback of up to ten annual periods or forty quarters. Existing screener lookbacks remain unchanged. Select a metric, annual/quarterly reporting, YoY change, and line/bar presentation. Tables show vendor values in millions, except per-share values and ratios; CSV exports use raw units. FCF is operating cash flow minus absolute capex (vendor FCF is preferred when supplied). This reported FCF is not unlevered FCFF. Cash, debt and other balance-sheet figures are point-in-time observations; earnings and cash flows cover the stated period.
+Financial history uses the FMP stable income, balance-sheet and cash-flow endpoints with a separate research lookback of up to ten annual periods or forty quarters. Legacy screener lookbacks remain unchanged; the four TTM profitability screens use the forty-quarter research history described below. Select a metric, annual/quarterly reporting, YoY change, and line/bar presentation. Tables show vendor values in millions, except per-share values and ratios; CSV exports use raw units. FCF is operating cash flow minus absolute capex (vendor FCF is preferred when supplied). This reported FCF is not unlevered FCFF. Cash, debt and other balance-sheet figures are point-in-time observations; earnings and cash flows cover the stated period.
 
 YoY compares dates 330–400 days apart and, for quarterly statements, the same fiscal quarter. Known matching currencies and positive prior bases are required. A negative or zero prior base has no percentage-growth result. Margin changes use percentage points. Mixed statement currencies are excluded from merged periods, and charts are withheld across changing reporting currencies. Missing values are never filled with zero. Dates and filing dates are preserved where FMP supplies them. Historical vendor statements may contain restatements; this is not a point-in-time backtest dataset.
 
@@ -66,7 +66,7 @@ Run a workflow, select an output node, then use the tabs in the results panel:
 
 - **Stocks:** the original outcome table, CSV export and stock sidebar.
 - **Rank:** each screener on the selected path becomes a separate factor. Adjust weights from 0 to 10. Values become percentiles within the selected outcome, using the applied rule's direction. Ties use midranks. All active factors must be present for an overall weighted rank; missing values are not treated as zero or silently excluded. A single-stock sample has percentile 50. These ranks describe the current sample, not expected returns.
-- **Compare:** select two to five stocks and load aligned valuation, profitability, debt, cash flow and annual revenue growth. Quote and statement currencies and periods are displayed. Annual revenue growth requires consecutive annual periods and matching known currencies. Missing fields remain visible.
+- **Compare:** select two to five stocks and load aligned valuation, profitability, debt, cash flow and annual revenue growth. Quote and statement currencies and periods are displayed. Profitability includes calculated TTM ROE, ROA and ROCE, ROE change over three years in percentage points, the earlier ROE value, and current/comparison dates. Annual revenue growth requires consecutive annual periods and matching known currencies. Missing fields remain visible.
 - **Near misses:** inspect failed evaluations within a configurable percentage of the threshold on the selected path. Clicking a symbol opens its actual failed route. Later screens may not have evaluated it. At a zero threshold, only exact-boundary failures have a defined relative distance. The 52-week-low default uses percentage above the low, rather than its inverted score.
 - **Changes:** choose an earlier saved run to see entrants, departures and changed decisions for retained stocks. Both runs' recorded per-screen scores and explanations are shown. Changes may result from different rules, universes or data; they are not automatically attributed to market movements.
 - **Saved runs:** reopen the exact workflow and results of a completed run. Snapshots are stored locally in `output/workflow_history`, independently of the short-lived score cache. Restoring a run does not fetch prices or rerun its screens. The next execution starts a new score snapshot.
@@ -76,11 +76,30 @@ The stock sidebar adds sector percentiles among the stocks evaluated at each scr
 
 Selecting an ordinary score-based screener shows its numeric distribution and applied threshold. TAM displays its multiple eligibility checks and effective run settings instead. Its canvas dropdown displays the compact rule. The sidebar shows source, reporting periods, quote timestamp, retrieval timestamp and missing-field coverage where the provider supplies them. Existing cache entries may lack newly added metadata; they remain labelled unavailable until refreshed through the normal cache lifecycle. Starting a new score snapshot does not bypass the underlying FMP data cache.
 
-The universe selector supports custom symbols, the existing S&P 500, Nasdaq 100 and Russell 2000 sources, and `fmp_listed` for US/TSX/TSXV discovery. Index and ETF-derived sources are not complete listing universes. Optional exchange, minimum market-cap and average daily share-volume filters run before screening. Exchange matches the provider's full or short exchange name. Market-cap minimums are in the quote currency. Excluded and unavailable candidates remain inspectable in the source node's outcome tabs. Filtering needs company data for every candidate, so a broad universe can take longer.
+The universe selector supports custom symbols, the existing S&P 500, Nasdaq 100 and Russell 2000 sources, and `fmp_listed` for US/TSX/TSXV discovery. Index and ETF-derived sources are not complete listing universes. Optional exchange, minimum market-cap, average daily share-volume and comma-separated excluded-sector filters run before screening. Sector exclusions match full sector names without case sensitivity; candidates with missing or Unknown sectors go to Unavailable when this filter is enabled. Exchange matches the provider's full or short exchange name. Market-cap minimums are in the quote currency. Excluded and unavailable candidates remain inspectable in the source node's outcome tabs. Filtering needs company data for every candidate, so a broad universe can take longer.
+
+## Four TTM profitability traits
+
+**Profitability traits** appears on Overview, Financials and the screening stock details dialog. It provides four metric cards, a separate **Profitability chart metric** selector, current and comparison reporting dates, missing-input explanations and **Export profitability CSV**. The panel always uses trailing twelve months, independently of the annual/quarterly control for the financial statements. The cards show the video's fixed reference thresholds; configurable screening decisions remain recorded in the workflow results.
+
+| Metric | Calculation | Reference threshold |
+| --- | --- | --- |
+| TTM return on equity (ROE) | Four-quarter net income / closing shareholders' equity | At least 15% |
+| TTM return on assets (ROA) | Four-quarter net income / closing assets | At least 10% |
+| ROE change over three years | Current TTM ROE minus TTM ROE at the same fiscal quarter three years earlier | Greater than 0pp |
+| TTM return on capital employed (ROCE) | Four-quarter EBIT / (closing assets minus current liabilities) | At least 30% |
+
+Reported EBIT is preferred; otherwise all of net income, income tax expense and interest expense are needed to derive it. Positive denominators, four consecutive quarters, matching closing statement dates and known matching currencies are required. The comparison typically needs sixteen quarters of history. A rise from 10% to 20% ROE is +10pp. Missing current inputs or comparison history remain unavailable, with no fallback to an older valid period or to vendor annual ratios.
+
+The profitability CSV and stock API store ratios as fractions: 0.2 means 20%, and 0.1 for ROE change means +10pp. Screener scores multiply these values by 100. The ordinary financial-statement CSV is a separate export.
+
+Choose **Load four profitability traits** in the screening library to replace the canvas with the supplied S&P 500 workflow. It stacks the four filters and excludes financial services, energy, utilities, basic materials and real estate. Save the current workflow first if needed. Adjust each node's `min_percent` and the universe's **Excluded sectors** field as required; standalone screens have no sector gate.
+
+[Complete methodology, CLI examples and API fields](guides/profitability_traits.md).
 
 ## Return on equity
 
-The `return_on_equity` screener calculates **annual net income / average opening and closing shareholders’ equity × 100**. Its score and editable `min_roe` parameter are percentage points (15 means 15%). The initial minimum is 15%; this is a configurable research threshold, not a universal quality benchmark.
+The `return_on_equity` screener calculates **annual net income / average opening and closing shareholders’ equity × 100**. Its score and editable `min_roe` parameter use percentage values (15 means 15%). The initial minimum is 15%; this is a configurable research threshold, not a universal quality benchmark.
 
 It requires matching annual statement dates, matching known currencies, positive opening and closing shareholders’ equity, and positive asset balances. Its editable `min_equity_ratio` defaults to 5% average equity / average assets. Thin or nonpositive equity bases are marked unavailable, with reasons retained; a score override cannot bypass unavailable data. The annual measure is deliberately distinct from the provider's overview field labelled TTM.
 
@@ -114,5 +133,5 @@ npx playwright test
 Playwright uses Chromium by default. Set `STOCK_UI_BROWSER_CHANNEL=msedge` to use installed Edge. `STOCK_UI_EXTERNAL_SERVER=1` and `STOCK_UI_BASE_URL` allow testing an already-served production build. Browser tests stub API data; they do not use paid market-data requests.
 
 ```powershell
-.venv-ui/Scripts/python.exe -m unittest tests.test_investor_research tests.test_research tests.test_workflow tests.test_visual_api tests.test_fmp_transport
+.venv-ui/Scripts/python.exe -m unittest tests.test_investor_research tests.test_profitability tests.test_research tests.test_workflow tests.test_visual_api tests.test_fmp_transport
 ```

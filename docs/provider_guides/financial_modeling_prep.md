@@ -12,15 +12,22 @@ This page describes repository behaviour, not a guarantee of current subscriptio
 | `get_income_statement` | Legacy income statement, five annual rows or configured quarterly count (default six) | 168h |
 | `get_balance_sheet` | Legacy balance-sheet statement, same limits | 168h |
 | `get_cash_flow` | Legacy cash-flow statement, same limits | 168h |
+| `get_research_statements` | Raw stable income/balance/cash-flow statements; up to ten annual periods or forty quarters | 24h |
 | `get_historical_prices` | Legacy price history; returns a symbol-to-DataFrame mapping | 24h |
 | `get_price_change_history` | Stable `historical-price-eod/full`, shared symbol/date coverage, split-adjusted closes | Incremental tail refresh; weekly reconciliation |
 | `get_stock_news` | Stable `news/stock` | 30min |
 | `get_insider_trading` | Stable `insider-trading/search` for a symbol, limited response filtered by lookback | 24h |
 | Analyst/price-target methods | Selected stable grades, estimates and targets | No blanket cache guarantee; inspect individual methods |
 
-Statements rename `date` to `fiscalDateEnding`, convert it to datetime, sort newest first and retain unrenamed source fields. [Field mapping reference](fmp_field_reference.md).
+Legacy normalized statements rename `date` to `fiscalDateEnding`, convert it to datetime, sort newest first and retain unrenamed source fields. [Field mapping reference](fmp_field_reference.md).
 
 Overview profitability fields are conditional on the ratios request; names labelled TTM do not establish a TTM period because the request uses annual ratios. `RevenueGrowth` is declared in the type but not populated by the existing overview. `DataCompleteness` is a coarse fetch-stage label, not validation of every metric.
+
+## Calculated profitability
+
+`profitability.py` requests raw quarterly income and balance-sheet data through `get_research_statements()`. It supplies the stock-detail API and the four profitability screeners, with closing-balance TTM ROE, ROA and ROCE plus a same-quarter three-year ROE comparison. Raw research frames retain source field names and dates; the adapter aligns and sorts observations itself. It accepts shareholder-equity aliases, requires known matching currencies, and leaves incomplete or unsuitable ratios unavailable.
+
+The accessor raises when the request fails or the payload is not a list; a successful empty list remains an empty DataFrame. The stock service catches statement-fetch exceptions to retain the rest of the company view. Profitability screens propagate them to the workflow Error branch; successful but insufficient history produces Unavailable. These requests retain the existing shared transport and limiter, without adding a retry policy or altering legacy statement limits. [Calculations, coverage and units](../guides/profitability_traits.md).
 
 ## Discovery provider
 

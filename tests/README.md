@@ -14,6 +14,7 @@ This directory contains unit tests for the stock screening pipeline modules.
 - `test_workflow.py`: Tests workflow validation, branching, caching, and progress
 - `test_visual_api.py`: Tests the local workflow API
 - `test_tam_screener.py`: Quantitative checks, missing data, FX, staging, penalties and audit exports
+- `test_profitability.py`: Shared TTM profitability formulas, units, missing data, three-year comparison and stacked-workflow routing; included in the offline runner
 - `test_research.py`, `test_price_change.py`, `test_return_on_equity.py`: Focused research and calculation coverage
 
 ### Supporting Tests
@@ -34,7 +35,7 @@ This directory contains unit tests for the stock screening pipeline modules.
 ```
 
 This is the normal project check. It blocks external network access and exercises
-the pipeline, FMP transport, workflow engine, visual API and TAM.
+the pipeline, FMP transport, workflow engine, visual API, TAM and the four profitability traits.
 
 ### Run all tests, including live API tests
 

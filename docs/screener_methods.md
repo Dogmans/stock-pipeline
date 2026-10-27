@@ -1,6 +1,6 @@
 # Registered screener reference
 
-Reviewed against the registry and catalog on 2026-10-04. These are the IDs accepted by the CLI and visual editor; there are 16 registered screens, 15 in the default `all` selection.
+Profitability additions reviewed against the registry and catalog on 2026-10-27. These are the IDs accepted by the CLI and visual editor; there are 20 registered screens, 15 in the default `all` selection. The four TTM profitability screens and TAM are opt-in.
 
 | Strategy ID | Initial pass rule | Editable constructor parameters |
 | --- | --- | --- |
@@ -12,6 +12,10 @@ Reviewed against the registry and catalog on 2026-10-04. These are the IDs accep
 | `momentum` | Momentum score >= 15.0% | `min_momentum_score`, `lookback_period` |
 | `quality` | Quality score >= 6.0 | `min_quality_score` |
 | `return_on_equity` | Annual ROE >= 15.0% | `min_roe`, `min_equity_ratio` |
+| `ttm_return_on_equity` (opt-in) | TTM ROE >= 15.0% | `min_percent` |
+| `return_on_assets` (opt-in) | TTM ROA >= 10.0% | `min_percent` |
+| `roe_improvement` (opt-in) | ROE change over three years > 0.0pp | `min_percent` |
+| `return_on_capital_employed` (opt-in) | TTM ROCE >= 30.0% | `min_percent` |
 | `fcf_yield` | Free cash flow yield >= 3.5% | `min_fcf_yield` |
 | `enhanced_quality` | Quality score >= 50.0 / 100 | None |
 | `insider_buying` | Insider buying score >= 65.0 / 100 | `lookback_days` |
@@ -23,11 +27,15 @@ Reviewed against the registry and catalog on 2026-10-04. These are the IDs accep
 
 ## Behaviour and units
 
-Defaults can come from constructors or `config.ScreeningThresholds`. Some older constructors use `value or default`, so zero falls back to the configured default; the catalog records this where applicable. TAM treats zero as an explicit value. Score thresholds, ratios and percentage points are not interchangeable.
+Defaults can come from constructors or `config.ScreeningThresholds`. Some older constructors use `value or default`, so zero falls back to the configured default; the catalog records this where applicable. TAM and the four TTM profitability screens treat zero as an explicit value. Score thresholds, ratios and percentage points are not interchangeable.
 
 `quality` uses a 10-point score and needs at least three overview metrics. Its strict component boundaries include ROE above 15%, debt/equity below 0.5, profit margin above 20%, operating margin above 15% and EV/EBITDA below 10. `enhanced_quality` allocates up to 25 points each to ROE, profitability, financial strength and growth quality, passing at 50; configuration component constants are not independent flow checks.
 
-`return_on_equity` uses annual income and average positive equity, distinct from overview fields labelled TTM. `price_change` uses split-adjusted closes and an inclusive range. [Research methodology](stock-research.md).
+`return_on_equity` uses annual income and average positive equity. The four new profitability screens use four reported quarters and closing balance-sheet denominators: ROE = net income / shareholders' equity; ROA = net income / assets; ROCE = EBIT / (assets minus current liabilities). `roe_improvement` measures the change in TTM ROE from the same fiscal quarter three years earlier. Equality fails its default strict `>` rule. Its score and `min_percent` are percentage points; the other three scores and thresholds are percentages. Missing data remains unavailable.
+
+These four screens share calculations with the stock pages, rank higher scores first and apply no sector exclusions individually. The supplied [profitability workflow](../workflows/profitability_traits.json) stacks them with the video's sector exclusions. Provider overview names ending in `TTM` can contain annual ratios and are separate from these calculated values. [Formulas, units and coverage](guides/profitability_traits.md).
+
+`price_change` uses split-adjusted closes and an inclusive range. [Research methodology](stock-research.md).
 
 `analyst_sentiment_momentum` has a default score threshold of 1 for exploratory use; sparse analyst coverage remains a limitation. `composite_score` weights available factors, requires at least three and passes at 60. It is independent of the legacy average-rank combined helpers.
 

@@ -8,6 +8,7 @@ Quick reference for normalized repository output, reviewed on 2026-10-04. Fields
 - [Income Statement](#income-statement)
 - [Balance Sheet](#balance-sheet)
 - [Cash Flow](#cash-flow)
+- [Calculated TTM Profitability](#calculated-ttm-profitability)
 - [Historical Prices](#historical-prices)
 - [Common Mistakes](#common-mistakes)
 
@@ -44,8 +45,8 @@ overview['EVToEBITDA']           # EV/EBITDA
 overview['DebtToEquityRatio']    # Debt to equity
 
 # Profitability (⚠️ DECIMAL format: 0.30 = 30%)
-overview['ReturnOnEquityTTM']    # ROE as decimal
-overview['ReturnOnAssetsTTM']    # ROA as decimal
+overview['ReturnOnEquityTTM']    # Annual provider ROE as decimal despite the legacy field name
+overview['ReturnOnAssetsTTM']    # Annual provider ROA as decimal despite the legacy field name
 overview['ProfitMargin']         # Profit margin as decimal
 overview['OperatingMarginTTM']   # Operating margin as decimal
 overview.get('RevenueGrowth')    # Declared in type, but not populated by this provider
@@ -55,6 +56,8 @@ overview['52WeekHigh']           # 52-week high (string)
 overview['52WeekLow']            # 52-week low (string)
 ```
 
+These overview ratios are conditional on a legacy annual-ratios request. Their `TTM` names do not establish a trailing-twelve-month period. The stock-detail API's separate `profitability` object contains the calculated TTM ratios below.
+
 ### ⚠️ Not Available in Overview
 
 ```python
@@ -63,6 +66,23 @@ balance = provider.get_balance_sheet(symbol)
 latest = balance.iloc[0]
 current_ratio = latest['totalCurrentAssets'] / latest['totalCurrentLiabilities']
 ```
+
+---
+
+## Calculated TTM Profitability
+
+The stock service adds `profitability` to `GET /api/stocks/{symbol}` using the shared adapter in `profitability.py`. It is not part of `get_company_overview()` or `FMPCompanyOverview`.
+
+| Latest/history field | Meaning |
+| --- | --- |
+| `roe` | Four-quarter net income / closing shareholders' equity |
+| `roa` | Four-quarter net income / closing assets |
+| `roce` | Four-quarter EBIT / (closing assets minus current liabilities) |
+| `roe_change_3y` | Current TTM ROE minus TTM ROE at the same quarter three years earlier |
+| `roe_3y_ago`, `comparison_date` | Earlier ROE and its period end |
+| `date`, `currency`, `reasons` | Current period, reporting currency and unavailable-data explanations |
+
+Ratios and changes use fractional units: `roe = 0.2` means 20%; `roe_change_3y = 0.1` means +10 percentage points. Screener scores multiply by 100. Missing metrics are null, not zero. The adapter uses raw `get_research_statements()` income/balance fields with up to forty quarters and 24-hour caching. [Full API fields and alignment rules](../guides/profitability_traits.md).
 
 ---
 

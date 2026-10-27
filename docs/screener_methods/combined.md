@@ -2,7 +2,7 @@
 
 These helpers in `screeners/combined.py` are programmatic functions, not current registered CLI strategies or grouped editor nodes.
 
-`run_screeners_with_registry(universe_df, screener_names=None, **screener_kwargs)` runs class-registry screens and returns a dictionary of result DataFrames. Its default set excludes opt-in TAM. It does not create an average-rank composite.
+`run_screeners_with_registry(universe_df, screener_names=None, **screener_kwargs)` runs class-registry screens and returns a dictionary of result DataFrames. Its default set excludes TAM and the four opt-in profitability screens. It does not create an average-rank composite.
 
 `screen_for_combined(universe_df=None, strategies=None, combination_name=None)` calls legacy `screen_for_<strategy>` functions, ranks their returned rows and retains symbols returned by every requested strategy. Lower average rank is better. It does not filter each component by `meets_threshold`, so intersection membership must not be described as passing every hard threshold. There is no partial-intersection fallback.
 

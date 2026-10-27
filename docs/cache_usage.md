@@ -5,7 +5,8 @@ The application uses DiskCache `FanoutCache` with eight shards under `data/cache
 ## Cache layers
 
 - FMP disk responses persist across processes. Existing statements normally expire after 168h; overview and legacy price histories after 24h; stock news after 30min. Discovery successes expire after 24h.
-- Workflow score snapshots are in memory: five snapshots, up to 100,000 non-error symbol evaluations each. Restarting the API clears them. Parameter changes create distinct score keys.
+- Raw stable research statements, including quarterly inputs shared by the stock profitability panel and four profitability screens, expire after 24h. They use `get_research_statements()`, separately from the 168h legacy statement methods. Profitability calculations have no additional disk cache.
+- Workflow score snapshots are in memory: five snapshots, up to 100,000 non-error symbol evaluations each. Restarting the API clears them. Parameter changes create distinct score keys, including profitability `min_percent` edits; explicit score-criterion edits can reuse scores. A new score snapshot or page reload still respects the statement cache.
 - Completed editor runs persist separately in `output/workflow_history`. Restoring a run does not refresh its evidence or reuse an in-memory score snapshot automatically.
 
 Stable daily prices share one cache per symbol and account, retained for 30 days. Covered subranges are sliced locally; extensions fill any intervening gap and overlap 14 calendar days. The recent tail refreshes daily (15 minutes for current-day or empty tails); the full retained history reconciles weekly or when overlapping historical closes change. Current-day prices remain provisional. Requests are chunked below FMP's row limit, and failures leave the stored snapshot untouched. Thread locks protect each read/fetch/merge/write sequence within the single API process. Legacy price methods and financial-statement caching are unchanged.
