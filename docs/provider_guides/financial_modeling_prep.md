@@ -13,7 +13,7 @@ This page describes repository behaviour, not a guarantee of current subscriptio
 | `get_balance_sheet` | Legacy balance-sheet statement, same limits | 168h |
 | `get_cash_flow` | Legacy cash-flow statement, same limits | 168h |
 | `get_historical_prices` | Legacy price history; returns a symbol-to-DataFrame mapping | 24h |
-| `get_price_change_history` | Stable `historical-price-eod/full`, requested date range, split-adjusted closes | 24h |
+| `get_price_change_history` | Stable `historical-price-eod/full`, shared symbol/date coverage, split-adjusted closes | Incremental tail refresh; weekly reconciliation |
 | `get_stock_news` | Stable `news/stock` | 30min |
 | `get_insider_trading` | Stable `insider-trading/search` for a symbol, limited response filtered by lookback | 24h |
 | Analyst/price-target methods | Selected stable grades, estimates and targets | No blanket cache guarantee; inspect individual methods |

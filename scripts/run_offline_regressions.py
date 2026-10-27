@@ -32,7 +32,7 @@ def main():
                 stack.enter_context(patch('socket.socket.connect', new=local_connect))
                 suite = unittest.defaultTestLoader.loadTestsFromNames([
                     'tests.test_regressions', 'tests.test_fmp_transport', 'tests.test_workflow',
-                    'tests.test_visual_api',
+                    'tests.test_visual_api', 'tests.test_price_history_cache',
                     'tests.test_tam_screener',
                 ])
                 result = unittest.TextTestRunner(verbosity=2).run(suite)

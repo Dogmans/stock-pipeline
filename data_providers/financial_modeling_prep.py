@@ -23,6 +23,7 @@ import functools
 from tqdm import tqdm  # For progress bars
 
 from .base import BaseDataProvider
+from .price_history_cache import price_history
 from .fmp_types import (
     FMPCompanyOverview,
     FMPIncomeStatement,
@@ -86,7 +87,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             "analyst-estimates", "earnings", "sec-filings-search/symbol"
         }
     
-    def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True, stable=False):
+    def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True, stable=False, allow_empty=False):
         """
         Make an API request to Financial Modeling Prep.
         
@@ -127,7 +128,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
                 data = response.json()
                 
                 # Check if data is valid (list with content for most endpoints)
-                if isinstance(data, list) and len(data) > 0:
+                if isinstance(data, list) and (data or allow_empty):
                     return True, data, None
                 elif not isinstance(data, list) and isinstance(data, dict):
                     # Some endpoints return direct dictionaries
@@ -146,19 +147,16 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             logger.error(f"Exception during API call to {url}: {error_msg}")
             return False, None, error_msg
     
-    @cache.memoize(expire=24*3600)
     def get_price_change_history(self, symbol, from_date, to_date):
-        """Daily split-adjusted closes from FMP's stable EOD endpoint.
-
-        Kept separate from legacy price consumers; no dividend adjustment is applied.
-        https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-full
-        """
-        success, data, error = self._make_api_request('historical-price-eod/full', symbol,
-                                                     {'from':from_date, 'to':to_date})
-        if not success or not isinstance(data,list):
-            # Do not cache transient failures as an empty history.
-            raise RuntimeError('FMP daily price history is unavailable.')
-        return pd.DataFrame(data).rename(columns={'date':'Date','close':'Close'})
+        """Shared incremental daily history; split-adjusted, excluding dividends."""
+        symbol = symbol.strip().upper()
+        def fetch(start, end):
+            success, data, _ = self._make_api_request('historical-price-eod/full', symbol,
+                {'from': start, 'to': end}, allow_empty=True)
+            if not success:
+                raise RuntimeError('FMP daily price history is unavailable.')
+            return data
+        return price_history(cache, (self.stable_base_url, self.api_key), symbol, from_date, to_date, fetch)
 
     @cache.memoize(expire=24*3600)
     def get_research_statements(self, symbol, statement, annual=True):

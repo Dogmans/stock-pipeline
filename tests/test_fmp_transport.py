@@ -6,6 +6,7 @@ import main  # Preserve the application's import order.
 from cache_config import cache
 from data_providers import financial_modeling_prep as fmp
 from utils.throttling import create_cache_checker
+from data_providers.price_history_cache import history_key
 
 
 class FMPCacheTests(unittest.TestCase):
@@ -105,7 +106,7 @@ class FMPTransportTests(unittest.TestCase):
     def test_price_history_uses_stable_split_adjusted_close_and_cache(self):
         provider = fmp.FinancialModelingPrepProvider(api_key='offline-price-change')
         args = ('PRICE_TEST', '2026-01-01', '2026-01-08')
-        key = provider.get_price_change_history.__cache_key__(provider, *args)
+        key = history_key((provider.stable_base_url, provider.api_key), args[0])
         cache.delete(key)
         response = Mock(status_code=200)
         response.json.return_value = [{'date':'2026-01-05','close':100,'adjClose':99,'unadjustedClose':200}]
