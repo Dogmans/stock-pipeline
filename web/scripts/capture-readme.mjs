@@ -70,8 +70,34 @@ try {
   await capture('investor-workspace.png');
   await page.goto(`${address}/#research/AAPL/valuation`);
   await page.getByTestId('fair-value').waitFor();
+  await page.getByRole('heading',{name:'Sensitivity: Discount rate × terminal growth'}).waitFor();
+  const value = async () => Number((await page.getByTestId('fair-value').innerText()).replaceAll(',',''));
+  const growth = page.getByLabel('Annual FCF growth (%)',{exact:true});
+  const baseGrowth = await growth.inputValue(), baseValue = await value();
+  await growth.fill(String(Number(baseGrowth)+5));
+  if (await value() <= baseValue) throw Error('Simple DCF must increase with higher FCF growth.');
+  await page.getByRole('button',{name:'Save base model',exact:true}).click();
+  await page.getByLabel('DCF model',{exact:true}).selectOption('advanced');
   await page.getByRole('heading',{name:'Sensitivity: WACC × terminal growth'}).waitFor();
+  await page.getByLabel('Revenue growth, years 1–5 (%)',{exact:true}).fill('13');
+  await page.getByRole('button',{name:'Save base model',exact:true}).click();
+  await page.getByLabel('DCF model',{exact:true}).selectOption('simple');
+  if (await growth.inputValue() !== String(Number(baseGrowth)+5)) throw Error('Switching models lost the simple draft.');
+  await page.reload();
+  await page.getByTestId('fair-value').waitFor();
+  if (await growth.inputValue() !== String(Number(baseGrowth)+5)) throw Error('Simple model was not saved independently.');
+  await page.getByLabel('DCF model',{exact:true}).selectOption('advanced');
+  if (await page.getByLabel('Revenue growth, years 1–5 (%)',{exact:true}).inputValue() !== '13') throw Error('Advanced model was not saved independently.');
+  await page.getByRole('button',{name:'Reset',exact:true}).click();
   await capture('dcf-valuation.png');
+  await page.getByLabel('DCF model',{exact:true}).selectOption('simple');
+  await page.getByRole('button',{name:'Reset',exact:true}).click();
+  await capture('dcf-simple.png');
+  await page.setViewportSize({width:390,height:844});
+  for (const model of ['simple','advanced']) {
+    await page.getByLabel('DCF model',{exact:true}).selectOption(model);
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error(`${model} DCF overflows the mobile viewport.`);
+  }
   await page.goto(`${address}/#screening`);
   await page.getByRole('button',{name:'Saved runs',exact:true}).click();
   await page.getByRole('button',{name:'Open run',exact:true}).click();

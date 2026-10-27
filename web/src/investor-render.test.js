@@ -6,7 +6,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 import {workspaceRoute} from './navigation.js';
 
-let server, ui, watchlistUi, appUi, draftUi;
+let server, ui, watchlistUi, appUi, draftUi, valuationUi;
 before(async () => {
   server = await createServer({configFile:false,appType:'custom',server:{middlewareMode:true,hmr:false,watch:null},
     optimizeDeps:{noDiscovery:true,include:[]}});
@@ -14,6 +14,7 @@ before(async () => {
   watchlistUi = await server.ssrLoadModule('/src/WatchlistContext.jsx');
   appUi = await server.ssrLoadModule('/src/App.jsx');
   draftUi = await server.ssrLoadModule('/src/useLocalDraft.js');
+  valuationUi = await server.ssrLoadModule('/src/ValuationPanel.jsx');
 });
 
 test('unsaved model and note drafts survive remounts and remain separate for each company', () => {
@@ -93,13 +94,28 @@ test('watchlist controls show the same saved and unsaved states used by company 
   assert.ok(html.includes('aria-pressed="false"'));
 });
 
-test('populated valuation renders scenario values, sensitivity and the forecast audit table', () => {
+test('valuation defaults to direct FCF with explanation, scenarios, sensitivity and forecast', () => {
   const html=renderToStaticMarkup(React.createElement(ui.Valuation,{symbol:'ABC',annual,quarter:null,
     overview:{Price:10,Currency:'USD',SharesOutstanding:10e6},quoteCurrency:'USD',onStatus(){}}));
-  for (const text of ['data-testid="fair-value"','Intrinsic value','Sensitivity: WACC','Explicit cash flow forecast',
-    'Terminal ROIC','Equity value','Current shares outstanding']) assert.ok(html.includes(text),text);
+  for (const text of ['data-testid="fair-value"','Intrinsic value','Sensitivity: Discount rate','Explicit cash flow forecast',
+    'Starting free cash flow','Equity value','Current shares outstanding','How this DCF works','FCF(t) = starting FCF',
+    'DCF model','Advanced DCF','No additional reinvestment is deducted']) assert.ok(html.includes(text),text);
+  assert.ok(!html.includes('Base revenue (m)'));
+  assert.ok(!html.includes('Terminal ROIC'));
   assert.ok(!html.includes('Complete every model input'));
   assert.ok(!html.includes('>NaN<'));
+  assert.ok(!html.includes('+1pp revenue growth lowers value'));
+});
+
+test('valuation explains when extra revenue growth reduces value under the selected assumptions', () => {
+  const lowMargin = {...annual,periods:[{...annual.periods[0],operating_income:5e6}]};
+  const html=renderToStaticMarkup(React.createElement(valuationUi.ValuationModel,{model:'advanced',symbol:'LOW-MARGIN',annual:lowMargin,quarter:null,
+    overview:{Price:10,Currency:'USD',SharesOutstanding:10e6},quoteCurrency:'USD',onStatus(){}}));
+  assert.ok(html.includes('+1pp revenue growth lowers value'));
+  assert.ok(html.includes('USD per share. Extra sales require investment'));
+  assert.ok(html.includes('Incremental sales / capital'));
+  assert.ok(html.includes('FCFF = EBIT'));
+  assert.ok(html.includes('Terminal ROIC'));
 });
 
 test('cross-currency valuation withholds upside and incomplete source inputs explain what is missing', () => {

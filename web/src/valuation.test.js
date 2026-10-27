@@ -4,6 +4,76 @@ import {dcf,modelDefaults,scenarioInputs,sensitivity} from './valuation.js';
 
 const assumptions = {currency:'USD',revenue:100,startMargin:20,targetMargin:20,growth:0,terminalGrowth:0,
   wacc:10,taxRate:25,salesCapital:2,terminalRoic:12,years:10,cash:20,debt:30,otherClaims:0,shares:10};
+const simple = {model:'simple',currency:'USD',fcf:15,growth:0,terminalGrowth:0,discountRate:10,years:10,shares:10};
+
+test('simple DCF discounts a perpetual equity cash flow once without a debt or reinvestment adjustment', () => {
+  const r = dcf({...simple,cash:500,debt:200,otherClaims:50,salesCapital:0},10);
+  assert.ok(Math.abs(r.equityValue-150) < 1e-10);
+  assert.ok(Math.abs(r.fairValue-15) < 1e-10);
+  assert.ok(Math.abs(r.upside-.5) < 1e-10);
+  assert.equal(r.forecast[0].fcf,15);
+  assert.equal(r.enterpriseValue,undefined);
+});
+
+test('simple DCF compounds FCF for the full horizon and discounts terminal value from the final year', () => {
+  const r = dcf({...simple,years:5,growth:10,terminalGrowth:2});
+  const cashFlows = [16.5,18.15,19.965,21.9615,24.15765];
+  cashFlows.forEach((fcf,i) => assert.ok(Math.abs(r.forecast[i].fcf-fcf) < 1e-10));
+  assert.ok(Math.abs(r.terminalFcf-24.15765*1.02) < 1e-10);
+  assert.ok(Math.abs(r.terminalPv-(24.15765*1.02/.08)/1.1**5) < 1e-10);
+  assert.ok(Math.abs(r.pv-75) < 1e-10);
+});
+
+test('simple DCF value rises as FCF growth increases with other assumptions fixed', () => {
+  for (const years of [5,10]) {
+    let previous = -Infinity;
+    for (const growth of [-30,-5,0,5,10,20,50]) {
+      const r = dcf({...simple,years,growth});
+      assert.ok(r.fairValue > previous);
+      previous = r.fairValue;
+    }
+  }
+});
+
+test('simple scenarios and sensitivity use required return and do not require operating inputs', () => {
+  const a = {...simple,growth:8,terminalGrowth:2};
+  assert.ok(dcf(scenarioInputs(a,'bull')).fairValue > dcf(a).fairValue);
+  assert.ok(dcf(scenarioInputs(a,'bear')).fairValue < dcf(a).fairValue);
+  assert.equal(scenarioInputs(a,'bull').discountRate,9);
+  const grid = sensitivity(a);
+  assert.equal(grid[2].values[2].fairValue,dcf(a).fairValue);
+  assert.ok(grid[0].values[2].fairValue > grid[4].values[2].fairValue);
+  assert.equal(a.growth,8);
+});
+
+test('simple DCF validates only its own inputs and never fills missing values', () => {
+  for (const field of ['fcf','growth','terminalGrowth','discountRate','years','shares']) {
+    for (const value of ['',null,undefined,NaN,Infinity,true,{}]) {
+      const invalid = {...simple,[field]:value};
+      for (const scenario of ['base','bull','bear']) assert.ok(dcf(scenarioInputs(invalid,scenario)).error);
+      assert.ok(sensitivity(invalid).every(row => row.values.every(r => r.error)));
+    }
+  }
+  for (const patch of [{fcf:0},{fcf:-1},{shares:0},{discountRate:2,terminalGrowth:3},{growth:-100},{years:7},{currency:''}])
+    assert.ok(dcf({...simple,...patch}).error);
+  const strings = Object.fromEntries(Object.entries(simple).map(([key,value]) => [key,String(value)]));
+  assert.equal(dcf(strings).fairValue,dcf(simple).fairValue);
+});
+
+test('simple defaults use reported FCF even when operating or balance data is missing', () => {
+  const a = modelDefaults({periods:[{date:'2025-12-31',currency:'USD',free_cash_flow:12e6}]},null,{SharesOutstanding:3e6},'simple');
+  assert.equal(a.fcf,12);
+  assert.equal(a.model,'simple');
+  assert.equal(a.salesCapital,undefined);
+  assert.equal(a.cash,undefined);
+  assert.equal(a.debt,undefined);
+  assert.ok(!dcf(a).error);
+  assert.equal(modelDefaults({periods:[]},null,{},'simple').fcf,'');
+  const source = {periods:[{date:'2025-12-31',currency:'USD',free_cash_flow:12e6,sources:{cash_flow:{currency:'CAD'}}}]};
+  assert.equal(modelDefaults(source,null,{},'simple').currency,'CAD');
+  source.periods[0].sources.cash_flow.currency = null;
+  assert.equal(modelDefaults(source,null,{},'simple').currency,'');
+});
 
 test('a zero-growth perpetual business values the perpetuity once and applies the equity bridge', () => {
   const r = dcf(assumptions,10);
@@ -32,6 +102,24 @@ test('negative operating income receives no invented tax benefit and negative re
   assert.equal(r.forecast[0].tax,0);
   assert.equal(r.forecast[0].reinvestment,0);
   assert.ok(r.forecast[0].fcff<0);
+});
+
+test('higher growth raises value for a profitable business despite lower near-term cash flow', () => {
+  const a = {...assumptions,growth:10,terminalGrowth:2.5};
+  const base = dcf(a), faster = dcf({...a,growth:15});
+  assert.ok(faster.forecast[0].fcff < base.forecast[0].fcff);
+  assert.ok(faster.fairValue > base.fairValue);
+});
+
+test('higher growth can reduce value when low margins do not justify the reinvestment', () => {
+  const a = {...assumptions,startMargin:5,targetMargin:5,growth:10,terminalGrowth:2.5};
+  const base = dcf(a), faster = dcf({...a,growth:15});
+  // Extra first-year revenue of 5 earns 0.1875 after tax but requires 2.5 of investment.
+  assert.ok(Math.abs(faster.forecast[0].reinvestment-base.forecast[0].reinvestment-2.5) < 1e-10);
+  assert.ok(Math.abs(faster.forecast[0].fcff-base.forecast[0].fcff+2.3125) < 1e-10);
+  assert.ok(faster.terminalPv > base.terminalPv);
+  assert.ok(base.pv-faster.pv > faster.terminalPv-base.terminalPv);
+  assert.ok(faster.fairValue < base.fairValue);
 });
 
 test('rejects missing bridge data, unstable terminal assumptions, zero shares, and unsupported horizons', () => {

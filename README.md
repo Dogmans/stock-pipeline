@@ -13,7 +13,7 @@ Search a ticker to open **Investor Workspace**. Company research, the screening 
 | Workflow | Capabilities |
 | --- | --- |
 | Company research | Chart up to ten annual periods or forty quarters of FCF, revenue, earnings, margins, debt, cash and dilution; inspect YoY changes and export financials. |
-| DCF valuation | Adjust a five- or ten-year operating-company FCFF model, compare bear/base/bull cases, inspect WACC/growth sensitivity, and export assumptions and forecasts. |
+| DCF valuation | Choose simple FCF growth or advanced operating-company FCFF, follow the on-page calculations, compare scenarios and sensitivity, and export assumptions and forecasts. |
 | Earnings and evidence | Compare EPS/revenue against consensus, inspect analyst estimate ranges, open regulatory filings and read company news. |
 | Screening and comparison | Connect Pass, Fail, Unavailable and Error paths, inspect each decision, rank a shortlist, compare two to five stocks, and explore near misses. |
 | Watchlist and notes | Star stocks from research or screening results, add all filtered results, save per-company models and notes, and resume unsaved drafts while navigating. |
@@ -66,15 +66,15 @@ Alternatively, start the API directly with `.venv-ui\Scripts\python.exe visual_a
 
 1. Enter an exchange ticker, such as `AAPL` or `SHOP.TO`, in the search bar.
 2. Use **Overview** and **Financials** to select a metric, annual or quarterly reporting, YoY change, and line or bar charts. Margin changes use percentage points.
-3. Open **DCF valuation** to review the source base, adjust operating/forecast/terminal assumptions and the equity bridge, then compare scenarios and sensitivity. Save the base model or export it for review.
+3. Open **DCF valuation** and choose **Simple DCF** to grow free cash flow directly, or **Advanced DCF** to model revenue, margins and reinvestment. Each explains its calculation and has separate saved inputs, scenarios, sensitivity and exports.
 4. Open **Earnings & estimates** and **Reports & news** to check expectations and source evidence. Record your thesis, catalysts and risks in **Investment notes**.
 5. Star the company to add it to the shared watchlist. Research section URLs, such as `/#research/AAPL/financials`, support direct links and browser Back/Forward.
 
 Watchlists, saved models and saved notes are local to this browser and origin; they do not sync across devices. Unsaved model and note drafts survive page and company changes while the app is open. Use **Save** to keep them after reloading or closing the site. **Reload data** respects the provider's cache windows.
 
-![DCF valuation with grouped assumptions, intrinsic value, scenarios and sensitivity analysis](docs/images/dcf-valuation.png)
+![Simple DCF with direct FCF growth and an explanation of the calculation](docs/images/dcf-simple.png)
 
-*Operating-company DCF with illustrative demo data and assumptions, not a current market valuation or price target.*
+*Simple DCF is the default; the advanced revenue/margin/reinvestment model remains selectable. Illustrative demo data and assumptions, not a current market valuation or price target.*
 
 ## Using Workflow Studio
 

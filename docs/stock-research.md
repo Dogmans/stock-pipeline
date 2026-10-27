@@ -16,7 +16,7 @@ Unsaved DCF inputs and investment notes remain as per-company drafts while navig
 
 *Company research with illustrative demo data, not current market results.*
 
-![DCF assumptions, scenarios and sensitivity](images/dcf-valuation.png)
+![Simple DCF assumptions and calculation explanation](images/dcf-simple.png)
 
 *DCF with illustrative demo data and assumptions, not a current market valuation or price target.*
 
@@ -33,6 +33,12 @@ YoY compares dates 330–400 days apart and, for quarterly statements, the same 
 Price history uses daily split-adjusted closes and excludes dividends. Period returns compare the first and last available closes within the selected range ending at the latest observation. The latest quote can have a different timestamp. News, analyst estimates, earnings and SEC coverage depend on your subscription and the company; unavailable datasets leave the rest of the page usable. SEC filings show at most the most recent 100 observations in a two-year window, including forms other than financial reports.
 
 ### DCF assumptions
+
+**Simple DCF is the default.** Enter starting FCF, FCF growth, a five- or ten-year horizon, required equity return, terminal growth and shares. FCF grows at the selected rate throughout the explicit forecast; no extra investment is deducted. Each year's FCF is discounted at the required return. Terminal value is final-year FCF × (1 + terminal growth) / (required return − terminal growth), discounted to the base date. Add the present values and divide by shares. For positive starting FCF, higher forecast growth raises value when other inputs stay fixed.
+
+Reported operating cash flow less capex seeds the simple model as an equity cash-flow proxy, not a complete FCFE calculation: review financing requirements, interest classification and normalisation. There is no separate cash addition or debt deduction. Required return must exceed nonnegative terminal growth. Negative or missing starting FCF requires a manually reviewed positive base. The cash-flow source currency is used when available. No revenue, margin, sales-to-capital or terminal ROIC assumption affects this model.
+
+**Advanced DCF** retains the operating model below. Switching methods preserves each model's draft and saved inputs separately; existing saved operating models remain available under Advanced. Both methods show formulas and a worked calculation from current inputs on the page. Simple bear/bull cases change FCF growth by −/+3pp and required return by +/−1pp; its sensitivity grid varies required return and terminal growth. These are explicit scenario changes; editing growth alone does not change other input assumptions.
 
 The valuation is intended for operating companies. Banks, insurers and REITs receive a notice to use a sector-specific model. It uses annual revenue and EBIT as its base, with the latest available quarterly cash/debt/claims balance (annual balance as fallback). Shares use current outstanding shares, then market cap divided by price, then annual weighted-average diluted shares, with the selected basis displayed. Review the fixed share count for future dilution.
 

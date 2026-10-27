@@ -215,13 +215,20 @@
 .ir-data-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:5px 0 10px;font-size:9px;color:#647560;line-height:1.6}
 
 .ir-valuation-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;align-items:start;margin-top:24px}
+.ir-valuation-results{min-width:0}
+.ir-model-choice label{display:flex;flex-direction:column;gap:8px;max-width:520px;font-size:12px;font-weight:600}
+.ir-model-choice select{width:100%;padding:10px;background:#fcfdf9;font-size:12px}
+.ir-dcf-explanation{font-size:13px;line-height:1.7}
+.ir-dcf-explanation ol{padding-left:22px}
+.ir-dcf-explanation li{margin:8px 0}
+.ir-dcf-explanation code{white-space:normal;overflow-wrap:anywhere;font-size:12px}
 
 .ir-assumptions{padding:21px 22px}
 .ir-assumptions .ir-card-head button{font-size:10px;padding:5px 9px}
 
 .ir-model-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:13px}
 
-.ir-model-fields label{display:flex;flex-direction:column;justify-content:space-between;gap:6px;color:#647560;font-size:10px}
+.ir-model-fields label{display:flex;flex-direction:column;justify-content:space-between;gap:6px;color:#647560;font-size:10px;min-width:0}
 
 .ir-model-fields input,.ir-model-fields select{padding:9px 10px;background:#fcfdf9;font-size:12px;width:100%;font-variant-numeric:tabular-nums}
 
@@ -439,7 +446,7 @@
 .ir-kpi>strong{font-size:23px}
 .ir-card-head{flex-wrap:wrap}
 .ir-two-column{grid-template-columns:1fr}
-.ir-valuation-layout{grid-template-columns:1fr}
+.ir-valuation-layout{grid-template-columns:minmax(0,1fr)}
 .ir-model-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 .ir-topbar-source{display:none}
 .ir-topbar>button{margin-left:auto}
