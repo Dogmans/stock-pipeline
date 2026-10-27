@@ -1,4 +1,58 @@
-# Researching a shortlist
+# Investor research guide
+
+## Investor Workspace
+
+The landing page is now company research (`/#research/AAPL`; substitute any supported ticker). Search by ticker and switch between Overview, Financials, DCF valuation, Earnings & estimates, Reports & news and Investment notes. **Screening workflow** opens the canvas at `/#screening` inside the same workspace sidebar, company search and watchlist. Its navigation entry stays highlighted while screening. On smaller screens, the workspace-page and watchlist selectors remain available on every page. The canvas remains mounted when switching views so the current workflow, results, selected node and active run are retained. A stock's screening sidebar links to company research.
+
+Each research section has its own URL, such as `/#research/AAPL/financials`, so browser Back/Forward and direct links select the same section as the sidebar. The sidebar and mobile selector are the primary page navigation. Expanded screening results use the available workspace area without covering that navigation; settings move below the canvas on narrower screens. The stock details dialog supports Escape and contains keyboard focus until dismissed.
+
+Unsaved DCF inputs and investment notes remain as per-company drafts while navigating, changing companies or reloading source data. Drafts are held in the current browser session; use the explicit Save action to keep them after a page reload or closing the site. Resetting a DCF applies the latest available source base. Line charts scale to the observed range, while bar charts retain a zero baseline. Margin changes are reported in percentage points in charts and tables.
+
+### Workspace examples
+
+![Company overview and free cash flow history](images/investor-workspace.png)
+
+*Company research with illustrative demo data, not current market results.*
+
+![DCF assumptions, scenarios and sensitivity](images/dcf-valuation.png)
+
+*DCF with illustrative demo data and assumptions, not a current market valuation or price target.*
+
+### From a screen to the watchlist
+
+The star beside a company name on its research page already saves it to the browser's watchlist. Screening now uses that same list: click the star in a stock's row under **Stocks**, **Rank** or **Near misses**, or use **Add to watchlist** in the stock details sidebar. These actions work directly from the screening result, even if company details are loading or unavailable. A filled star means the stock is saved; click it again to remove it.
+
+The **Watchlist (N)** action beside the results filter adds every matching stock in the selected node/outcome to the watchlist, including rows beyond the first 500 displayed. It respects the text filter and deduplicates stocks already saved; it does not imply all those stocks passed every screening step. The action is disabled when all matching stocks are already saved. The workspace watchlist updates immediately; choose a ticker there to research it and return to **Screening workflow** to resume the same screen. Saved symbols survive reloads and synchronize between tabs on the same origin. Existing saved watchlists are preserved. If browser storage is unavailable, a notification explains that updates last only for the current session.
+
+Financial history uses the FMP stable income, balance-sheet and cash-flow endpoints with a separate research lookback of up to ten annual periods or forty quarters. Existing screener lookbacks remain unchanged. Select a metric, annual/quarterly reporting, YoY change, and line/bar presentation. Tables show vendor values in millions, except per-share values and ratios; CSV exports use raw units. FCF is operating cash flow minus absolute capex (vendor FCF is preferred when supplied). This reported FCF is not unlevered FCFF. Cash, debt and other balance-sheet figures are point-in-time observations; earnings and cash flows cover the stated period.
+
+YoY compares dates 330–400 days apart and, for quarterly statements, the same fiscal quarter. Known matching currencies and positive prior bases are required. A negative or zero prior base has no percentage-growth result. Margin changes use percentage points. Mixed statement currencies are excluded from merged periods, and charts are withheld across changing reporting currencies. Missing values are never filled with zero. Dates and filing dates are preserved where FMP supplies them. Historical vendor statements may contain restatements; this is not a point-in-time backtest dataset.
+
+Price history uses daily split-adjusted closes and excludes dividends. Period returns compare the first and last available closes within the selected range ending at the latest observation. The latest quote can have a different timestamp. News, analyst estimates, earnings and SEC coverage depend on your subscription and the company; unavailable datasets leave the rest of the page usable. SEC filings show at most the most recent 100 observations in a two-year window, including forms other than financial reports.
+
+### DCF assumptions
+
+The valuation is intended for operating companies. Banks, insurers and REITs receive a notice to use a sector-specific model. It uses annual revenue and EBIT as its base, with the latest available quarterly cash/debt/claims balance (annual balance as fallback). Shares use current outstanding shares, then market cap divided by price, then annual weighted-average diluted shares, with the selected basis displayed. Review the fixed share count for future dilution.
+
+- Explicit horizon: five or ten years. Growth is constant for years 1–5; a ten-year model fades growth linearly to terminal growth in years 6–10. EBIT margin moves linearly from base to target over the full horizon.
+- NOPAT = EBIT − max(EBIT, 0) × cash tax rate. No loss carryforwards or tax benefits on losses.
+- Net reinvestment = max(incremental revenue, 0) / sales-to-capital ratio. This covers net capex and working capital; no capital release is assumed for contraction. FCFF = NOPAT − net reinvestment.
+- Terminal FCFF = next-year terminal NOPAT × (1 − terminal growth / terminal ROIC). Terminal value = terminal FCFF / (WACC − terminal growth). WACC and terminal ROIC must each exceed nonnegative terminal growth.
+- End-year discounting; no stub-period adjustment from the annual base date to today. Enterprise value is the sum of discounted explicit FCFF and discounted terminal value.
+- Equity value = enterprise value + cash − debt − minority/preferred claims; per-share value divides by the chosen fixed share count. Unknown bridge entries require explicit input. Cash is cash/equivalents only; investments and other nonoperating assets require manual review. Pension deficits, leases and other liabilities are not automatically adjusted.
+- Stock compensation stays in the EBIT margin and is not added back. The default tax, growth, WACC, terminal growth, terminal ROIC and sales-to-capital assumptions are editable modelling placeholders, not consensus estimates.
+- Bear/bull cases adjust base revenue growth by −/+3 percentage points, target EBIT margin by −/+2 points, and WACC by +/−1 point. The sensitivity grid varies WACC and terminal growth; inadmissible combinations show unavailable.
+- Upside is shown only when the quote currency and model currency match exactly; there is no automatic FX or subunit conversion. A nonpositive model equity value is identified as a residual value rather than an executable stock-price target.
+
+The approach follows [Damodaran's operating-company FCFF framework](https://pages.stern.nyu.edu/~adamodar/pdfiles/country/val2daySept24.pdf). The forecast, equity bridge and terminal-value weight are visible for audit. Save a base model per ticker in this browser or export JSON and forecast CSV; saving a bear/bull view still saves the editable base assumptions. Models, watchlists and notes are browser-local, do not sync across devices and can be lost when browser storage is cleared. Notes have a separate explicit Save action and JSON export.
+
+**Reload data** refreshes page responses but respects provider caches: research statements and daily prices up to 24 hours; earnings and filings one hour; news 30 minutes. Company overviews and analyst estimates retain their existing provider cache policy. API keys remain in Python and are not sent to the frontend. The existing local-origin restriction and loopback binding remain in place; this change does not add public hosting, account access or trading.
+
+The browser's response cache expires after five minutes and rechecks open datasets while the workspace remains mounted. Provider cache windows still apply. A failed refresh keeps the previous data visible with an error notice instead of discarding the research view.
+
+Endpoint references: [FMP quickstart and stable statements](https://site.financialmodelingprep.com/developer/docs/quickstart), [earnings](https://site.financialmodelingprep.com/developer/docs/stable/earnings), [SEC filings by symbol](https://site.financialmodelingprep.com/developer/docs/stable/search-by-symbol).
+
+## Screening research
 
 Run a workflow, select an output node, then use the tabs in the results panel:
 
@@ -52,5 +106,5 @@ npx playwright test
 Playwright uses Chromium by default. Set `STOCK_UI_BROWSER_CHANNEL=msedge` to use installed Edge. `STOCK_UI_EXTERNAL_SERVER=1` and `STOCK_UI_BASE_URL` allow testing an already-served production build. Browser tests stub API data; they do not use paid market-data requests.
 
 ```powershell
-.venv-ui/Scripts/python.exe -m unittest tests.test_research tests.test_workflow tests.test_visual_api tests.test_fmp_transport
+.venv-ui/Scripts/python.exe -m unittest tests.test_investor_research tests.test_research tests.test_workflow tests.test_visual_api tests.test_fmp_transport
 ```

@@ -11,6 +11,6 @@ if (-not (Test-Path -LiteralPath $frontend)) {
 }
 
 Set-Location -LiteralPath $repository
-Write-Host 'Stock Pipeline Workflow Studio: http://127.0.0.1:8765' -ForegroundColor Green
+Write-Host 'Stock Pipeline Investor Workspace: http://127.0.0.1:8765' -ForegroundColor Green
 Write-Host 'Press Ctrl+C to stop.' -ForegroundColor DarkGray
 & $python visual_api.py

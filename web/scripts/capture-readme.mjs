@@ -5,6 +5,7 @@ import {readFile, mkdir} from 'node:fs/promises';
 import {resolve, sep, extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {chromium} from '@playwright/test';
+import {demoStockResponse} from './research-demo.mjs';
 
 const build = fileURLToPath(new URL('../dist/',import.meta.url));
 const imageDirectory = fileURLToPath(new URL('../../docs/images/',import.meta.url));
@@ -26,8 +27,10 @@ const result = {snapshot_id:'demo',snapshot_created_at:'2026-09-12T09:00:00Z',no
 const catalog = [
   ['pe_ratio','P/E Ratio'],['price_to_book','Price to Book'],['peg_ratio','PEG Ratio'],['quality','Quality'],
   ['enhanced_quality','Enhanced Quality'],['fcf_yield','Free Cash Flow Yield'],['historic_value','Historic Value'],
+  ['return_on_equity','Return on Equity'],['price_change','Price Change'],
   ['momentum','Momentum'],['sharpe_ratio','Sharpe Ratio'],['fifty_two_week_lows','52-Week Lows'],
   ['insider_buying','Insider Buying'],['analyst_sentiment_momentum','Analyst Sentiment Momentum'],['composite_score','Composite Score'],
+  ['proven_technology_emerging_tam','Proven Technology / Emerging TAM'],
 ].map(([id,label]) => ({id,label,description:label,parameters:[],default_rule:id==='quality' ? {metric:'Quality score',operator:'gte',value:7} : id==='pe_ratio' ? {metric:'P/E',operator:'lte',value:15} : null}));
 const record = {id:'abc',saved_at:'2026-09-12T09:01:00Z',workflow,result};
 const server = createServer(async (request,response) => {
@@ -44,23 +47,40 @@ await new Promise(done => server.listen(0,'127.0.0.1',done));
 let browser;
 try {
   browser = await chromium.launch({channel:process.env.STOCK_UI_BROWSER_CHANNEL || undefined});
-  const page = await browser.newPage({viewport:{width:1600,height:1100},deviceScaleFactor:1});
+  const page = await browser.newPage({viewport:{width:1600,height:1200},deviceScaleFactor:1,timezoneId:'Europe/London'});
+  const errors=[];
+  page.on('pageerror',error => errors.push(error.message));
   await page.route('**/api/**',async route => {
-    const path = new URL(route.request().url()).pathname;
-    const body = path==='/api/screeners' ? catalog : path==='/api/history' ? [{id:record.id,saved_at:record.saved_at,name:workflow.name}] : path==='/api/history/abc' ? record : null;
+    const url = new URL(route.request().url()), path=url.pathname;
+    const body = demoStockResponse(url) ?? (path==='/api/screeners' ? catalog : path==='/api/history' ? [{id:record.id,saved_at:record.saved_at,name:workflow.name}] : path==='/api/history/abc' ? record : null);
     if (body===null) throw new Error(`Unexpected request: ${path}`);
     await route.fulfill({json:body});
   });
-  await page.goto(`http://127.0.0.1:${server.address().port}`);
+  const address=`http://127.0.0.1:${server.address().port}`;
+  await mkdir(imageDirectory,{recursive:true});
+  async function capture(name,height=1600) {
+    await page.setViewportSize({width:1600,height});
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({path:resolve(imageDirectory,name),animations:'disabled'});
+    console.log(`Captured docs/images/${name} using illustrative demo data.`);
+  }
+  await page.goto(`${address}/#research/AAPL`);
+  await page.getByRole('heading',{name:'Apple Inc. - Demo data',exact:true}).waitFor();
+  await page.getByRole('img',{name:/Daily close over time/}).waitFor();
+  await capture('investor-workspace.png');
+  await page.goto(`${address}/#research/AAPL/valuation`);
+  await page.getByTestId('fair-value').waitFor();
+  await page.getByRole('heading',{name:'Sensitivity: WACC × terminal growth'}).waitFor();
+  await capture('dcf-valuation.png');
+  await page.goto(`${address}/#screening`);
   await page.getByRole('button',{name:'Saved runs',exact:true}).click();
   await page.getByRole('button',{name:'Open run',exact:true}).click();
   await page.getByRole('button',{name:'Rank',exact:true}).click();
   await page.getByRole('columnheader',{name:'Rank / 100'}).waitFor();
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(350); // Allow React Flow's fit-view transition to finish.
-  await mkdir(imageDirectory,{recursive:true});
-  await page.screenshot({path:resolve(imageDirectory,'workflow-editor.png'),fullPage:true});
-  console.log('Captured docs/images/workflow-editor.png using demo data.');
+  await capture('workflow-editor.png',1400);
+  if (errors.length) throw Error(`Browser errors during capture: ${errors.join('; ')}`);
 } finally {
   await browser?.close();
   await new Promise(done => server.close(done));

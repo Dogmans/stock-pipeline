@@ -83,10 +83,10 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             "grades-historical",
             "price-target-summary",
             "price-target-consensus",
-            "analyst-estimates"
+            "analyst-estimates", "earnings", "sec-filings-search/symbol"
         }
     
-    def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True):
+    def _make_api_request(self, endpoint, symbol, params=None, rate_limit=True, stable=False):
         """
         Make an API request to Financial Modeling Prep.
         
@@ -104,7 +104,7 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             params = {}
 
         # Determine the URL format for this endpoint
-        if endpoint in self.query_string_endpoints:
+        if stable or endpoint in self.query_string_endpoints:
             # Stable endpoints use query-string symbol parameters
             params["symbol"] = symbol
             url = f"{self.stable_base_url}/{endpoint}"
@@ -159,6 +159,36 @@ class FinancialModelingPrepProvider(BaseDataProvider):
             # Do not cache transient failures as an empty history.
             raise RuntimeError('FMP daily price history is unavailable.')
         return pd.DataFrame(data).rename(columns={'date':'Date','close':'Close'})
+
+    @cache.memoize(expire=24*3600)
+    def get_research_statements(self, symbol, statement, annual=True):
+        """Raw research history; the research adapter aligns dates and field aliases once."""
+        endpoints = {'income': 'income-statement', 'balance': 'balance-sheet-statement',
+                     'cash_flow': 'cash-flow-statement'}
+        success, data, _ = self._make_api_request(
+            endpoints[statement], symbol,
+            {'period': 'annual' if annual else 'quarter', 'limit': 10 if annual else 40}, stable=True)
+        if not success or not isinstance(data, list):
+            raise RuntimeError('Financial statements unavailable from FMP.')
+        return pd.DataFrame(data)
+
+    @cache.memoize(expire=3600)
+    def get_earnings_reports(self, symbol):
+        success, data, _ = self._make_api_request('earnings', symbol, {'limit': 40})
+        if not success or not isinstance(data, list):
+            raise RuntimeError('Earnings reports unavailable from FMP.')
+        return data
+
+    @cache.memoize(expire=3600)
+    def get_research_filings(self, symbol):
+        from datetime import timedelta
+        today = datetime.now(timezone.utc).date()
+        success, data, _ = self._make_api_request('sec-filings-search/symbol', symbol,
+            {'from': (today - timedelta(days=730)).isoformat(), 'to': today.isoformat(),
+             'page': 0, 'limit': 100})
+        if not success or not isinstance(data, list):
+            raise RuntimeError('SEC filings unavailable from FMP.')
+        return data
 
     def _process_financial_statement(self, data, column_mapping=None):
         """

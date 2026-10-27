@@ -1,22 +1,26 @@
 # Stock Pipeline
 
-A local stock-screening and research workspace built with Python and React. Create a visual screening workflow, follow each stock's decisions, compare the shortlist, and run the same workflow from the command line.
+A local investor research and stock-screening workspace built with Python and React. Follow a company from financial history and earnings through valuation, or use a visual screening workflow to discover and compare ideas.
 
-![Workflow Studio with a ranked shortlist and screening paths](docs/images/workflow-editor.png)
+Search a ticker to open **Investor Workspace**. Company research, the screening canvas and your watchlist share the same navigation, so you can move between discovery and underwriting without losing the current workflow.
 
-*Workflow Studio with illustrative demo data, not live market results.*
+![Investor Workspace showing a company overview, financial metrics and free cash flow history](docs/images/investor-workspace.png)
+
+*Investor Workspace with illustrative demo data, not current market results.*
 
 ## What you can do
 
-- **Build screening paths:** connect Pass, Fail, Unavailable and Error outcomes; inspect stocks at each step and export CSV.
-- **Understand each stock:** see its screening path, recorded values, applied thresholds, decision reasons and sector-sample comparisons.
-- **Research a shortlist:** adjust ranking weights, compare 2–5 stocks, inspect near misses, and load up to five annual financial reporting periods.
-- **Follow changes:** restore completed runs and compare entrants, departures and updated decisions.
-- **Track forward performance:** compare a saved shortlist's subsequent price returns with a benchmark you choose.
-- **Control the universe:** use custom symbols, S&P 500, Nasdaq 100, Russell 2000 or FMP US/TSX/TSXV listings, with optional exchange, market-cap and average-volume filters.
-- **Discover unfamiliar operating companies:** use the configurable TAM screen with no thematic keyword filter; export candidates, near misses and complete rule evidence.
+| Workflow | Capabilities |
+| --- | --- |
+| Company research | Chart up to ten annual periods or forty quarters of FCF, revenue, earnings, margins, debt, cash and dilution; inspect YoY changes and export financials. |
+| DCF valuation | Adjust a five- or ten-year operating-company FCFF model, compare bear/base/bull cases, inspect WACC/growth sensitivity, and export assumptions and forecasts. |
+| Earnings and evidence | Compare EPS/revenue against consensus, inspect analyst estimate ranges, open regulatory filings and read company news. |
+| Screening and comparison | Connect Pass, Fail, Unavailable and Error paths, inspect each decision, rank a shortlist, compare two to five stocks, and explore near misses. |
+| Watchlist and notes | Star stocks from research or screening results, add all filtered results, save per-company models and notes, and resume unsaved drafts while navigating. |
+| Saved runs and performance | Restore completed workflows, compare entrants and departures, and track subsequent shortlist price returns against a benchmark. |
+| Universe discovery | Use custom symbols, index constituents or FMP US/TSX/TSXV listings, with eligibility filters and a configurable TAM screen. |
 
-Rankings describe the selected sample; they do not predict returns. Missing data remains visible.
+Quote and statement dates, currency differences and missing data remain visible. Rankings describe the selected sample; they do not predict returns. DCF defaults are editable modelling assumptions, not consensus estimates.
 
 ## Quick start
 
@@ -48,24 +52,44 @@ FINANCIAL_MODELING_PREP_API_KEY=your_key_here
 
 `.env`, cached data, generated outputs and saved-run history are excluded from Git. Provider settings and many screening thresholds live in [`config.py`](config.py); other defaults are constructor parameters shown in the editor.
 
-### 3. Start the editor
+### 3. Start the workspace
 
 ```powershell
 .\scripts\start_visual_editor.ps1
 ```
 
-Open **http://127.0.0.1:8765**. Keep the terminal running; `Ctrl+C` stops the server. The API reference is at http://127.0.0.1:8765/docs.
+Open **http://127.0.0.1:8765** for company research, or **http://127.0.0.1:8765/#screening** for the screening canvas. Keep the terminal running; `Ctrl+C` stops the server. The API reference is at http://127.0.0.1:8765/docs.
 
 Alternatively, start the API directly with `.venv-ui\Scripts\python.exe visual_api.py` (use `.venv-ui/bin/python visual_api.py` on macOS/Linux). The server listens only on the local computer and executes one workflow at a time.
+
+## Using Investor Workspace
+
+1. Enter an exchange ticker, such as `AAPL` or `SHOP.TO`, in the search bar.
+2. Use **Overview** and **Financials** to select a metric, annual or quarterly reporting, YoY change, and line or bar charts. Margin changes use percentage points.
+3. Open **DCF valuation** to review the source base, adjust operating/forecast/terminal assumptions and the equity bridge, then compare scenarios and sensitivity. Save the base model or export it for review.
+4. Open **Earnings & estimates** and **Reports & news** to check expectations and source evidence. Record your thesis, catalysts and risks in **Investment notes**.
+5. Star the company to add it to the shared watchlist. Research section URLs, such as `/#research/AAPL/financials`, support direct links and browser Back/Forward.
+
+Watchlists, saved models and saved notes are local to this browser and origin; they do not sync across devices. Unsaved model and note drafts survive page and company changes while the app is open. Use **Save** to keep them after reloading or closing the site. **Reload data** respects the provider's cache windows.
+
+![DCF valuation with grouped assumptions, intrinsic value, scenarios and sensitivity analysis](docs/images/dcf-valuation.png)
+
+*Operating-company DCF with illustrative demo data and assumptions, not a current market valuation or price target.*
 
 ## Using Workflow Studio
 
 1. Choose a universe. The example starts with eight symbols; select an index or FMP listed universe for broader discovery. Index universes are constituent lists, not complete exchange coverage.
 2. Drag screeners onto the canvas and connect outcomes to other screens or a shortlist.
 3. Set thresholds and parameters, then select **Run workflow**.
-4. Select a node or connection to inspect its stocks. Click a symbol for **Why this stock?**, company details and financial history.
+4. Select a node or connection to inspect its stocks. Click a symbol for **Why this stock?**, company details and financial history. Star a row or use **Watchlist (N)** to save all filtered results; saved symbols appear immediately in the workspace watchlist.
 5. Use **Rank**, **Compare**, **Near misses**, **Changes**, **Saved runs** and **Performance** in the results panel. **Expand results** gives tables more room.
 6. Select **Save workflow** to download reusable workflow JSON, or **CSV** to export the current stock table.
+
+![Integrated screening workflow with shared navigation, watchlist and ranked results](docs/images/workflow-editor.png)
+
+*Integrated screening workspace with illustrative demo data, not current market results.*
+
+The screening canvas remains mounted when you visit research pages, retaining its workflow, results and active run. **Expand results** gives tables the available workspace area while keeping navigation accessible.
 
 Each node has one input, and each screener outcome has one outgoing connection. The universe can feed multiple branches. Cycles and merges are not supported. Changing screening logic marks results stale until you run again.
 
@@ -110,10 +134,10 @@ Add **Proven Technology / Emerging TAM** from the library, or open [the supplied
 
 | Check | Default |
 | --- | --- |
-| Market cap | USD 100m?2.5bn, inclusive |
+| Market cap | USD 100m-2.5bn, inclusive |
 | Revenue | Greater than USD 20m |
 | Gross margin | Greater than 20% |
-| Revenue growth | Greater than ?15% |
+| Revenue growth | Greater than -15% |
 | Estimated average daily traded value | At least USD 100,000 |
 | Survivability | Positive operating cash flow OR at least 12 months of cash runway |
 | Required statement freshness | At most 550 days |
@@ -156,7 +180,7 @@ Vite serves http://127.0.0.1:5173 and proxies API calls to port 8765. For the bu
 ```powershell
 # From the repository root
 .venv-ui\Scripts\python.exe scripts/run_offline_regressions.py
-.venv-ui\Scripts\python.exe -m unittest tests.test_research tests.test_price_change tests.test_return_on_equity
+.venv-ui\Scripts\python.exe -m unittest tests.test_investor_research tests.test_research tests.test_visual_api tests.test_fmp_transport tests.test_workflow
 
 # Frontend checks
 cd web
@@ -168,16 +192,17 @@ npx playwright test
 
 The regression runner blocks external network access and uses temporary storage, including TAM checks. The focused research tests use mocked market data. Full unittest discovery includes older and potentially live integration tests. Browser tests cover desktop and mobile research flows. To use installed Edge instead of downloading Chromium, set `$env:STOCK_UI_BROWSER_CHANNEL='msedge'` before running Playwright.
 
-To refresh the README screenshot after building the frontend, run `node scripts/capture-readme.mjs` from `web/`. The script serves the build temporarily, supplies labelled demo data and closes the browser and server when finished.
+To refresh the README screenshots after building the frontend, run `node scripts/capture-readme.mjs` from `web/`. The script serves the production build temporarily, supplies labelled deterministic demo data and captures the overview, DCF and integrated screening views. It closes the browser and server when finished; no FMP key or paid market-data requests are needed.
 
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
-| `web/` | React workflow editor and browser tests |
+| `web/` | React investor workspace, screening editor, valuation model and browser tests |
 | `visual_api.py` | Local API and run management |
 | `workflow.py` | Shared graph validation and execution |
 | `research.py` | Saved runs, annual financial history and forward returns |
+| `investor_research.py` | Source-labelled financial histories, prices, earnings, estimates and filings |
 | `screeners/`, `utils/screener_registry.py` | Screener implementations and registration |
 | `data_providers/`, `cache_config.py` | Existing providers, stable discovery access and caching |
 | `screening_audit.py` | TAM funnel, benchmark diagnostics and candidate/near-miss JSON exports |
@@ -186,4 +211,4 @@ To refresh the README screenshot after building the frontend, run `node scripts/
 
 ## Documentation
 
-[Documentation index](docs/README.md), [architecture](DOCUMENTATION.md), [screen IDs and defaults](docs/screener_methods.md), [testing](docs/testing.md). Current guides were reviewed against the repository on 2026-10-04. Dated development notes and earlier implementation reports are explicitly historical.
+[Documentation index](docs/README.md), [architecture](DOCUMENTATION.md), [screen IDs and defaults](docs/screener_methods.md), [testing](docs/testing.md). The [investor research guide](docs/stock-research.md) describes the current workspace and valuation methodology. Dated development notes and earlier implementation reports are historical.

@@ -18,6 +18,14 @@ import main as pipeline  # Keep initialization consistent with the existing CLI.
 from workflow import WorkflowEngine, WorkflowError, Cancelled, screener_catalog, validate_workflow
 from data_providers.financial_modeling_prep import FinancialModelingPrepProvider
 from research import RunArchive, financial_history, forward_performance
+from investor_research import financials, prices, evidence, safe_url
+
+
+def validated_symbol(symbol, label='stock'):
+    symbol = symbol.upper()
+    if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', symbol):
+        raise HTTPException(422, f'Invalid {label} symbol.')
+    return symbol
 
 
 class RunRequest(BaseModel):
@@ -117,8 +125,8 @@ class StockDetailService:
                 'publisher': item.get('publisher') or item.get('site') or '',
                 'published_at': item.get('publishedDate') or item.get('published_at') or '',
                 'summary': item.get('text') or item.get('summary') or '',
-                'url': url if isinstance(url, str) and url.startswith(('https://', 'http://')) else None,
-                'image': item.get('image') if isinstance(item.get('image'), str) and item['image'].startswith(('https://', 'http://')) else None,
+                'url': safe_url(url),
+                'image': safe_url(item.get('image')),
             })
         return {'symbol': symbol, 'overview': overview, 'news': articles}
 
@@ -132,7 +140,7 @@ def create_app(manager=None, stock_service=None):
         yield
         manager.close()
 
-    app = FastAPI(title='Stock Pipeline Visual Editor', lifespan=lifespan)
+    app = FastAPI(title='Stock Pipeline Investor Workspace', lifespan=lifespan)
     origins = ['http://127.0.0.1:8765', 'http://localhost:8765',
                'http://127.0.0.1:5173', 'http://localhost:5173']
     app.add_middleware(CORSMiddleware, allow_origins=origins,
@@ -150,17 +158,31 @@ def create_app(manager=None, stock_service=None):
 
     @app.get('/api/stocks/{symbol}')
     def stock_detail(symbol: str):
-        symbol = symbol.upper()
-        if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', symbol):
-            raise HTTPException(422, 'Invalid stock symbol.')
-        return stock_service.get(symbol)
+        return stock_service.get(validated_symbol(symbol))
 
     @app.get('/api/stocks/{symbol}/financial-history')
     def stock_history(symbol: str):
-        symbol = symbol.upper()
-        if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', symbol):
-            raise HTTPException(422, 'Invalid stock symbol.')
+        symbol = validated_symbol(symbol)
         return financial_history(stock_service.provider, symbol)
+
+    @app.get('/api/stocks/{symbol}/research')
+    def research_financials(symbol: str, period: str = 'annual'):
+        symbol = validated_symbol(symbol)
+        if period not in ('annual', 'quarter'):
+            raise HTTPException(422, 'Period must be annual or quarter.')
+        return financials(stock_service.provider, symbol, annual=period == 'annual')
+
+    @app.get('/api/stocks/{symbol}/prices')
+    def research_prices(symbol: str):
+        symbol = validated_symbol(symbol)
+        return prices(stock_service.provider, symbol)
+
+    @app.get('/api/stocks/{symbol}/evidence/{kind}')
+    def research_evidence(symbol: str, kind: str):
+        symbol = validated_symbol(symbol)
+        if kind not in ('earnings', 'estimates', 'filings'):
+            raise HTTPException(422, 'Unknown research dataset.')
+        return evidence(stock_service.provider, symbol, kind)
 
     @app.get('/api/history')
     def history():
@@ -175,8 +197,7 @@ def create_app(manager=None, stock_service=None):
 
     @app.get('/api/history/{run_id}/performance')
     def performance(run_id: str, output_id: str, benchmark: str = 'SPY'):
-        if not re.fullmatch(r'[A-Z0-9.^=-]{1,30}', benchmark):
-            raise HTTPException(422, 'Invalid benchmark symbol.')
+        benchmark = validated_symbol(benchmark, 'benchmark')
         try:
             record = manager.archive.get(run_id)
             return forward_performance(stock_service.provider, record, output_id, benchmark)

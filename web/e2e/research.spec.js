@@ -31,7 +31,7 @@ test('research views compare, explain, restore and track a shortlist', async ({p
     else throw new Error(`Unexpected endpoint ${path}`);
     await route.fulfill({json:body});
   });
-  await page.goto('/');
+  await page.goto('/#screening');
   await page.getByRole('button',{name:'Saved runs',exact:true}).click();
   await page.getByRole('button',{name:'Open run',exact:true}).first().click();
   await expect(page.getByRole('button',{name:'AAPL',exact:true})).toBeVisible();
@@ -46,7 +46,11 @@ test('research views compare, explain, restore and track a shortlist', async ({p
   await expect(page.getByRole('cell',{name:'25%',exact:true})).toHaveCount(2);
   await page.screenshot({path:testInfo.outputPath('comparison.png'),fullPage:true});
   await page.getByRole('button',{name:'Near misses',exact:true}).click();
+  await page.getByRole('button',{name:'Add NEAR to watchlist',exact:true}).click();
+  await expect(page.locator('.ir-watchlist')).toContainText('NEAR');
   await page.getByRole('button',{name:'NEAR',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Stock details for NEAR',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Close stock details',exact:true})).toBeFocused();
   await expect(page.getByRole('heading',{name:'Why this stock?'})).toBeVisible();
   await expect(page.getByText('Quality 6.8 < 7',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Load five-year financial history'}).click();
