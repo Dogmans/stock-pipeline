@@ -1,0 +1,22 @@
+services:
+  stock-pipeline:
+    build: .
+    image: stock-pipeline:local
+    ports:
+      - "${STOCK_PIPELINE_BIND_ADDRESS:-0.0.0.0}:8765:8765"
+    environment:
+      FINANCIAL_MODELING_PREP_API_KEY: ${FINANCIAL_MODELING_PREP_API_KEY:?Set your FMP key in .env}
+      STOCK_PIPELINE_ALLOWED_ORIGINS: ${STOCK_PIPELINE_ALLOWED_ORIGINS:?Set the server browser URL in .env}
+    volumes:
+      - stock-data:/app/data
+      - stock-output:/app/output
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  stock-data:
+  stock-output:

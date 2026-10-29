@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -23,6 +24,23 @@ class FakeStockService:
 
 
 class ApiTests(unittest.TestCase):
+    def test_configured_lan_origin(self):
+        with patch.dict('os.environ', {'STOCK_PIPELINE_ALLOWED_ORIGINS':
+                                      ' http://stock-server:8765/, http://192.168.1.50:8765 '}):
+            with TestClient(create_app(FakeManager(), FakeStockService())) as client:
+                for origin in ('http://stock-server:8765', 'http://192.168.1.50:8765'):
+                    response = client.post('/api/runs', json={'workflow': {'version': 1}},
+                                           headers={'Origin': origin})
+                    self.assertEqual(response.status_code, 202)
+                    self.assertEqual(response.headers['access-control-allow-origin'], origin)
+                preflight = client.options('/api/runs', headers={
+                    'Origin': 'http://stock-server:8765',
+                    'Access-Control-Request-Method': 'POST',
+                    'Access-Control-Request-Headers': 'Content-Type'})
+                self.assertEqual(preflight.status_code, 200)
+                self.assertEqual(client.post('/api/runs', json={'workflow': {'version': 1}},
+                    headers={'Origin': 'http://untrusted:8765'}).status_code, 403)
+
     def test_catalog_run_validation_origin_and_shutdown(self):
         manager = FakeManager()
         with TestClient(create_app(manager, FakeStockService())) as client:

@@ -64,6 +64,10 @@ Alternatively, start the API directly with `.venv-ui\Scripts\python.exe visual_a
 
 ## Using Investor Workspace
 
+For deployment to another machine on your network, use the included Dockerfile
+and Compose configuration. See [LAN deployment](docs/deployment.md) for setup,
+persistent storage, backups and upgrades.
+
 1. Enter an exchange ticker, such as `AAPL` or `SHOP.TO`, in the search bar.
 2. Use **Overview** and **Financials** to select a metric, annual or quarterly reporting, YoY change, and line or bar charts. Margin changes use percentage points.
 3. Open **DCF valuation** and choose **Simple DCF** to grow free cash flow directly, or **Advanced DCF** to model revenue, margins and reinvestment. Each explains its calculation and has separate saved inputs, scenarios, sensitivity and exports.

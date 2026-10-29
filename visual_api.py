@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from copy import deepcopy
 import logging
+import os
 from pathlib import Path
 import re
 from threading import Event, Lock
@@ -145,13 +146,15 @@ def create_app(manager=None, stock_service=None):
     app = FastAPI(title='Stock Pipeline Investor Workspace', lifespan=lifespan)
     origins = ['http://127.0.0.1:8765', 'http://localhost:8765',
                'http://127.0.0.1:5173', 'http://localhost:5173']
+    origins += [origin.strip().rstrip('/') for origin in
+                os.environ.get('STOCK_PIPELINE_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins,
                        allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
 
     @app.middleware('http')
-    async def local_browser_only(request: Request, call_next):
+    async def allowed_browser_only(request: Request, call_next):
         if request.headers.get('origin') and request.headers['origin'] not in origins:
-            return JSONResponse({'detail': 'This API accepts the local editor origin only.'}, status_code=403)
+            return JSONResponse({'detail': 'This browser origin is not allowed.'}, status_code=403)
         return await call_next(request)
 
     @app.get('/api/screeners')
